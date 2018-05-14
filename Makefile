@@ -4,6 +4,7 @@ CFLAGS += -g -O3 -ansi -pedantic -Wall -Wextra -Wno-unused-parameter
 CFLAGS += -I"$(ERLANG_PATH)"
 CFLAGS += -L/usr/local/lib/ -L/usr/lib/
 CFLAGS += -lfdb_c
+CFLAGS += -DFDB_DEBUG
 
 ifneq ($(OS),Windows_NT)
 	CFLAGS += -fPIC
