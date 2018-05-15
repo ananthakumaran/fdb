@@ -1,1 +1,2 @@
+FDB.init()
 ExUnit.start()

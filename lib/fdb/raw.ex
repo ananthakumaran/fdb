@@ -11,6 +11,9 @@ defmodule FDB.Raw do
   def run_network, do: exit(:nif_library_not_loaded)
   def stop_network, do: exit(:nif_library_not_loaded)
   def create_cluster, do: exit(:nif_library_not_loaded)
+  def cluster_create_database(cluster), do: exit(:nif_library_not_loaded)
+  def database_create_transaction(database), do: exit(:nif_library_not_loaded)
+  def transaction_get(transaction, key), do: exit(:nif_library_not_loaded)
   def get_error(code), do: exit(:nif_library_not_loaded)
   def future_resolve(future), do: exit(:nif_library_not_loaded)
 end
