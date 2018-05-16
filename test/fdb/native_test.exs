@@ -1,6 +1,6 @@
-defmodule FDB.RawTest do
+defmodule FDB.NativeTest do
   use ExUnit.Case, async: false
-  import FDB.Raw
+  import FDB.Native
 
   test "get_max_api_version" do
     assert get_max_api_version() == 510
@@ -18,5 +18,14 @@ defmodule FDB.RawTest do
     assert get_error(2201) == "API version may be set only once"
     assert get_error(0) == "Success"
     assert get_error(42) == "UNKNOWN_ERROR"
+  end
+
+  test "can be resolved multiple times" do
+    cluster_future = create_cluster()
+    cluster_a = FDB.resolve(cluster_future)
+    assert cluster_a
+    cluster_b = FDB.resolve(cluster_future)
+    assert cluster_a
+    assert cluster_a != cluster_b
   end
 end
