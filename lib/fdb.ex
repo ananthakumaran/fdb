@@ -29,10 +29,16 @@ defmodule FDB do
 
   def create_transaction(database) do
     Native.database_create_transaction(database)
+    |> verify_result
   end
 
   def get(transaction, key) do
-    Native.transaction_get(transaction, key)
+    Native.transaction_get(transaction, key, 0)
+    |> resolve
+  end
+
+  def get_snapshot(transaction, key) do
+    Native.transaction_get(transaction, key, 1)
     |> resolve
   end
 
@@ -49,5 +55,7 @@ defmodule FDB do
   end
 
   defp verify_result(0), do: :ok
-  defp verify_result(code), do: raise(FDB.Error, Native.get_error(code))
+  defp verify_result({0, result}), do: result
+  defp verify_result(code) when is_integer(code), do: raise(FDB.Error, Native.get_error(code))
+  defp verify_result({code, _}) when is_integer(code), do: raise(FDB.Error, Native.get_error(code))
 end

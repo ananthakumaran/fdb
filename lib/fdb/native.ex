@@ -21,7 +21,7 @@ defmodule FDB.Native do
   def create_cluster, do: exit(:nif_library_not_loaded)
   def cluster_create_database(_cluster), do: exit(:nif_library_not_loaded)
   def database_create_transaction(_database), do: exit(:nif_library_not_loaded)
-  def transaction_get(_transaction, _key), do: exit(:nif_library_not_loaded)
+  def transaction_get(_transaction, _key, _snapshot), do: exit(:nif_library_not_loaded)
   def get_error(_code), do: exit(:nif_library_not_loaded)
   def future_resolve(_future, _reference), do: exit(:nif_library_not_loaded)
 end

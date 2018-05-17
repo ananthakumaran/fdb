@@ -13,5 +13,9 @@ defmodule FDBTest do
     assert value
     value = get(transaction, "unknown")
     assert !value
+    value = get_snapshot(transaction, "hello")
+    assert value
+    value = get_snapshot(transaction, "unknown")
+    assert !value
   end
 end
