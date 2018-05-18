@@ -368,6 +368,19 @@ transaction_set(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
 }
 
 static ERL_NIF_TERM
+transaction_clear(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+  Transaction *transaction;
+  ERL_NIF_TERM key_term = argv[1];
+  ErlNifBinary *key = enif_alloc(sizeof(ErlNifBinary));
+  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE, (void **)&transaction), "transaction");
+  VERIFY_ARGV(enif_is_binary(env, key_term), "key");
+
+  enif_inspect_binary(transaction->env, enif_make_copy(transaction->env, key_term), key);
+  fdb_transaction_clear(transaction->handle, key->data, key->size);
+  return enif_make_int(env, 0);
+}
+
+static ERL_NIF_TERM
 transaction_commit(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   Transaction *transaction;
   FDBFuture *fdb_future;
@@ -404,6 +417,7 @@ static ErlNifFunc nif_funcs[] = {
   {"database_create_transaction", 1, database_create_transaction, 0},
   {"transaction_get", 3, transaction_get, 0},
   {"transaction_set", 3, transaction_set, 0},
+  {"transaction_clear", 2, transaction_clear, 0},
   {"transaction_commit", 1, transaction_commit, 0}
 };
 

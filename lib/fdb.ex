@@ -47,6 +47,11 @@ defmodule FDB do
     |> verify_result
   end
 
+  def clear(transaction, key) do
+    Native.transaction_clear(transaction, key)
+    |> verify_result
+  end
+
   def commit(transaction) do
     Native.transaction_commit(transaction)
     |> resolve

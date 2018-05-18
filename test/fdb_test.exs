@@ -20,19 +20,26 @@ defmodule FDBTest do
   end
 
   test "transaction" do
-    transaction = create_cluster()
-    |> create_database()
-    |> create_transaction()
+    transaction = new_transaction
 
     value = random_bytes()
     set(transaction, "fdb", value)
     assert get(transaction, "fdb") == value
     assert commit(transaction) == :ok
 
-    transaction = create_cluster()
+    transaction = new_transaction
+    assert get(transaction, "fdb") == value
+    assert clear(transaction, "fdb") == :ok
+    assert commit(transaction) == :ok
+
+    transaction = new_transaction
+    assert get(transaction, "fdb") == nil
+  end
+
+  def new_transaction do
+    create_cluster()
     |> create_database()
     |> create_transaction()
-    assert get(transaction, "fdb") == value
   end
 
   def random_bytes() do
