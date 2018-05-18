@@ -93,7 +93,8 @@ get_error(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
 typedef enum {
   CLUSTER,
   DATABASE,
-  VALUE
+  VALUE,
+  COMMIT
 } FutureType;
 
 static ErlNifResourceType *FUTURE_RESOURCE_TYPE;
@@ -190,6 +191,11 @@ fdb_transaction_to_transaction(ErlNifEnv *env, FDBTransaction *fdb_transaction) 
 static fdb_error_t
 future_get(ErlNifEnv *env, Future *future, ERL_NIF_TERM *term) {
   fdb_error_t error;
+  error = fdb_future_get_error(future->handle);
+  if (error) {
+      *term = make_atom(env, "nil");
+      return error;
+  }
 
   switch(future->type) {
   case CLUSTER:
@@ -226,6 +232,11 @@ future_get(ErlNifEnv *env, Future *future, ERL_NIF_TERM *term) {
       } else {
         *term = make_atom(env, "nil");
       }
+      return error;
+    }
+  case COMMIT:
+    {
+      *term = make_atom(env, "ok");
       return error;
     }
   }
@@ -338,6 +349,34 @@ transaction_get(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   return fdb_future_to_future(env, fdb_future, VALUE);
 }
 
+static ERL_NIF_TERM
+transaction_set(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+  Transaction *transaction;
+  ERL_NIF_TERM key_term = argv[1];
+  ERL_NIF_TERM value_term = argv[2];
+  ErlNifBinary *key = enif_alloc(sizeof(ErlNifBinary));
+  ErlNifBinary *value = enif_alloc(sizeof(ErlNifBinary));
+
+  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE, (void **)&transaction), "transaction");
+  VERIFY_ARGV(enif_is_binary(env, key_term), "key");
+  VERIFY_ARGV(enif_is_binary(env, key_term), "value");
+
+  enif_inspect_binary(transaction->env, enif_make_copy(transaction->env, key_term), key);
+  enif_inspect_binary(transaction->env, enif_make_copy(transaction->env, value_term), value);
+  fdb_transaction_set(transaction->handle, key->data, key->size, value->data, value->size);
+  return enif_make_int(env, 0);
+}
+
+static ERL_NIF_TERM
+transaction_commit(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+  Transaction *transaction;
+  FDBFuture *fdb_future;
+  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE, (void **)&transaction), "transaction");
+
+  fdb_future = fdb_transaction_commit(transaction->handle);
+  return fdb_future_to_future(env, fdb_future, COMMIT);
+}
+
 int
 load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info) {
   int flags = ERL_NIF_RT_CREATE | ERL_NIF_RT_TAKEOVER;
@@ -363,7 +402,9 @@ static ErlNifFunc nif_funcs[] = {
   {"future_resolve", 2, future_resolve, 0},
   {"cluster_create_database", 1, cluster_create_database, 0},
   {"database_create_transaction", 1, database_create_transaction, 0},
-  {"transaction_get", 3, transaction_get, 0}
+  {"transaction_get", 3, transaction_get, 0},
+  {"transaction_set", 3, transaction_set, 0},
+  {"transaction_commit", 1, transaction_commit, 0}
 };
 
 ERL_NIF_INIT(Elixir.FDB.Native, nif_funcs, load, NULL, NULL, NULL)

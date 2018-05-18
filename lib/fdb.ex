@@ -42,6 +42,16 @@ defmodule FDB do
     |> resolve
   end
 
+  def set(transaction, key, value) do
+    Native.transaction_set(transaction, key, value)
+    |> verify_result
+  end
+
+  def commit(transaction) do
+    Native.transaction_commit(transaction)
+    |> resolve
+  end
+
   def resolve(future) do
     ref = make_ref()
 
@@ -57,5 +67,7 @@ defmodule FDB do
   defp verify_result(0), do: :ok
   defp verify_result({0, result}), do: result
   defp verify_result(code) when is_integer(code), do: raise(FDB.Error, Native.get_error(code))
-  defp verify_result({code, _}) when is_integer(code), do: raise(FDB.Error, Native.get_error(code))
+
+  defp verify_result({code, _}) when is_integer(code),
+    do: raise(FDB.Error, Native.get_error(code))
 end

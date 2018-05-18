@@ -18,4 +18,24 @@ defmodule FDBTest do
     value = get_snapshot(transaction, "unknown")
     assert !value
   end
+
+  test "transaction" do
+    transaction = create_cluster()
+    |> create_database()
+    |> create_transaction()
+
+    value = random_bytes()
+    set(transaction, "fdb", value)
+    assert get(transaction, "fdb") == value
+    assert commit(transaction) == :ok
+
+    transaction = create_cluster()
+    |> create_database()
+    |> create_transaction()
+    assert get(transaction, "fdb") == value
+  end
+
+  def random_bytes() do
+    :crypto.strong_rand_bytes(1024)
+  end
 end
