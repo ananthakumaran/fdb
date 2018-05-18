@@ -21,3 +21,6 @@ priv/fdb_nif.so: c_src/fdb_nif.c
 
 clean:
 	rm  -r "priv/fdb_nif.so"
+
+update-options:
+	curl https://raw.githubusercontent.com/apple/foundationdb/master/fdbclient/vexillographer/fdb.options > priv/fdb.options

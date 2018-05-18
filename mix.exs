@@ -1,4 +1,4 @@
-defmodule Fdb.MixProject do
+defmodule FDB.MixProject do
   use Mix.Project
 
   def project do
@@ -19,7 +19,10 @@ defmodule Fdb.MixProject do
   end
 
   defp deps do
-    []
+    [
+      {:sweet_xml, "~> 0.6"},
+      {:ex_doc, "~> 0.18", only: :dev}
+    ]
   end
 end
 
