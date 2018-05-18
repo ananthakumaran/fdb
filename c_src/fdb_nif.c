@@ -165,12 +165,14 @@ fdb_database_to_database(ErlNifEnv *env, FDBDatabase *fdb_database) {
 static ErlNifResourceType *TRANSACTION_RESOURCE_TYPE;
 typedef struct {
   FDBTransaction* handle;
+  ErlNifEnv *env;
 } Transaction;
 
 static void
 transaction_destroy(ErlNifEnv *env, void *object) {
   Transaction *transaction = (Transaction*) object;
   fdb_transaction_destroy(transaction->handle);
+  enif_free_env(transaction->env);
 }
 
 static ERL_NIF_TERM
@@ -178,6 +180,7 @@ fdb_transaction_to_transaction(ErlNifEnv *env, FDBTransaction *fdb_transaction) 
   ERL_NIF_TERM term;
   Transaction *transaction = enif_alloc_resource(TRANSACTION_RESOURCE_TYPE, sizeof(Transaction));
   transaction->handle = fdb_transaction;
+  transaction->env = enif_alloc_env();
   term = enif_make_resource(env, transaction);
   enif_release_resource(transaction);
   return term;
@@ -323,11 +326,14 @@ static ERL_NIF_TERM
 transaction_get(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   Transaction *transaction;
   FDBFuture *fdb_future;
+  ERL_NIF_TERM key_term = argv[1];
   ErlNifBinary *key = enif_alloc(sizeof(ErlNifBinary));
   fdb_bool_t snapshot;
   VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE, (void **)&transaction), "transaction");
-  VERIFY_ARGV(enif_inspect_binary(env, argv[1], key), "key");
+  VERIFY_ARGV(enif_is_binary(env, key_term), "key");
   VERIFY_ARGV(enif_get_int(env, argv[2], &snapshot), "snapshot");
+
+  enif_inspect_binary(transaction->env, enif_make_copy(transaction->env, key_term), key);
   fdb_future = fdb_transaction_get(transaction->handle, key->data, key->size, snapshot);
   return fdb_future_to_future(env, fdb_future, VALUE);
 }
