@@ -17,9 +17,29 @@ defmodule FDB do
     |> verify_result
   end
 
+  def network_set_option(option) do
+    Native.network_set_option(option)
+    |> verify_result
+  end
+
+  def network_set_option(option, value) do
+    Native.network_set_option(option, value)
+    |> verify_result
+  end
+
   def create_cluster do
     Native.create_cluster()
     |> resolve
+  end
+
+  def cluster_set_option(cluster, option) do
+    Native.cluster_set_option(cluster, option)
+    |> verify_result
+  end
+
+  def cluster_set_option(cluster, option, value) do
+    Native.cluster_set_option(cluster, option, value)
+    |> verify_result
   end
 
   def create_database(cluster) do
@@ -27,8 +47,28 @@ defmodule FDB do
     |> resolve
   end
 
+  def database_set_option(database, option) do
+    Native.database_set_option(database, option)
+    |> verify_result
+  end
+
+  def database_set_option(database, option, value) do
+    Native.database_set_option(database, option, value)
+    |> verify_result
+  end
+
   def create_transaction(database) do
     Native.database_create_transaction(database)
+    |> verify_result
+  end
+
+  def transaction_set_option(transaction, option) do
+    Native.transaction_set_option(transaction, option)
+    |> verify_result
+  end
+
+  def transaction_set_option(transaction, option, value) do
+    Native.transaction_set_option(transaction, option, value)
     |> verify_result
   end
 

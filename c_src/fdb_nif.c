@@ -2,6 +2,7 @@
 
 #include "stdio.h"
 #include "string.h"
+#include "portable_endian.h"
 #include "erl_nif.h"
 #include "foundationdb/fdb_c.h"
 
@@ -35,6 +36,52 @@ make_atom(ErlNifEnv* env, const char* atom) {
     return ret;
 }
 
+#define OPTION_SUCCESS 0xFFFF
+
+typedef struct {
+  int code;
+  uint8_t const *value;
+  int size;
+  fdb_bool_t free_value;
+} Option;
+
+static ERL_NIF_TERM
+option_inspect(ErlNifEnv *env, int i, int argc, const ERL_NIF_TERM argv[], Option **result) {
+  Option *option = enif_alloc(sizeof(Option));
+  *result = option;
+  option->free_value = 0;
+  option->size = 0;
+  option->value = NULL;
+  VERIFY_ARGV(enif_get_int(env, argv[i], &option->code), "option");
+
+  if (argc == i + 2) {
+    if (enif_is_binary(env, argv[i + 1])) {
+      ErlNifBinary *binary_value = enif_alloc(sizeof(ErlNifBinary));
+      enif_inspect_binary(env, argv[i + 1], binary_value);
+      option->value = binary_value->data;
+      option->size = binary_value->size;
+    } else {
+      ErlNifSInt64 int_value;
+      int64_t int_le_value;
+      VERIFY_ARGV(enif_get_int64(env, argv[i + 1], &int_value), "value");
+      int_le_value = htole64(int_value);
+      option->value = enif_alloc(sizeof(uint8_t) * 8);
+      memcpy((void *)option->value, &int_le_value, 8);
+      option->free_value = 1;
+      option->size = 8;
+    }
+  }
+  return OPTION_SUCCESS;
+}
+
+void
+option_free(Option *option) {
+  if (option->free_value) {
+    enif_free((void *)option->value);
+  }
+  enif_free(option);
+}
+
 static ERL_NIF_TERM
 get_max_api_version(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   return enif_make_int(env, fdb_get_max_api_version());
@@ -52,6 +99,24 @@ select_api_version_impl(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   error = fdb_select_api_version_impl(runtime_version, header_version);
   return enif_make_int(env, error);
 }
+
+static ERL_NIF_TERM
+network_set_option(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+  Option *option;
+  ERL_NIF_TERM option_status;
+  fdb_error_t error;
+
+  option_status = option_inspect(env, 0, argc, argv, &option);
+  if (option_status != OPTION_SUCCESS) {
+    option_free(option);
+    return option_status;
+  }
+
+  error = fdb_network_set_option(option->code, option->value, option->size);
+  option_free(option);
+  return enif_make_int(env, error);
+}
+
 
 static ERL_NIF_TERM
 setup_network(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
@@ -300,11 +365,30 @@ future_resolve(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   return enif_make_int(env, error);
 }
 
-
 static ERL_NIF_TERM
 create_cluster(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   FDBFuture *fdb_future = fdb_create_cluster(NULL);
   return fdb_future_to_future(env, fdb_future, CLUSTER);
+}
+
+static ERL_NIF_TERM
+cluster_set_option(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+  Cluster *cluster;
+  Option *option;
+  ERL_NIF_TERM option_status;
+  fdb_error_t error;
+
+  VERIFY_ARGV(enif_get_resource(env, argv[0], CLUSTER_RESOURCE_TYPE, (void **)&cluster), "cluster");
+
+  option_status = option_inspect(env, 1, argc, argv, &option);
+  if (option_status != OPTION_SUCCESS) {
+    option_free(option);
+    return option_status;
+  }
+
+  error = fdb_cluster_set_option(cluster->handle, option->code, option->value, option->size);
+  option_free(option);
+  return enif_make_int(env, error);
 }
 
 static ERL_NIF_TERM
@@ -317,6 +401,25 @@ cluster_create_database(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   return fdb_future_to_future(env, fdb_future, DATABASE);
 }
 
+static ERL_NIF_TERM
+database_set_option(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+  Database *database;
+  Option *option;
+  ERL_NIF_TERM option_status;
+  fdb_error_t error;
+
+  VERIFY_ARGV(enif_get_resource(env, argv[0], DATABASE_RESOURCE_TYPE, (void **)&database), "database");
+
+  option_status = option_inspect(env, 1, argc, argv, &option);
+  if (option_status != OPTION_SUCCESS) {
+    option_free(option);
+    return option_status;
+  }
+
+  error = fdb_database_set_option(database->handle, option->code, option->value, option->size);
+  option_free(option);
+  return enif_make_int(env, error);
+}
 
 static ERL_NIF_TERM
 database_create_transaction(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
@@ -331,6 +434,26 @@ database_create_transaction(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
   }
   result = fdb_transaction_to_transaction(env, fdb_transaction);
   return enif_make_tuple2(env, enif_make_int(env, error), result);
+}
+
+static ERL_NIF_TERM
+transaction_set_option(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+  Transaction *transaction;
+  Option *option;
+  ERL_NIF_TERM option_status;
+  fdb_error_t error;
+
+  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE, (void **)&transaction), "transaction");
+
+  option_status = option_inspect(env, 1, argc, argv, &option);
+  if (option_status != OPTION_SUCCESS) {
+    option_free(option);
+    return option_status;
+  }
+
+  error = fdb_transaction_set_option(transaction->handle, option->code, option->value, option->size);
+  option_free(option);
+  return enif_make_int(env, error);
 }
 
 static ERL_NIF_TERM
@@ -397,7 +520,7 @@ load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info) {
   if(FUTURE_RESOURCE_TYPE == NULL) return -1;
   CLUSTER_RESOURCE_TYPE = enif_open_resource_type(env, "fdb", "Cluster", cluster_destroy, flags, NULL);
   if(CLUSTER_RESOURCE_TYPE == NULL) return -1;
-  DATABASE_RESOURCE_TYPE = enif_open_resource_type(env, "fdb", "Database", database_destroy, flags, NULL);
+  DATABASE_RESOURCE_TYPE = enif_open_resource_type(env, "fdb", "Transaction", database_destroy, flags, NULL);
   if(DATABASE_RESOURCE_TYPE == NULL) return -1;
   TRANSACTION_RESOURCE_TYPE = enif_open_resource_type(env, "fdb", "Transaction", transaction_destroy, flags, NULL);
   if(TRANSACTION_RESOURCE_TYPE == NULL) return -1;
@@ -411,6 +534,14 @@ static ErlNifFunc nif_funcs[] = {
   {"run_network", 0, run_network, 0},
   {"stop_network", 0, stop_network, 0},
   {"create_cluster", 0, create_cluster, 0},
+  {"cluster_set_option", 2, cluster_set_option, 0},
+  {"cluster_set_option", 3, cluster_set_option, 0},
+  {"network_set_option", 1, network_set_option, 0},
+  {"network_set_option", 2, network_set_option, 0},
+  {"database_set_option", 2, database_set_option, 0},
+  {"database_set_option", 3, database_set_option, 0},
+  {"transaction_set_option", 2, transaction_set_option, 0},
+  {"transaction_set_option", 3, transaction_set_option, 0},
   {"get_error", 1, get_error, 0},
   {"future_resolve", 2, future_resolve, 0},
   {"cluster_create_database", 1, cluster_create_database, 0},

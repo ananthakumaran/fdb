@@ -2,6 +2,7 @@ ERLANG_PATH = $(shell erl -eval 'io:format("~s", [lists:concat([code:root_dir(),
 
 CFLAGS += -g -O3 -ansi -pedantic -Wall -Wextra -Wno-unused-parameter
 CFLAGS += -I"$(ERLANG_PATH)"
+CFLAGS += -Ic_src/
 CFLAGS += -L/usr/local/lib/ -L/usr/lib/
 CFLAGS += -lfdb_c
 CFLAGS += -DFDB_DEBUG
@@ -16,11 +17,11 @@ endif
 
 all: priv/fdb_nif.so
 
-priv/fdb_nif.so: c_src/fdb_nif.c
+priv/fdb_nif.so: c_src/fdb_nif.c c_src/portable_endian.h
 	$(CC) $(CFLAGS) -shared $(LDFLAGS) -o $@ c_src/fdb_nif.c
 
 clean:
 	rm  -r "priv/fdb_nif.so"
 
 update-options:
-	curl https://raw.githubusercontent.com/apple/foundationdb/master/fdbclient/vexillographer/fdb.options > priv/fdb.options
+	curl https://github.com/apple/foundationdb/blob/release-5.2/fdbclient/vexillographer/fdb.options > priv/fdb.options
