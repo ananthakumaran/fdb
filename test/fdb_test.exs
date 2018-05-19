@@ -5,7 +5,7 @@ defmodule FDBTest do
   import TestUtils
 
   setup do
-    flushdb
+    flushdb()
   end
 
   test "transaction" do

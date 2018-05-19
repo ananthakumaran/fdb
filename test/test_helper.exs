@@ -9,7 +9,7 @@ defmodule TestUtils do
   import FDB
 
   def flushdb do
-    t = new_transaction
+    t = new_transaction()
     :ok = clear_range(t, "", <<0xFF>>)
     commit(t)
   end
@@ -18,8 +18,8 @@ defmodule TestUtils do
     :crypto.strong_rand_bytes(size)
   end
 
-  def random_key do
-    "fdb:" <> :crypto.strong_rand_bytes(1024)
+  def random_key(size \\ 1024) do
+    "fdb:" <> :crypto.strong_rand_bytes(size)
   end
 
   def new_transaction do

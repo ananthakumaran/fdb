@@ -60,6 +60,7 @@ option_inspect(ErlNifEnv *env, int i, int argc, const ERL_NIF_TERM argv[], Optio
       enif_inspect_binary(env, argv[i + 1], binary_value);
       option->value = binary_value->data;
       option->size = binary_value->size;
+      enif_free(binary_value);
     } else {
       ErlNifSInt64 int_value;
       int64_t int_le_value;
@@ -469,6 +470,7 @@ transaction_get(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
 
   enif_inspect_binary(transaction->env, enif_make_copy(transaction->env, key_term), key);
   fdb_future = fdb_transaction_get(transaction->handle, key->data, key->size, snapshot);
+  enif_free(key);
   return fdb_future_to_future(env, fdb_future, VALUE);
 }
 
@@ -487,6 +489,8 @@ transaction_set(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   enif_inspect_binary(transaction->env, enif_make_copy(transaction->env, key_term), key);
   enif_inspect_binary(transaction->env, enif_make_copy(transaction->env, value_term), value);
   fdb_transaction_set(transaction->handle, key->data, key->size, value->data, value->size);
+  enif_free(key);
+  enif_free(value);
   return enif_make_int(env, 0);
 }
 
@@ -500,6 +504,7 @@ transaction_clear(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
 
   enif_inspect_binary(transaction->env, enif_make_copy(transaction->env, key_term), key);
   fdb_transaction_clear(transaction->handle, key->data, key->size);
+  enif_free(key);
   return enif_make_int(env, 0);
 }
 
@@ -517,6 +522,8 @@ transaction_clear_range(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   enif_inspect_binary(transaction->env, enif_make_copy(transaction->env, begin_key_term), begin_key);
   enif_inspect_binary(transaction->env, enif_make_copy(transaction->env, end_key_term), end_key);
   fdb_transaction_clear_range(transaction->handle, begin_key->data, begin_key->size, end_key->data, end_key->size);
+  enif_free(begin_key);
+  enif_free(end_key);
   return enif_make_int(env, 0);
 }
 
