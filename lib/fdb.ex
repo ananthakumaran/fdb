@@ -92,6 +92,11 @@ defmodule FDB do
     |> verify_result
   end
 
+  def clear_range(transaction, begin_key, end_key) do
+    Native.transaction_clear_range(transaction, begin_key, end_key)
+    |> verify_result
+  end
+
   def commit(transaction) do
     Native.transaction_commit(transaction)
     |> resolve

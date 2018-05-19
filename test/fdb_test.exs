@@ -1,40 +1,30 @@
 defmodule FDBTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: false
   import FDB
   import FDB.Option
+  import TestUtils
 
-  test "create cluster" do
-    cluster = create_cluster()
-    assert cluster
-    database = create_database(cluster)
-    assert database
-    transaction = create_transaction(database)
-    assert transaction
-    value = get(transaction, "hello")
-    assert value
-    value = get(transaction, "unknown")
-    assert !value
-    value = get_snapshot(transaction, "hello")
-    assert value
-    value = get_snapshot(transaction, "unknown")
-    assert !value
+  setup do
+    flushdb
   end
 
   test "transaction" do
-    transaction = new_transaction()
+    value = random_value()
+    key = random_key()
 
-    value = random_bytes()
-    set(transaction, "fdb", value)
-    assert get(transaction, "fdb") == value
+    transaction = new_transaction()
+    set(transaction, key, value)
+    assert get(transaction, key) == value
     assert commit(transaction) == :ok
 
     transaction = new_transaction()
-    assert get(transaction, "fdb") == value
-    assert clear(transaction, "fdb") == :ok
+    assert get(transaction, key) == value
+    assert clear(transaction, key) == :ok
     assert commit(transaction) == :ok
 
     transaction = new_transaction()
-    assert get(transaction, "fdb") == nil
+    assert get(transaction, key) == nil
+    assert commit(transaction) == :ok
   end
 
   test "options" do
@@ -61,33 +51,20 @@ defmodule FDBTest do
     t = new_transaction()
     assert transaction_set_option(t, transaction_option_timeout(), 1) == :ok
     :timer.sleep(1)
-    assert_raise FDB.Error, ~r/timed out/, fn -> get(t, "fdb") end
+    key = random_key()
+    assert_raise FDB.Error, ~r/timed out/, fn -> get(t, key) end
     assert_raise FDB.Error, ~r/timed out/, fn -> commit(t) end
   end
 
   test "reuse transaction" do
     t = new_transaction()
 
-    value = random_bytes()
-    set(t, "fdb", value)
-    assert get(t, "fdb") == value
+    value = random_value()
+    key = random_key()
+    set(t, key, value)
+    assert get(t, key) == value
     assert commit(t) == :ok
 
-    assert_raise FDB.Error, ~r/commit/, fn -> get(t, "fdb") end
-  end
-
-  def new_transaction do
-    create_cluster()
-    |> create_database()
-    |> create_transaction()
-  end
-
-  def new_database do
-    create_cluster()
-    |> create_database()
-  end
-
-  def random_bytes() do
-    :crypto.strong_rand_bytes(1024)
+    assert_raise FDB.Error, ~r/commit/, fn -> get(t, key) end
   end
 end
