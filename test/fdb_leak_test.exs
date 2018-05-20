@@ -9,7 +9,7 @@ defmodule FDBLeakTest do
   end
 
   @tag timeout: 300_000
-  test "leak" do
+  test "memory leak" do
     assert_memory()
 
     db = create_cluster()
@@ -28,7 +28,7 @@ defmodule FDBLeakTest do
       set(t, key, value)
       assert get(t, key) == value
       assert commit(t) == :ok
-    end, max_concurrency: 1000, ordered: false, timeout: 30_000)
+    end, max_concurrency: 200, ordered: false, timeout: 30_000)
     |> Stream.run
     assert_memory()
   end
