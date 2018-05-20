@@ -1,3 +1,8 @@
+/* A thin erlang nif wrapper around the fdb c api
+ * https://apple.github.io/foundationdb/api-c.html#transaction
+ */
+
+
 #define FDB_API_VERSION 510
 
 #include "stdio.h"
@@ -160,7 +165,8 @@ typedef enum {
   CLUSTER,
   DATABASE,
   VALUE,
-  COMMIT
+  COMMIT,
+  KEYVALUE_ARRAY
 } FutureType;
 
 static ErlNifResourceType *FUTURE_RESOURCE_TYPE;
@@ -303,6 +309,32 @@ future_get(ErlNifEnv *env, Future *future, ERL_NIF_TERM *term) {
   case COMMIT:
     {
       *term = make_atom(env, "ok");
+      return error;
+    }
+  case KEYVALUE_ARRAY:
+    {
+      FDBKeyValue const *out_kv;
+      int out_count;
+      fdb_bool_t out_more;
+      ERL_NIF_TERM list;
+      ERL_NIF_TERM result_list;
+      int i;
+
+      error = fdb_future_get_keyvalue_array(future->handle, &out_kv, &out_count, &out_more);
+      if(error) {
+        return error;
+      }
+
+      list = enif_make_list(env, 0);
+      for (i = 0; i < out_count; i++) {
+        FDBKeyValue key_value = out_kv[i];
+        ERL_NIF_TERM key = enif_make_resource_binary(env, future, key_value.key, key_value.key_length);
+        ERL_NIF_TERM value = enif_make_resource_binary(env, future, key_value.value, key_value.value_length);
+        list = enif_make_list_cell(env, enif_make_tuple2(env, key, value), list);
+      }
+
+      enif_make_reverse_list(env, list, &result_list);
+      *term = enif_make_tuple2(env, enif_make_int(env, out_more), result_list);
       return error;
     }
   }
@@ -475,6 +507,56 @@ transaction_get(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
 }
 
 static ERL_NIF_TERM
+transaction_get_range(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+  Transaction *transaction;
+  FDBFuture *fdb_future;
+
+  ERL_NIF_TERM begin_key_term = argv[1];
+  fdb_bool_t begin_or_equal;
+  int begin_offset;
+
+  ERL_NIF_TERM end_key_term = argv[4];
+  fdb_bool_t end_or_equal;
+  int end_offset;
+
+  int limit;
+  int target_bytes;
+
+  FDBStreamingMode mode;
+  int iteration;
+  fdb_bool_t snapshot;
+  fdb_bool_t reverse;
+
+  ErlNifBinary *begin_key = enif_alloc(sizeof(ErlNifBinary));
+  ErlNifBinary *end_key = enif_alloc(sizeof(ErlNifBinary));
+
+  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE, (void **)&transaction), "transaction");
+  VERIFY_ARGV(enif_is_binary(env, begin_key_term), "begin_key");
+  VERIFY_ARGV(enif_get_int(env, argv[2], &begin_or_equal), "begin_or_equal");
+  VERIFY_ARGV(enif_get_int(env, argv[3], &begin_offset), "begin_offset");
+  VERIFY_ARGV(enif_is_binary(env, end_key_term), "end_key");
+  VERIFY_ARGV(enif_get_int(env, argv[5], &end_or_equal), "end_or_equal");
+  VERIFY_ARGV(enif_get_int(env, argv[6], &end_offset), "end_offset");
+  VERIFY_ARGV(enif_get_int(env, argv[7], &limit), "limit");
+  VERIFY_ARGV(enif_get_int(env, argv[8], &target_bytes), "target_bytes");
+  VERIFY_ARGV(enif_get_int(env, argv[9], &mode), "mode");
+  VERIFY_ARGV(enif_get_int(env, argv[10], &iteration), "iteration");
+  VERIFY_ARGV(enif_get_int(env, argv[11], &snapshot), "snapshot");
+  VERIFY_ARGV(enif_get_int(env, argv[12], &reverse), "reverse");
+
+  enif_inspect_binary(transaction->env, enif_make_copy(transaction->env, begin_key_term), begin_key);
+  enif_inspect_binary(transaction->env, enif_make_copy(transaction->env, end_key_term), end_key);
+
+  fdb_future = fdb_transaction_get_range(transaction->handle, begin_key->data, begin_key->size, begin_or_equal, begin_offset, end_key->data, end_key->size, end_or_equal, end_offset, limit, target_bytes, mode, iteration, snapshot, reverse);
+  fdb_transaction_clear_range(transaction->handle, begin_key->data, begin_key->size, end_key->data, end_key->size);
+
+  enif_free(begin_key);
+  enif_free(end_key);
+
+  return fdb_future_to_future(env, fdb_future, KEYVALUE_ARRAY);
+}
+
+static ERL_NIF_TERM
 transaction_set(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   Transaction *transaction;
   ERL_NIF_TERM key_term = argv[1];
@@ -571,6 +653,7 @@ static ErlNifFunc nif_funcs[] = {
   {"cluster_create_database", 1, cluster_create_database, 0},
   {"database_create_transaction", 1, database_create_transaction, 0},
   {"transaction_get", 3, transaction_get, 0},
+  {"transaction_get_range", 13, transaction_get_range, 0},
   {"transaction_set", 3, transaction_set, 0},
   {"transaction_clear", 2, transaction_clear, 0},
   {"transaction_clear_range", 3, transaction_clear_range, 0},

@@ -1,5 +1,6 @@
 defmodule FDB do
   alias FDB.Native
+  alias FDB.KeySelector
 
   def start do
     Native.select_api_version_impl(510, 510)
@@ -75,6 +76,98 @@ defmodule FDB do
   def get(transaction, key) do
     Native.transaction_get(transaction, key, 0)
     |> resolve
+  end
+
+  def get_range(transaction, begin_key_selector, end_key_selector, options \\ %{}) do
+    {begin_key, begin_or_equal, begin_offset} = begin_key_selector
+    {end_key, end_or_equal, end_offset} = end_key_selector
+
+    Native.transaction_get_range(
+      transaction,
+      begin_key,
+      begin_or_equal,
+      begin_offset,
+      end_key,
+      end_or_equal,
+      end_offset,
+      Map.get(options, :limit, 0),
+      Map.get(options, :target_bytes, 0),
+      Map.get(options, :mode, FDB.Option.streaming_mode_iterator()),
+      Map.get(options, :iteration, 1),
+      Map.get(options, :snapshot, 0),
+      Map.get(options, :reverse, 0)
+    )
+    |> resolve
+  end
+
+  def get_range_stream(database, begin_key_selector, end_key_selector, options \\ %{}) do
+    has_limit = Map.has_key?(options, :limit)
+
+    state =
+      Map.merge(
+        options,
+        %{
+          limit: Map.get(options, :limit, 0),
+          reverse: Map.get(options, :reverse, 0),
+          has_more: 1,
+          iteration: 1,
+          mode: FDB.Option.streaming_mode_iterator(),
+          begin_key_selector: begin_key_selector,
+          end_key_selector: end_key_selector
+        }
+      )
+
+    Stream.unfold(
+      state,
+      fn
+        %{has_more: 0} ->
+          nil
+
+        state ->
+          t = create_transaction(database)
+
+          {has_more, list} = get_range(t, state.begin_key_selector, state.end_key_selector, state)
+
+          limit =
+            if has_limit do
+              state.limit - length(list)
+            else
+              0
+            end
+
+          has_more =
+            if (has_limit && limit <= 0) || Enum.empty?(list) do
+              0
+            else
+              has_more
+            end
+
+          {begin_key_selector, end_key_selector} =
+            if !Enum.empty?(list) do
+              {key, _value} = List.last(list)
+              key
+
+              if state.reverse == 0 do
+                {KeySelector.first_greater_than(key), end_key_selector}
+              else
+                {begin_key_selector, KeySelector.first_greater_or_equal(key)}
+              end
+            else
+              {nil, nil}
+            end
+
+          {list,
+           %{
+             state
+             | has_more: has_more,
+               limit: limit,
+               iteration: state.iteration + 1,
+               begin_key_selector: begin_key_selector,
+               end_key_selector: end_key_selector
+           }}
+      end
+    )
+    |> Stream.flat_map(& &1)
   end
 
   def get_snapshot(transaction, key) do
