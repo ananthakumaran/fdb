@@ -17,5 +17,13 @@ before_install:
 os:
   - linux
   - osx
+
+elixir:
+  - 1.5
+  - 1.6
+otp_release:
+  - 19
+  - 20
+
 script:
   - mix test --trace
