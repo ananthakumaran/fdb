@@ -1,0 +1,21 @@
+language: elixir
+addons:
+  apt:
+    packages:
+      - build-essential
+before_install:
+  - |
+    if [ $TRAVIS_OS_NAME = linux ]; then
+      wget "https://www.foundationdb.org/downloads/5.1.7/ubuntu/installers/foundationdb-clients_5.1.7-1_amd64.deb"
+      sudo dpkg -i foundationdb-clients_5.1.7-1_amd64.deb
+      wget "https://www.foundationdb.org/downloads/5.1.7/ubuntu/installers/foundationdb-server_5.1.7-1_amd64.deb"
+      sudo dpkg -i foundationdb-server_5.1.7-1_amd64.deb
+    else
+      wget "https://www.foundationdb.org/downloads/5.1.7/macOS/installers/FoundationDB-5.1.7.pkg"
+      sudo installer -pkg FoundationDB-5.1.7.pkg -target /
+    fi
+os:
+  - linux
+  - osx
+script:
+  - mix test --trace
