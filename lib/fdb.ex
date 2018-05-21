@@ -180,6 +180,11 @@ defmodule FDB do
     |> verify_result
   end
 
+  def atomic_op(transaction, key, value, op) do
+    Native.transaction_atomic_op(transaction, key, value, op)
+    |> verify_result
+  end
+
   def clear(transaction, key) do
     Native.transaction_clear(transaction, key)
     |> verify_result

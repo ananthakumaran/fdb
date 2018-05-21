@@ -577,6 +577,28 @@ transaction_set(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
 }
 
 static ERL_NIF_TERM
+transaction_atomic_op(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+  Transaction *transaction;
+  ERL_NIF_TERM key_term = argv[1];
+  ERL_NIF_TERM param_term = argv[2];
+  ErlNifBinary *key = enif_alloc(sizeof(ErlNifBinary));
+  ErlNifBinary *param = enif_alloc(sizeof(ErlNifBinary));
+  int operation_type;
+
+  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE, (void **)&transaction), "transaction");
+  VERIFY_ARGV(enif_is_binary(env, key_term), "key");
+  VERIFY_ARGV(enif_is_binary(env, key_term), "param");
+  VERIFY_ARGV(enif_get_int(env, argv[3], &operation_type), "operation_type");
+
+  enif_inspect_binary(transaction->env, enif_make_copy(transaction->env, key_term), key);
+  enif_inspect_binary(transaction->env, enif_make_copy(transaction->env, param_term), param);
+  fdb_transaction_atomic_op(transaction->handle, key->data, key->size, param->data, param->size, operation_type);
+  enif_free(key);
+  enif_free(param);
+  return enif_make_int(env, 0);
+}
+
+static ERL_NIF_TERM
 transaction_clear(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   Transaction *transaction;
   ERL_NIF_TERM key_term = argv[1];
@@ -655,6 +677,7 @@ static ErlNifFunc nif_funcs[] = {
   {"transaction_get", 3, transaction_get, 0},
   {"transaction_get_range", 13, transaction_get_range, 0},
   {"transaction_set", 3, transaction_set, 0},
+  {"transaction_atomic_op", 4, transaction_atomic_op, 0},
   {"transaction_clear", 2, transaction_clear, 0},
   {"transaction_clear_range", 3, transaction_clear_range, 0},
   {"transaction_commit", 1, transaction_commit, 0}

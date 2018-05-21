@@ -181,4 +181,42 @@ defmodule FDBTest do
 
     assert actual == Enum.take(expected, 10) |> Enum.reverse()
   end
+
+  test "atomic_op" do
+    t = new_transaction()
+    set(t, "fdb:counter", <<0::little-integer-unsigned-size(64)>>)
+    assert commit(t) == :ok
+
+    t = new_transaction()
+
+    atomic_op(
+      t,
+      "fdb:counter",
+      <<1::little-integer-unsigned-size(64)>>,
+      mutation_type_add()
+    )
+
+    assert commit(t) == :ok
+
+    t = new_transaction()
+    <<counter::little-integer-unsigned-size(64)>> = get(t, "fdb:counter")
+    assert counter == 1
+    assert commit(t) == :ok
+
+    t = new_transaction()
+
+    atomic_op(
+      t,
+      "fdb:counter",
+      <<5::little-integer-unsigned-size(64)>>,
+      mutation_type_add()
+    )
+
+    assert commit(t) == :ok
+
+    t = new_transaction()
+    <<counter::little-integer-unsigned-size(64)>> = get(t, "fdb:counter")
+    assert counter == 6
+    assert commit(t) == :ok
+  end
 end
