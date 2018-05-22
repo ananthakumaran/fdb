@@ -232,5 +232,16 @@ defmodule FDBTest do
 
     t = new_transaction()
     assert get_read_version(t) > version
+
+    t = new_transaction()
+    assert set_read_version(t, version) == :ok
+
+    t = new_transaction()
+    assert set_read_version(t, version + 1000) == :ok
+    assert get(t, random_key()) == nil
+
+    t = new_transaction()
+    assert set_read_version(t, version + 1000_000_000) == :ok
+    assert_raise FDB.Error, fn -> get(t, random_key()) == nil end
   end
 end

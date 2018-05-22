@@ -598,6 +598,17 @@ transaction_set(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
 }
 
 static ERL_NIF_TERM
+transaction_set_read_version(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+  Transaction *transaction;
+  ErlNifSInt64 version;
+
+  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE, (void **)&transaction), "transaction");
+  VERIFY_ARGV(enif_get_int64(env, argv[1], &version), "version");
+  fdb_transaction_set_read_version(transaction->handle, version);
+  return enif_make_int(env, 0);
+}
+
+static ERL_NIF_TERM
 transaction_atomic_op(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   Transaction *transaction;
   ERL_NIF_TERM key_term = argv[1];
@@ -699,6 +710,7 @@ static ErlNifFunc nif_funcs[] = {
   {"transaction_get_read_version", 1, transaction_get_read_version, 0},
   {"transaction_get_range", 13, transaction_get_range, 0},
   {"transaction_set", 3, transaction_set, 0},
+  {"transaction_set_read_version", 2, transaction_set_read_version, 0},
   {"transaction_atomic_op", 4, transaction_atomic_op, 0},
   {"transaction_clear", 2, transaction_clear, 0},
   {"transaction_clear_range", 3, transaction_clear_range, 0},

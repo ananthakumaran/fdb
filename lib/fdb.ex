@@ -185,6 +185,11 @@ defmodule FDB do
     |> verify_result
   end
 
+  def set_read_version(transaction, version) do
+    Native.transaction_set_read_version(transaction, version)
+    |> verify_result
+  end
+
   def atomic_op(transaction, key, value, op) do
     Native.transaction_atomic_op(transaction, key, value, op)
     |> verify_result

@@ -50,6 +50,7 @@ defmodule FDB.Native do
       do: exit(:nif_library_not_loaded)
 
   def transaction_set(_transaction, _key, _value), do: exit(:nif_library_not_loaded)
+  def transaction_set_read_version(_transaction, _version), do: exit(:nif_library_not_loaded)
 
   def transaction_atomic_op(_transaction, _key, _param, _operation_type),
     do: exit(:nif_library_not_loaded)
