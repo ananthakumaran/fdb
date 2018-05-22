@@ -13,6 +13,9 @@ before_install:
       brew install elixir
       wget "https://www.foundationdb.org/downloads/5.1.7/macOS/installers/FoundationDB-5.1.7.pkg"
       sudo installer -pkg FoundationDB-5.1.7.pkg -target /
+      mix local.rebar --force
+      mix local.hex --force
+      mix deps.get
     fi
 
 matrix:
@@ -33,5 +36,4 @@ matrix:
 
 script:
   - make
-  - ldd -v priv/fdb_nif.so
   - mix test --trace
