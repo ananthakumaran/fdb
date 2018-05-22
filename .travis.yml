@@ -16,7 +16,6 @@ before_install:
     fi
 os:
   - linux
-  - osx
 
 elixir:
   - 1.5

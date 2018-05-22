@@ -264,8 +264,9 @@ static fdb_error_t
 future_get(ErlNifEnv *env, Future *future, ERL_NIF_TERM *term) {
   fdb_error_t error;
   error = fdb_future_get_error(future->handle);
+  *term = make_atom(env, "nil");
+
   if (error) {
-      *term = make_atom(env, "nil");
       return error;
   }
 
@@ -337,6 +338,9 @@ future_get(ErlNifEnv *env, Future *future, ERL_NIF_TERM *term) {
       *term = enif_make_tuple2(env, enif_make_int(env, out_more), result_list);
       return error;
     }
+  default:
+    error = 1;
+    return error;
   }
 }
 
@@ -357,9 +361,6 @@ future_callback(FDBFuture *fdb_future, void *argv) {
   ErlNifEnv *env = callback_arg->env;
 
   fdb_error_t error = future_get(env, callback_arg->future, &value);
-  if (error) {
-    value = make_atom(env, "nil");
-  }
   msg = enif_make_tuple3(env, enif_make_int(env, error), callback_arg->ref, value);
 
   send_result = enif_send(NULL, callback_arg->pid, env, msg);
