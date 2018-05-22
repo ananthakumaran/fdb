@@ -219,4 +219,18 @@ defmodule FDBTest do
     assert counter == 6
     assert commit(t) == :ok
   end
+
+  test "version" do
+    t = new_transaction()
+    version = get_read_version(t)
+    assert version > 0
+    assert get_read_version(t) == version
+
+    t = new_transaction()
+    set(t, random_key(), random_value())
+    assert commit(t) == :ok
+
+    t = new_transaction()
+    assert get_read_version(t) > version
+  end
 end

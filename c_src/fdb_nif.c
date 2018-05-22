@@ -166,7 +166,8 @@ typedef enum {
   DATABASE,
   VALUE,
   COMMIT,
-  KEYVALUE_ARRAY
+  KEYVALUE_ARRAY,
+  VERSION
 } FutureType;
 
 static ErlNifResourceType *FUTURE_RESOURCE_TYPE;
@@ -336,6 +337,16 @@ future_get(ErlNifEnv *env, Future *future, ERL_NIF_TERM *term) {
 
       enif_make_reverse_list(env, list, &result_list);
       *term = enif_make_tuple2(env, enif_make_int(env, out_more), result_list);
+      return error;
+    }
+  case VERSION:
+    {
+      int64_t version;
+      error = fdb_future_get_version(future->handle, &version);
+      if (error) {
+        return error;
+      }
+      *term = enif_make_int64(env, version);
       return error;
     }
   default:
@@ -508,6 +519,15 @@ transaction_get(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
 }
 
 static ERL_NIF_TERM
+transaction_get_read_version(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+  Transaction *transaction;
+  FDBFuture *fdb_future;
+  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE, (void **)&transaction), "transaction");
+  fdb_future = fdb_transaction_get_read_version(transaction->handle);
+  return fdb_future_to_future(env, fdb_future, VERSION);
+}
+
+static ERL_NIF_TERM
 transaction_get_range(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   Transaction *transaction;
   FDBFuture *fdb_future;
@@ -676,6 +696,7 @@ static ErlNifFunc nif_funcs[] = {
   {"cluster_create_database", 1, cluster_create_database, 0},
   {"database_create_transaction", 1, database_create_transaction, 0},
   {"transaction_get", 3, transaction_get, 0},
+  {"transaction_get_read_version", 1, transaction_get_read_version, 0},
   {"transaction_get_range", 13, transaction_get_range, 0},
   {"transaction_set", 3, transaction_set, 0},
   {"transaction_atomic_op", 4, transaction_atomic_op, 0},

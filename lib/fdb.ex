@@ -175,6 +175,11 @@ defmodule FDB do
     |> resolve
   end
 
+  def get_read_version(transaction) do
+    Native.transaction_get_read_version(transaction)
+    |> resolve
+  end
+
   def set(transaction, key, value) do
     Native.transaction_set(transaction, key, value)
     |> verify_result

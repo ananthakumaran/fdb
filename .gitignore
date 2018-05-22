@@ -28,3 +28,4 @@ GRTAGS
 GTAGS
 
 !priv/fdb.options
+.dir-locals.el
