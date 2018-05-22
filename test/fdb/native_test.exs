@@ -25,7 +25,6 @@ defmodule FDB.NativeTest do
     cluster_a = FDB.resolve(cluster_future)
     assert cluster_a
     cluster_b = FDB.resolve(cluster_future)
-    assert cluster_a
-    assert cluster_a != cluster_b
+    assert cluster_b
   end
 end
