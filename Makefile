@@ -3,23 +3,23 @@ ERLANG_PATH = $(shell erl -eval 'io:format("~s", [lists:concat([code:root_dir(),
 CFLAGS += -g -O3 -ansi -pedantic -Wall -Wextra -Wno-unused-parameter
 CFLAGS += -I"$(ERLANG_PATH)"
 CFLAGS += -Ic_src
-CFLAGS += -L/usr/local/lib/ -L/usr/lib/
-CFLAGS += -lfdb_c
 CFLAGS += -std=gnu99
+CFLAGS += -fPIC
+
+LDFLAGS += -L/usr/local/lib/ -L/usr/lib/
+
+ifeq ($(shell uname),Linux)
+	LDFLAGS += -Wl,--no-as-needed
+	LDFLAGS += -lm -lpthread -lrt
+endif
+
+ifeq ($(shell uname),Darwin)
+	LDFLAGS += -dynamiclib -undefined dynamic_lookup
+endif
+
+LDFLAGS += -lfdb_c
 
 LIB_NAME = priv/fdb_nif.so
-
-ifneq ($(OS),Windows_NT)
-       ifeq ($(shell uname),Linux)
-          CFLAGS += -lm -lpthread -lrt
-       endif
-
-	CFLAGS += -fPIC
-
-	ifeq ($(shell uname),Darwin)
-		LDFLAGS += -dynamiclib -undefined dynamic_lookup
-	endif
-endif
 
 all: $(LIB_NAME)
 
