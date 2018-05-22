@@ -25,4 +25,6 @@ otp_release:
   - 20.3
 
 script:
+  - make
+  - ldd -v priv/fdb_nif.so
   - mix test --trace

@@ -27,7 +27,7 @@ $(LIB_NAME): c_src/fdb_nif.c c_src/portable_endian.h
 	$(CC) $(CFLAGS) -shared $(LDFLAGS) -o $@ c_src/fdb_nif.c
 
 clean:
-	rm  -f $(LIB_NAME)
+	rm  -rf $(LIB_NAME)*
 
 update-options:
 	curl https://github.com/apple/foundationdb/blob/release-5.2/fdbclient/vexillographer/fdb.options > priv/fdb.options
