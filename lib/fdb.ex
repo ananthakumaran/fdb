@@ -180,6 +180,13 @@ defmodule FDB do
     |> resolve
   end
 
+  def get_key(transaction, key_selector, snapshot \\ 0) do
+    {key, or_equal, offset} = key_selector
+
+    Native.transaction_get_key(transaction, key, or_equal, offset, snapshot)
+    |> resolve
+  end
+
   def set(transaction, key, value) do
     Native.transaction_set(transaction, key, value)
     |> verify_result

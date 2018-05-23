@@ -244,4 +244,42 @@ defmodule FDBTest do
     assert set_read_version(t, version + 1000_000_000) == :ok
     assert_raise FDB.Error, fn -> get(t, random_key()) == nil end
   end
+
+  test "get_key" do
+    t = new_transaction()
+
+    Enum.each(1..100, fn i ->
+      key = "fdb:" <> String.pad_leading(Integer.to_string(i), 3, "0")
+      value = random_value(100)
+      assert set(t, key, value) == :ok
+      {key, value}
+    end)
+
+    assert commit(t) == :ok
+
+    t = new_transaction()
+    assert get_key(t, KeySelector.first_greater_or_equal("fdb:000")) == "fdb:001"
+    assert get_key(t, KeySelector.first_greater_or_equal("fdb:001")) == "fdb:001"
+    assert get_key(t, KeySelector.first_greater_or_equal("fdb:001", 0)) == "fdb:001"
+    assert get_key(t, KeySelector.first_greater_or_equal("fdb:001", 1)) == "fdb:002"
+    assert get_key(t, KeySelector.first_greater_or_equal("fdb:001", 10)) == "fdb:011"
+    assert get_key(t, KeySelector.first_greater_or_equal("fdb:010", -1)) == "fdb:009"
+    assert get_key(t, KeySelector.first_greater_or_equal("fdb:010", -9)) == "fdb:001"
+    assert get_key(t, KeySelector.first_greater_or_equal("fdb:010", -10)) == ""
+    assert get_key(t, KeySelector.first_greater_than("fdb:001")) == "fdb:002"
+    assert get_key(t, KeySelector.first_greater_than("fdb:001", 1)) == "fdb:003"
+    assert get_key(t, KeySelector.first_greater_than("fdb:002", 5)) == "fdb:008"
+    assert get_key(t, KeySelector.first_greater_than("fdb:005", -1)) == "fdb:005"
+    assert get_key(t, KeySelector.first_greater_than("fdb:005", -2)) == "fdb:004"
+    assert get_key(t, KeySelector.first_greater_than("fdb:005", -5)) == "fdb:001"
+    assert get_key(t, KeySelector.first_greater_than("fdb:005", -6)) == ""
+    assert get_key(t, KeySelector.first_greater_than("fdb:005", -10)) == ""
+
+    assert get_key(t, KeySelector.last_less_than("fdb:050")) == "fdb:049"
+    assert get_key(t, KeySelector.last_less_than("fdb:050", 5)) == "fdb:054"
+    assert get_key(t, KeySelector.last_less_than("fdb:050", -5)) == "fdb:044"
+    assert get_key(t, KeySelector.last_less_or_equal("fdb:050")) == "fdb:050"
+    assert get_key(t, KeySelector.last_less_or_equal("fdb:050", 5)) == "fdb:055"
+    assert get_key(t, KeySelector.last_less_or_equal("fdb:050", -5)) == "fdb:045"
+  end
 end

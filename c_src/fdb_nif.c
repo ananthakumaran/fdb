@@ -167,7 +167,8 @@ typedef enum {
   VALUE,
   COMMIT,
   KEYVALUE_ARRAY,
-  VERSION
+  VERSION,
+  KEY
 } FutureType;
 
 static ErlNifResourceType *FUTURE_RESOURCE_TYPE;
@@ -349,6 +350,17 @@ future_get(ErlNifEnv *env, Future *future, ERL_NIF_TERM *term) {
       *term = enif_make_int64(env, version);
       return error;
     }
+  case KEY:
+    {
+      uint8_t const* key;
+      int key_length;
+      error = fdb_future_get_key(future->handle, &key, &key_length);
+      if(error) {
+        return error;
+      }
+      *term = enif_make_resource_binary(env, future, key, key_length);
+      return error;
+    }
   default:
     error = 1;
     return error;
@@ -525,6 +537,29 @@ transaction_get_read_version(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]
   VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE, (void **)&transaction), "transaction");
   fdb_future = fdb_transaction_get_read_version(transaction->handle);
   return fdb_future_to_future(env, fdb_future, VERSION);
+}
+
+static ERL_NIF_TERM
+transaction_get_key(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+  Transaction *transaction;
+  FDBFuture *fdb_future;
+  ERL_NIF_TERM key_term = argv[1];
+  fdb_bool_t or_equal;
+  int offset;
+  fdb_bool_t snapshot;
+
+  ErlNifBinary *key = enif_alloc(sizeof(ErlNifBinary));
+
+  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE, (void **)&transaction), "transaction");
+  VERIFY_ARGV(enif_is_binary(env, key_term), "key");
+  VERIFY_ARGV(enif_get_int(env, argv[2], &or_equal), "or_equal");
+  VERIFY_ARGV(enif_get_int(env, argv[3], &offset), "offset");
+  VERIFY_ARGV(enif_get_int(env, argv[4], &snapshot), "snapshot");
+
+  enif_inspect_binary(transaction->env, enif_make_copy(transaction->env, key_term), key);
+  fdb_future = fdb_transaction_get_key(transaction->handle, key->data, key->size, or_equal, offset, snapshot);
+  enif_free(key);
+  return fdb_future_to_future(env, fdb_future, KEY);
 }
 
 static ERL_NIF_TERM
@@ -708,6 +743,7 @@ static ErlNifFunc nif_funcs[] = {
   {"database_create_transaction", 1, database_create_transaction, 0},
   {"transaction_get", 3, transaction_get, 0},
   {"transaction_get_read_version", 1, transaction_get_read_version, 0},
+  {"transaction_get_key", 5, transaction_get_key, 0},
   {"transaction_get_range", 13, transaction_get_range, 0},
   {"transaction_set", 3, transaction_set, 0},
   {"transaction_set_read_version", 2, transaction_set_read_version, 0},
