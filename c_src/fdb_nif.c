@@ -565,6 +565,28 @@ transaction_get_read_version(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]
 }
 
 static ERL_NIF_TERM
+transaction_get_committed_version(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+  Transaction *transaction;
+  fdb_error_t error;
+  int64_t version;
+  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE, (void **)&transaction), "transaction");
+  error = fdb_transaction_get_committed_version(transaction->handle, &version);
+  if (error) {
+    return enif_make_tuple2(env, enif_make_int(env, error), make_atom(env, "nil"));
+  }
+  return enif_make_tuple2(env, enif_make_int(env, error), enif_make_int64(env, version));
+}
+
+static ERL_NIF_TERM
+transaction_get_versionstamp(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+  Transaction *transaction;
+  FDBFuture *fdb_future;
+  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE, (void **)&transaction), "transaction");
+  fdb_future = fdb_transaction_get_versionstamp(transaction->handle);
+  return fdb_future_to_future(env, fdb_future, KEY);
+}
+
+static ERL_NIF_TERM
 transaction_get_key(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   Transaction *transaction;
   FDBFuture *fdb_future;
@@ -790,6 +812,8 @@ static ErlNifFunc nif_funcs[] = {
   {"transaction_get_range", 13, transaction_get_range, 0},
   {"transaction_set", 3, transaction_set, 0},
   {"transaction_set_read_version", 2, transaction_set_read_version, 0},
+  {"transaction_get_committed_version", 1, transaction_get_committed_version, 0},
+  {"transaction_get_versionstamp", 1, transaction_get_versionstamp, 0},
   {"transaction_atomic_op", 4, transaction_atomic_op, 0},
   {"transaction_clear", 2, transaction_clear, 0},
   {"transaction_clear_range", 3, transaction_clear_range, 0},

@@ -301,4 +301,40 @@ defmodule FDBTest do
     assert get_addresses_for_key(t, "fdb:100") == addresses
     assert get_addresses_for_key(t, "unknown") == addresses
   end
+
+  test "commited version" do
+    t = new_transaction()
+    set(t, random_key(), random_value())
+    assert commit(t) == :ok
+    v1 = get_committed_version(t)
+    assert v1 > 0
+
+    t = new_transaction()
+    set(t, random_key(), random_value())
+    assert commit(t) == :ok
+    v2 = get_committed_version(t)
+    assert v2 > 0
+    assert v2 > v1
+
+    t = new_transaction()
+    get(t, random_key())
+    assert commit(t) == :ok
+    read_only_version = get_committed_version(t)
+    assert read_only_version == -1
+  end
+
+  test "versionstamp" do
+    t = new_transaction()
+    assert set(t, random_key(), random_value()) == :ok
+    future = get_versionstamp(t)
+    assert commit(t) == :ok
+    stamp = FDB.resolve(future)
+    assert byte_size(stamp) == 10
+
+    t = new_transaction()
+    get(t, random_key())
+    future = get_versionstamp(t)
+    assert commit(t) == :ok
+    assert_raise FDB.Error, ~r/read-only/, fn -> FDB.resolve(future) end
+  end
 end

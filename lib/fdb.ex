@@ -180,6 +180,15 @@ defmodule FDB do
     |> resolve
   end
 
+  def get_committed_version(transaction) do
+    Native.transaction_get_committed_version(transaction)
+    |> verify_result
+  end
+
+  def get_versionstamp(transaction) do
+    Native.transaction_get_versionstamp(transaction)
+  end
+
   def get_key(transaction, key_selector, snapshot \\ 0) do
     {key, or_equal, offset} = key_selector
 
