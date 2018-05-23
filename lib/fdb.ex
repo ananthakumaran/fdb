@@ -187,6 +187,11 @@ defmodule FDB do
     |> resolve
   end
 
+  def get_addresses_for_key(transaction, key) do
+    Native.transaction_get_addresses_for_key(transaction, key)
+    |> resolve
+  end
+
   def set(transaction, key, value) do
     Native.transaction_set(transaction, key, value)
     |> verify_result

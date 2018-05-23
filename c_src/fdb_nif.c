@@ -168,7 +168,8 @@ typedef enum {
   COMMIT,
   KEYVALUE_ARRAY,
   VERSION,
-  KEY
+  KEY,
+  STRING_ARRAY
 } FutureType;
 
 static ErlNifResourceType *FUTURE_RESOURCE_TYPE;
@@ -359,6 +360,30 @@ future_get(ErlNifEnv *env, Future *future, ERL_NIF_TERM *term) {
         return error;
       }
       *term = enif_make_resource_binary(env, future, key, key_length);
+      return error;
+    }
+  case STRING_ARRAY:
+    {
+      const char **out_strings;
+      int out_count;
+      ERL_NIF_TERM list;
+      ERL_NIF_TERM result_list;
+      int i;
+
+      error = fdb_future_get_string_array(future->handle, &out_strings, &out_count);
+      if(error) {
+        return error;
+      }
+
+      list = enif_make_list(env, 0);
+      for (i = 0; i < out_count; i++) {
+        const char *string = out_strings[i];
+        ERL_NIF_TERM string_term = enif_make_resource_binary(env, future, string, strlen(string));
+        list = enif_make_list_cell(env, string_term, list);
+      }
+
+      enif_make_reverse_list(env, list, &result_list);
+      *term = result_list;
       return error;
     }
   default:
@@ -563,6 +588,23 @@ transaction_get_key(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
 }
 
 static ERL_NIF_TERM
+transaction_get_addresses_for_key(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+  Transaction *transaction;
+  FDBFuture *fdb_future;
+  ERL_NIF_TERM key_term = argv[1];
+
+  ErlNifBinary *key = enif_alloc(sizeof(ErlNifBinary));
+
+  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE, (void **)&transaction), "transaction");
+  VERIFY_ARGV(enif_is_binary(env, key_term), "key");
+
+  enif_inspect_binary(transaction->env, enif_make_copy(transaction->env, key_term), key);
+  fdb_future = fdb_transaction_get_addresses_for_key(transaction->handle, key->data, key->size);
+  enif_free(key);
+  return fdb_future_to_future(env, fdb_future, STRING_ARRAY);
+}
+
+static ERL_NIF_TERM
 transaction_get_range(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   Transaction *transaction;
   FDBFuture *fdb_future;
@@ -744,6 +786,7 @@ static ErlNifFunc nif_funcs[] = {
   {"transaction_get", 3, transaction_get, 0},
   {"transaction_get_read_version", 1, transaction_get_read_version, 0},
   {"transaction_get_key", 5, transaction_get_key, 0},
+  {"transaction_get_addresses_for_key", 2, transaction_get_addresses_for_key, 0},
   {"transaction_get_range", 13, transaction_get_range, 0},
   {"transaction_set", 3, transaction_set, 0},
   {"transaction_set_read_version", 2, transaction_set_read_version, 0},

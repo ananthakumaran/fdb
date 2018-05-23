@@ -35,6 +35,8 @@ defmodule FDB.Native do
   def transaction_get_key(_transaction, _key, _or_equal, _offset, _snapshot),
     do: exit(:nif_library_not_loaded)
 
+  def transaction_get_addresses_for_key(_transaction, _key), do: exit(:nif_library_not_loaded)
+
   def transaction_get_range(
         _transaction,
         _begin_key,

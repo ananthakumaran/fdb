@@ -282,4 +282,23 @@ defmodule FDBTest do
     assert get_key(t, KeySelector.last_less_or_equal("fdb:050", 5)) == "fdb:055"
     assert get_key(t, KeySelector.last_less_or_equal("fdb:050", -5)) == "fdb:045"
   end
+
+  test "addresses" do
+    t = new_transaction()
+
+    Enum.each(1..100, fn i ->
+      key = "fdb:" <> String.pad_leading(Integer.to_string(i), 3, "0")
+      value = random_value(100)
+      assert set(t, key, value) == :ok
+      {key, value}
+    end)
+
+    assert commit(t) == :ok
+
+    t = new_transaction()
+    addresses = get_addresses_for_key(t, "fdb:001")
+    assert length(addresses) == 1
+    assert get_addresses_for_key(t, "fdb:100") == addresses
+    assert get_addresses_for_key(t, "unknown") == addresses
+  end
 end
