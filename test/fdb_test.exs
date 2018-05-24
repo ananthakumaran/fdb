@@ -337,4 +337,23 @@ defmodule FDBTest do
     assert commit(t) == :ok
     assert_raise FDB.Error, ~r/read-only/, fn -> FDB.resolve(future) end
   end
+
+  test "watch" do
+    value = random_value()
+    key = random_key()
+    t = new_transaction()
+    assert set(t, key, value) == :ok
+    assert commit(t) == :ok
+
+    t = new_transaction()
+    assert get(t, key) == value
+    w1 = watch(t, key)
+    assert commit(t) == :ok
+
+    t = new_transaction()
+    assert set(t, key, random_value()) == :ok
+    assert commit(t) == :ok
+
+    assert FDB.resolve(w1) == :ok
+  end
 end

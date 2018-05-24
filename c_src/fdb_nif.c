@@ -169,7 +169,8 @@ typedef enum {
   KEYVALUE_ARRAY,
   VERSION,
   KEY,
-  STRING_ARRAY
+  STRING_ARRAY,
+  WATCH
 } FutureType;
 
 static ErlNifResourceType *FUTURE_RESOURCE_TYPE;
@@ -384,6 +385,11 @@ future_get(ErlNifEnv *env, Future *future, ERL_NIF_TERM *term) {
 
       enif_make_reverse_list(env, list, &result_list);
       *term = result_list;
+      return error;
+    }
+  case WATCH:
+    {
+      *term = make_atom(env, "ok");
       return error;
     }
   default:
@@ -772,6 +778,23 @@ transaction_commit(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   return fdb_future_to_future(env, fdb_future, COMMIT);
 }
 
+static ERL_NIF_TERM
+transaction_watch(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+  Transaction *transaction;
+  ERL_NIF_TERM key_term = argv[1];
+  ErlNifBinary *key = enif_alloc(sizeof(ErlNifBinary));
+
+  FDBFuture *fdb_future;
+
+  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE, (void **)&transaction), "transaction");
+  VERIFY_ARGV(enif_is_binary(env, key_term), "key");
+
+  enif_inspect_binary(transaction->env, enif_make_copy(transaction->env, key_term), key);
+  fdb_future = fdb_transaction_watch(transaction->handle, key->data, key->size);
+  enif_free(key);
+  return fdb_future_to_future(env, fdb_future, WATCH);
+}
+
 int
 load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info) {
   int flags = ERL_NIF_RT_CREATE | ERL_NIF_RT_TAKEOVER;
@@ -817,6 +840,7 @@ static ErlNifFunc nif_funcs[] = {
   {"transaction_atomic_op", 4, transaction_atomic_op, 0},
   {"transaction_clear", 2, transaction_clear, 0},
   {"transaction_clear_range", 3, transaction_clear_range, 0},
+  {"transaction_watch", 2, transaction_watch, 0},
   {"transaction_commit", 1, transaction_commit, 0}
 };
 

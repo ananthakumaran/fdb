@@ -189,6 +189,10 @@ defmodule FDB do
     Native.transaction_get_versionstamp(transaction)
   end
 
+  def watch(transaction, key) do
+    Native.transaction_watch(transaction, key)
+  end
+
   def get_key(transaction, key_selector, snapshot \\ 0) do
     {key, or_equal, offset} = key_selector
 

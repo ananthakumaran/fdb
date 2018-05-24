@@ -33,6 +33,7 @@ defmodule FDB.Native do
   def transaction_get_read_version(_transaction), do: exit(:nif_library_not_loaded)
   def transaction_get_committed_version(_transaction), do: exit(:nif_library_not_loaded)
   def transaction_get_versionstamp(_transaction), do: exit(:nif_library_not_loaded)
+  def transaction_watch(_transaction, _key), do: exit(:nif_library_not_loaded)
 
   def transaction_get_key(_transaction, _key, _or_equal, _offset, _snapshot),
     do: exit(:nif_library_not_loaded)
