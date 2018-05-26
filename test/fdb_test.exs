@@ -383,7 +383,7 @@ defmodule FDBTest do
     key = random_key()
 
     Task.async_stream(
-      1..10,
+      1..100,
       fn _i ->
         Transaction.transact(db, fn transaction ->
           value = random_value()
@@ -392,7 +392,7 @@ defmodule FDBTest do
           assert Transaction.get(transaction, key) == value
         end)
       end,
-      max_concurrency: 5,
+      max_concurrency: 10,
       ordered: false
     )
     |> Stream.run()
