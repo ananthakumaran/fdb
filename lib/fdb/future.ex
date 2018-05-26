@@ -9,8 +9,11 @@ defmodule FDB.Future do
     |> Utils.verify_result()
 
     receive do
-      {0, ^ref, value} -> value
-      {error_code, ^ref, nil} -> raise FDB.Error, Native.get_error(error_code)
+      {0, ^ref, value} ->
+        value
+
+      {error_code, ^ref, nil} ->
+        raise FDB.Error, code: error_code, message: Native.get_error(error_code)
     end
   end
 end

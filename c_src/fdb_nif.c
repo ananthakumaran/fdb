@@ -1,5 +1,5 @@
 /* A thin erlang nif wrapper around the fdb c api
- * https://apple.github.io/foundationdb/api-c.html#transaction
+ * https://apple.github.io/foundationdb/api-c.html
  */
 
 
@@ -159,6 +159,21 @@ get_error(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   int code;
   VERIFY_ARGV(enif_get_int(env, argv[0], &code), "code");
   return string_to_binary(env, fdb_get_error(code));
+}
+
+static ERL_NIF_TERM
+get_error_predicate(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+  int predicate_test;
+  int code;
+  fdb_bool_t retryable;
+  VERIFY_ARGV(enif_get_int(env, argv[0], &predicate_test), "predicate_test");
+  VERIFY_ARGV(enif_get_int(env, argv[1], &code), "code");
+  retryable = fdb_error_predicate(predicate_test, code);
+  if (retryable) {
+    return make_atom(env, "true");
+  } else {
+    return make_atom(env, "false");
+  }
 }
 
 typedef enum {
@@ -825,6 +840,7 @@ static ErlNifFunc nif_funcs[] = {
   {"transaction_set_option", 2, transaction_set_option, 0},
   {"transaction_set_option", 3, transaction_set_option, 0},
   {"get_error", 1, get_error, 0},
+  {"get_error_predicate", 2, get_error_predicate, 0},
   {"future_resolve", 2, future_resolve, 0},
   {"cluster_create_database", 1, cluster_create_database, 0},
   {"database_create_transaction", 1, database_create_transaction, 0},

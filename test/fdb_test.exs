@@ -16,20 +16,21 @@ defmodule FDBTest do
   test "transaction" do
     value = random_value()
     key = random_key()
+    db = new_database()
 
-    transaction = new_transaction()
-    Transaction.set(transaction, key, value)
-    assert Transaction.get(transaction, key) == value
-    assert Transaction.commit(transaction) == :ok
+    Transaction.transact(db, fn transaction ->
+      Transaction.set(transaction, key, value)
+      assert Transaction.get(transaction, key) == value
+    end)
 
-    transaction = new_transaction()
-    assert Transaction.get(transaction, key) == value
-    assert Transaction.clear(transaction, key) == :ok
-    assert Transaction.commit(transaction) == :ok
+    Transaction.transact(db, fn transaction ->
+      assert Transaction.get(transaction, key) == value
+      assert Transaction.clear(transaction, key) == :ok
+    end)
 
-    transaction = new_transaction()
-    assert Transaction.get(transaction, key) == nil
-    assert Transaction.commit(transaction) == :ok
+    Transaction.transact(db, fn transaction ->
+      assert Transaction.get(transaction, key) == nil
+    end)
   end
 
   test "options" do
@@ -74,19 +75,17 @@ defmodule FDBTest do
   end
 
   test "range" do
-    t = new_transaction()
+    d = new_database()
 
     expected =
-      Enum.map(1..100, fn i ->
-        key = "fdb:" <> String.pad_leading(Integer.to_string(i), 3, "0")
-        value = random_value(100)
-        Transaction.set(t, key, value)
-        {key, value}
+      Transaction.transact(d, fn t ->
+        Enum.map(1..100, fn i ->
+          key = "fdb:" <> String.pad_leading(Integer.to_string(i), 3, "0")
+          value = random_value(100)
+          Transaction.set(t, key, value)
+          {key, value}
+        end)
       end)
-
-    assert Transaction.commit(t) == :ok
-
-    d = new_database()
 
     actual =
       Transaction.get_range_stream(
@@ -225,24 +224,32 @@ defmodule FDBTest do
   end
 
   test "version" do
-    t = new_transaction()
-    version = Transaction.get_read_version(t)
-    assert version > 0
-    assert Transaction.get_read_version(t) == version
+    db = new_database()
 
-    t = new_transaction()
-    Transaction.set(t, random_key(), random_value())
-    assert Transaction.commit(t) == :ok
+    version =
+      Transaction.transact(db, fn t ->
+        version = Transaction.get_read_version(t)
+        assert version > 0
+        assert Transaction.get_read_version(t) == version
+        version
+      end)
 
-    t = new_transaction()
-    assert Transaction.get_read_version(t) > version
+    Transaction.transact(db, fn t ->
+      Transaction.set(t, random_key(), random_value())
+    end)
 
-    t = new_transaction()
-    assert Transaction.set_read_version(t, version) == :ok
+    Transaction.transact(db, fn t ->
+      assert Transaction.get_read_version(t) > version
+    end)
 
-    t = new_transaction()
-    assert Transaction.set_read_version(t, version + 1000) == :ok
-    assert Transaction.get(t, random_key()) == nil
+    Transaction.transact(db, fn t ->
+      assert Transaction.set_read_version(t, version) == :ok
+    end)
+
+    Transaction.transact(db, fn t ->
+      assert Transaction.set_read_version(t, version + 1000) == :ok
+      assert Transaction.get(t, random_key()) == nil
+    end)
 
     t = new_transaction()
     assert Transaction.set_read_version(t, version + 1000_000_000) == :ok
@@ -288,22 +295,23 @@ defmodule FDBTest do
   end
 
   test "addresses" do
-    t = new_transaction()
+    db = new_database()
 
-    Enum.each(1..100, fn i ->
-      key = "fdb:" <> String.pad_leading(Integer.to_string(i), 3, "0")
-      value = random_value(100)
-      assert Transaction.set(t, key, value) == :ok
-      {key, value}
+    Transaction.transact(db, fn t ->
+      Enum.each(1..100, fn i ->
+        key = "fdb:" <> String.pad_leading(Integer.to_string(i), 3, "0")
+        value = random_value(100)
+        assert Transaction.set(t, key, value) == :ok
+        {key, value}
+      end)
     end)
 
-    assert Transaction.commit(t) == :ok
-
-    t = new_transaction()
-    addresses = Transaction.get_addresses_for_key(t, "fdb:001")
-    assert length(addresses) == 1
-    assert Transaction.get_addresses_for_key(t, "fdb:100") == addresses
-    assert Transaction.get_addresses_for_key(t, "unknown") == addresses
+    Transaction.transact(db, fn t ->
+      addresses = Transaction.get_addresses_for_key(t, "fdb:001")
+      assert length(addresses) == 1
+      assert Transaction.get_addresses_for_key(t, "fdb:100") == addresses
+      assert Transaction.get_addresses_for_key(t, "unknown") == addresses
+    end)
   end
 
   test "commited version" do
@@ -328,37 +336,65 @@ defmodule FDBTest do
   end
 
   test "versionstamp" do
-    t = new_transaction()
-    assert Transaction.set(t, random_key(), random_value()) == :ok
-    future = Transaction.get_versionstamp(t)
-    assert Transaction.commit(t) == :ok
+    db = new_database()
+
+    future =
+      Transaction.transact(db, fn t ->
+        assert Transaction.set(t, random_key(), random_value()) == :ok
+        Transaction.get_versionstamp(t)
+      end)
+
     stamp = Future.resolve(future)
     assert byte_size(stamp) == 10
 
-    t = new_transaction()
-    Transaction.get(t, random_key())
-    future = Transaction.get_versionstamp(t)
-    assert Transaction.commit(t) == :ok
+    future =
+      Transaction.transact(db, fn t ->
+        Transaction.get(t, random_key())
+        Transaction.get_versionstamp(t)
+      end)
+
     assert_raise FDB.Error, ~r/read-only/, fn -> Future.resolve(future) end
   end
 
   test "watch" do
     value = random_value()
     key = random_key()
-    t = new_transaction()
-    assert Transaction.set(t, key, value) == :ok
-    assert Transaction.commit(t) == :ok
-    alias FDB.Future
+    db = new_database()
 
-    t = new_transaction()
-    assert Transaction.get(t, key) == value
-    w1 = Transaction.watch(t, key)
-    assert Transaction.commit(t) == :ok
+    Transaction.transact(db, fn t ->
+      assert Transaction.set(t, key, value) == :ok
+    end)
 
-    t = new_transaction()
-    assert Transaction.set(t, key, random_value()) == :ok
-    assert Transaction.commit(t) == :ok
+    w1 =
+      Transaction.transact(db, fn t ->
+        assert Transaction.get(t, key) == value
+        Transaction.watch(t, key)
+      end)
+
+    Transaction.transact(db, fn t ->
+      assert Transaction.set(t, key, random_value()) == :ok
+    end)
 
     assert Future.resolve(w1) == :ok
+  end
+
+  test "transact" do
+    db = new_database()
+    key = random_key()
+
+    Task.async_stream(
+      1..10,
+      fn _i ->
+        Transaction.transact(db, fn transaction ->
+          value = random_value()
+          _current = Transaction.get(transaction, key)
+          Transaction.set(transaction, key, value)
+          assert Transaction.get(transaction, key) == value
+        end)
+      end,
+      max_concurrency: 5,
+      ordered: false
+    )
+    |> Stream.run()
   end
 end

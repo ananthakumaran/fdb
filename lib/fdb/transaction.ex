@@ -91,7 +91,6 @@ defmodule FDB.Transaction do
           {begin_key_selector, end_key_selector} =
             if !Enum.empty?(list) do
               {key, _value} = List.last(list)
-              key
 
               if state.reverse == 0 do
                 {KeySelector.first_greater_than(key), end_key_selector}
@@ -179,5 +178,19 @@ defmodule FDB.Transaction do
   def commit(transaction) do
     Native.transaction_commit(transaction)
     |> Future.resolve()
+  end
+
+  def transact(database, callback) do
+    transaction = create(database)
+    result = callback.(transaction)
+    :ok = commit(transaction)
+    result
+  rescue
+    e in FDB.Error ->
+      if Native.get_error_predicate(FDB.Option.error_predicate_retryable(), e.code) do
+        transact(database, callback)
+      else
+        raise e
+      end
   end
 end
