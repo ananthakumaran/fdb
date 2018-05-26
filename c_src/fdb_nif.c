@@ -2,18 +2,25 @@
  * https://apple.github.io/foundationdb/api-c.html
  */
 
-
 #define FDB_API_VERSION 510
 
-#include "stdio.h"
-#include "string.h"
-#include "portable_endian.h"
 #include "erl_nif.h"
 #include "foundationdb/fdb_c.h"
+#include "portable_endian.h"
+#include "stdio.h"
+#include "string.h"
 
-#define VERIFY_ARGV(A, M) if(!(A)) { ERL_NIF_TERM reason = string_to_binary(env, "Invalid argument: " M); return enif_raise_exception(env, reason); }
+#define VERIFY_ARGV(A, M)                                                      \
+  if (!(A)) {                                                                  \
+    ERL_NIF_TERM reason = string_to_binary(env, "Invalid argument: " M);       \
+    return enif_raise_exception(env, reason);                                  \
+  }
 
-#define VERIFY(A, M) if(!(A)) { ERL_NIF_TERM reason = string_to_binary(env, "Failed to " M); return enif_raise_exception(env, reason); }
+#define VERIFY(A, M)                                                           \
+  if (!(A)) {                                                                  \
+    ERL_NIF_TERM reason = string_to_binary(env, "Failed to " M);               \
+    return enif_raise_exception(env, reason);                                  \
+  }
 
 #ifdef FDB_DEBUG
 #define DEBUG_LOG(string) fprintf(stderr, "%s\n", string)
@@ -31,14 +38,14 @@ string_to_binary(ErlNifEnv *env, const char *string) {
 }
 
 ERL_NIF_TERM
-make_atom(ErlNifEnv* env, const char* atom) {
-    ERL_NIF_TERM ret;
+make_atom(ErlNifEnv *env, const char *atom) {
+  ERL_NIF_TERM ret;
 
-    if(!enif_make_existing_atom(env, atom, &ret, ERL_NIF_LATIN1)) {
-        return enif_make_atom(env, atom);
-    }
+  if (!enif_make_existing_atom(env, atom, &ret, ERL_NIF_LATIN1)) {
+    return enif_make_atom(env, atom);
+  }
 
-    return ret;
+  return ret;
 }
 
 #define OPTION_SUCCESS 0xFFFF
@@ -51,7 +58,8 @@ typedef struct {
 } Option;
 
 static ERL_NIF_TERM
-option_inspect(ErlNifEnv *env, int i, int argc, const ERL_NIF_TERM argv[], Option **result) {
+option_inspect(ErlNifEnv *env, int i, int argc, const ERL_NIF_TERM argv[],
+               Option **result) {
   Option *option = enif_alloc(sizeof(Option));
   *result = option;
   option->free_value = 0;
@@ -123,7 +131,6 @@ network_set_option(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   return enif_make_int(env, error);
 }
 
-
 static ERL_NIF_TERM
 setup_network(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   return enif_make_int(env, fdb_setup_network());
@@ -142,13 +149,15 @@ run_network(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   char *name = "fdb";
   fdb_network_tid = enif_alloc(sizeof(ErlNifTid));
   VERIFY(fdb_network_tid, "alloc");
-  return enif_make_int(env, enif_thread_create(name, fdb_network_tid, &run_network_wrapper, NULL, NULL));
+  return enif_make_int(env,
+                       enif_thread_create(name, fdb_network_tid,
+                                          &run_network_wrapper, NULL, NULL));
 }
 
 static ERL_NIF_TERM
 stop_network(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   fdb_error_t error = fdb_stop_network();
-  if(error) {
+  if (error) {
     return enif_make_int(env, error);
   }
   return enif_make_int(env, enif_thread_join(*fdb_network_tid, NULL));
@@ -178,7 +187,7 @@ get_error_predicate(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
 
 static ErlNifResourceType *TRANSACTION_RESOURCE_TYPE;
 typedef struct {
-  FDBTransaction* handle;
+  FDBTransaction *handle;
   ErlNifEnv *env;
 } Transaction;
 
@@ -196,14 +205,14 @@ typedef enum {
 
 static ErlNifResourceType *FUTURE_RESOURCE_TYPE;
 typedef struct {
-  FDBFuture* handle;
+  FDBFuture *handle;
   FutureType type;
   Transaction *transaction;
 } Future;
 
 static void
 future_destroy(ErlNifEnv *env, void *object) {
-  Future *future = (Future*) object;
+  Future *future = (Future *)object;
   if (future->transaction) {
     enif_release_resource(future->transaction);
   }
@@ -211,7 +220,8 @@ future_destroy(ErlNifEnv *env, void *object) {
 }
 
 static ERL_NIF_TERM
-fdb_future_to_future(ErlNifEnv *env, FDBFuture *fdb_future, FutureType type, Transaction *transaction) {
+fdb_future_to_future(ErlNifEnv *env, FDBFuture *fdb_future, FutureType type,
+                     Transaction *transaction) {
   ERL_NIF_TERM term;
   Future *future = enif_alloc_resource(FUTURE_RESOURCE_TYPE, sizeof(Future));
   future->handle = fdb_future;
@@ -227,41 +237,42 @@ fdb_future_to_future(ErlNifEnv *env, FDBFuture *fdb_future, FutureType type, Tra
 
 static ErlNifResourceType *CLUSTER_RESOURCE_TYPE;
 typedef struct {
-  FDBCluster* handle;
+  FDBCluster *handle;
 } Cluster;
 
 static void
 cluster_destroy(ErlNifEnv *env, void *object) {
-  Cluster *cluster = (Cluster*) object;
+  Cluster *cluster = (Cluster *)object;
   fdb_cluster_destroy(cluster->handle);
 }
 
 static ERL_NIF_TERM
 fdb_cluster_to_cluster(ErlNifEnv *env, FDBCluster *fdb_cluster) {
   ERL_NIF_TERM term;
-  Cluster *cluster = enif_alloc_resource(CLUSTER_RESOURCE_TYPE, sizeof(Cluster));
+  Cluster *cluster =
+      enif_alloc_resource(CLUSTER_RESOURCE_TYPE, sizeof(Cluster));
   cluster->handle = fdb_cluster;
   term = enif_make_resource(env, cluster);
   enif_release_resource(cluster);
   return term;
 }
 
-
 static ErlNifResourceType *DATABASE_RESOURCE_TYPE;
 typedef struct {
-  FDBDatabase* handle;
+  FDBDatabase *handle;
 } Database;
 
 static void
 database_destroy(ErlNifEnv *env, void *object) {
-  Database *database = (Database*) object;
+  Database *database = (Database *)object;
   fdb_database_destroy(database->handle);
 }
 
 static ERL_NIF_TERM
 fdb_database_to_database(ErlNifEnv *env, FDBDatabase *fdb_database) {
   ERL_NIF_TERM term;
-  Database *database = enif_alloc_resource(DATABASE_RESOURCE_TYPE, sizeof(Database));
+  Database *database =
+      enif_alloc_resource(DATABASE_RESOURCE_TYPE, sizeof(Database));
   database->handle = fdb_database;
   term = enif_make_resource(env, database);
   enif_release_resource(database);
@@ -270,22 +281,23 @@ fdb_database_to_database(ErlNifEnv *env, FDBDatabase *fdb_database) {
 
 static void
 transaction_destroy(ErlNifEnv *env, void *object) {
-  Transaction *transaction = (Transaction*) object;
+  Transaction *transaction = (Transaction *)object;
   fdb_transaction_destroy(transaction->handle);
   enif_free_env(transaction->env);
 }
 
 static ERL_NIF_TERM
-fdb_transaction_to_transaction(ErlNifEnv *env, FDBTransaction *fdb_transaction) {
+fdb_transaction_to_transaction(ErlNifEnv *env,
+                               FDBTransaction *fdb_transaction) {
   ERL_NIF_TERM term;
-  Transaction *transaction = enif_alloc_resource(TRANSACTION_RESOURCE_TYPE, sizeof(Transaction));
+  Transaction *transaction =
+      enif_alloc_resource(TRANSACTION_RESOURCE_TYPE, sizeof(Transaction));
   transaction->handle = fdb_transaction;
   transaction->env = enif_alloc_env();
   term = enif_make_resource(env, transaction);
   enif_release_resource(transaction);
   return term;
 }
-
 
 static fdb_error_t
 future_get(ErlNifEnv *env, Future *future, ERL_NIF_TERM *term) {
@@ -294,133 +306,129 @@ future_get(ErlNifEnv *env, Future *future, ERL_NIF_TERM *term) {
   *term = make_atom(env, "nil");
 
   if (error) {
-      return error;
+    return error;
   }
 
-  switch(future->type) {
-  case CLUSTER:
-    {
-      FDBCluster *cluster;
-      error = fdb_future_get_cluster(future->handle, &cluster);
-      if(error) {
-        return error;
-      }
-      *term = fdb_cluster_to_cluster(env, cluster);
+  switch (future->type) {
+  case CLUSTER: {
+    FDBCluster *cluster;
+    error = fdb_future_get_cluster(future->handle, &cluster);
+    if (error) {
       return error;
     }
-  case DATABASE:
-    {
-      FDBDatabase *database;
-      error = fdb_future_get_database(future->handle, &database);
-      if(error) {
-        return error;
-      }
-      *term = fdb_database_to_database(env, database);
+    *term = fdb_cluster_to_cluster(env, cluster);
+    return error;
+  }
+  case DATABASE: {
+    FDBDatabase *database;
+    error = fdb_future_get_database(future->handle, &database);
+    if (error) {
       return error;
     }
-  case VALUE:
-    {
-      fdb_bool_t present;
-      uint8_t const* value;
-      int value_length;
-      error = fdb_future_get_value(future->handle, &present, &value, &value_length);
-      if(error) {
-        return error;
-      }
-      if (present) {
-        *term = enif_make_resource_binary(env, future, value, value_length);
-      } else {
-        *term = make_atom(env, "nil");
-      }
+    *term = fdb_database_to_database(env, database);
+    return error;
+  }
+  case VALUE: {
+    fdb_bool_t present;
+    uint8_t const *value;
+    int value_length;
+    error =
+        fdb_future_get_value(future->handle, &present, &value, &value_length);
+    if (error) {
       return error;
     }
-  case COMMIT:
-    {
-      *term = make_atom(env, "ok");
-      return error;
+    if (present) {
+      *term = enif_make_resource_binary(env, future, value, value_length);
+    } else {
+      *term = make_atom(env, "nil");
     }
-  case KEYVALUE_ARRAY:
-    {
-      FDBKeyValue const *out_kv;
-      int out_count;
-      fdb_bool_t out_more;
-      ERL_NIF_TERM list;
-      ERL_NIF_TERM result_list;
-      int i;
+    return error;
+  }
+  case COMMIT: {
+    *term = make_atom(env, "ok");
+    return error;
+  }
+  case KEYVALUE_ARRAY: {
+    FDBKeyValue const *out_kv;
+    int out_count;
+    fdb_bool_t out_more;
+    ERL_NIF_TERM list;
+    ERL_NIF_TERM result_list;
+    int i;
 
-      error = fdb_future_get_keyvalue_array(future->handle, &out_kv, &out_count, &out_more);
-      if(error) {
-        return error;
-      }
-
-      list = enif_make_list(env, 0);
-      for (i = 0; i < out_count; i++) {
-        FDBKeyValue key_value = out_kv[i];
-        ERL_NIF_TERM key = enif_make_resource_binary(env, future, key_value.key, key_value.key_length);
-        ERL_NIF_TERM value = enif_make_resource_binary(env, future, key_value.value, key_value.value_length);
-        list = enif_make_list_cell(env, enif_make_tuple2(env, key, value), list);
-      }
-
-      enif_make_reverse_list(env, list, &result_list);
-      *term = enif_make_tuple2(env, enif_make_int(env, out_more), result_list);
+    error = fdb_future_get_keyvalue_array(future->handle, &out_kv, &out_count,
+                                          &out_more);
+    if (error) {
       return error;
     }
-  case VERSION:
-    {
-      int64_t version;
-      error = fdb_future_get_version(future->handle, &version);
-      if (error) {
-        return error;
-      }
-      *term = enif_make_int64(env, version);
-      return error;
-    }
-  case KEY:
-    {
-      uint8_t const* key;
-      int key_length;
-      error = fdb_future_get_key(future->handle, &key, &key_length);
-      if(error) {
-        return error;
-      }
-      *term = enif_make_resource_binary(env, future, key, key_length);
-      return error;
-    }
-  case STRING_ARRAY:
-    {
-      const char **out_strings;
-      int out_count;
-      ERL_NIF_TERM list;
-      ERL_NIF_TERM result_list;
-      int i;
 
-      error = fdb_future_get_string_array(future->handle, &out_strings, &out_count);
-      if(error) {
-        return error;
-      }
+    list = enif_make_list(env, 0);
+    for (i = 0; i < out_count; i++) {
+      FDBKeyValue key_value = out_kv[i];
+      ERL_NIF_TERM key = enif_make_resource_binary(env, future, key_value.key,
+                                                   key_value.key_length);
+      ERL_NIF_TERM value = enif_make_resource_binary(
+          env, future, key_value.value, key_value.value_length);
+      list = enif_make_list_cell(env, enif_make_tuple2(env, key, value), list);
+    }
 
-      list = enif_make_list(env, 0);
-      for (i = 0; i < out_count; i++) {
-        const char *string = out_strings[i];
-        ERL_NIF_TERM string_term = enif_make_resource_binary(env, future, string, strlen(string));
-        list = enif_make_list_cell(env, string_term, list);
-      }
-
-      enif_make_reverse_list(env, list, &result_list);
-      *term = result_list;
+    enif_make_reverse_list(env, list, &result_list);
+    *term = enif_make_tuple2(env, enif_make_int(env, out_more), result_list);
+    return error;
+  }
+  case VERSION: {
+    int64_t version;
+    error = fdb_future_get_version(future->handle, &version);
+    if (error) {
       return error;
     }
-  case WATCH:
-    {
-      *term = make_atom(env, "ok");
+    *term = enif_make_int64(env, version);
+    return error;
+  }
+  case KEY: {
+    uint8_t const *key;
+    int key_length;
+    error = fdb_future_get_key(future->handle, &key, &key_length);
+    if (error) {
       return error;
     }
+    *term = enif_make_resource_binary(env, future, key, key_length);
+    return error;
+  }
+  case STRING_ARRAY: {
+    const char **out_strings;
+    int out_count;
+    ERL_NIF_TERM list;
+    ERL_NIF_TERM result_list;
+    int i;
+
+    error =
+        fdb_future_get_string_array(future->handle, &out_strings, &out_count);
+    if (error) {
+      return error;
+    }
+
+    list = enif_make_list(env, 0);
+    for (i = 0; i < out_count; i++) {
+      const char *string = out_strings[i];
+      ERL_NIF_TERM string_term =
+          enif_make_resource_binary(env, future, string, strlen(string));
+      list = enif_make_list_cell(env, string_term, list);
+    }
+
+    enif_make_reverse_list(env, list, &result_list);
+    *term = result_list;
+    return error;
+  }
+  case WATCH: {
+    *term = make_atom(env, "ok");
+    return error;
+  }
   default:
     error = 1;
     return error;
   }
 }
-
 
 typedef struct {
   ErlNifPid *pid;
@@ -438,7 +446,8 @@ future_callback(FDBFuture *fdb_future, void *argv) {
   ErlNifEnv *env = callback_arg->env;
 
   fdb_error_t error = future_get(env, callback_arg->future, &value);
-  msg = enif_make_tuple3(env, enif_make_int(env, error), callback_arg->ref, value);
+  msg = enif_make_tuple3(env, enif_make_int(env, error), callback_arg->ref,
+                         value);
 
   send_result = enif_send(NULL, callback_arg->pid, env, msg);
   if (!send_result) {
@@ -459,7 +468,9 @@ future_resolve(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   ERL_NIF_TERM ref;
   ErlNifEnv *callback_env;
 
-  VERIFY_ARGV(enif_get_resource(env, argv[0], FUTURE_RESOURCE_TYPE, (void **)&future), "future");
+  VERIFY_ARGV(
+      enif_get_resource(env, argv[0], FUTURE_RESOURCE_TYPE, (void **)&future),
+      "future");
   ref = argv[1];
   VERIFY_ARGV(enif_is_ref(env, ref), "reference");
 
@@ -472,7 +483,8 @@ future_resolve(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   enif_keep_resource(future);
   callback_arg->future = future;
   VERIFY(enif_self(env, callback_arg->pid), "self");
-  error = fdb_future_set_callback(future->handle, future_callback, callback_arg);
+  error =
+      fdb_future_set_callback(future->handle, future_callback, callback_arg);
   return enif_make_int(env, error);
 }
 
@@ -489,7 +501,9 @@ cluster_set_option(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   ERL_NIF_TERM option_status;
   fdb_error_t error;
 
-  VERIFY_ARGV(enif_get_resource(env, argv[0], CLUSTER_RESOURCE_TYPE, (void **)&cluster), "cluster");
+  VERIFY_ARGV(
+      enif_get_resource(env, argv[0], CLUSTER_RESOURCE_TYPE, (void **)&cluster),
+      "cluster");
 
   option_status = option_inspect(env, 1, argc, argv, &option);
   if (option_status != OPTION_SUCCESS) {
@@ -497,7 +511,8 @@ cluster_set_option(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
     return option_status;
   }
 
-  error = fdb_cluster_set_option(cluster->handle, option->code, option->value, option->size);
+  error = fdb_cluster_set_option(cluster->handle, option->code, option->value,
+                                 option->size);
   option_free(option);
   return enif_make_int(env, error);
 }
@@ -507,7 +522,9 @@ cluster_create_database(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   const uint8_t db_name[] = {'D', 'B'};
   Cluster *cluster;
   FDBFuture *fdb_future;
-  VERIFY_ARGV(enif_get_resource(env, argv[0], CLUSTER_RESOURCE_TYPE, (void **)&cluster), "cluster");
+  VERIFY_ARGV(
+      enif_get_resource(env, argv[0], CLUSTER_RESOURCE_TYPE, (void **)&cluster),
+      "cluster");
   fdb_future = fdb_cluster_create_database(cluster->handle, db_name, 2);
   return fdb_future_to_future(env, fdb_future, DATABASE, NULL);
 }
@@ -519,7 +536,9 @@ database_set_option(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   ERL_NIF_TERM option_status;
   fdb_error_t error;
 
-  VERIFY_ARGV(enif_get_resource(env, argv[0], DATABASE_RESOURCE_TYPE, (void **)&database), "database");
+  VERIFY_ARGV(enif_get_resource(env, argv[0], DATABASE_RESOURCE_TYPE,
+                                (void **)&database),
+              "database");
 
   option_status = option_inspect(env, 1, argc, argv, &option);
   if (option_status != OPTION_SUCCESS) {
@@ -527,21 +546,26 @@ database_set_option(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
     return option_status;
   }
 
-  error = fdb_database_set_option(database->handle, option->code, option->value, option->size);
+  error = fdb_database_set_option(database->handle, option->code, option->value,
+                                  option->size);
   option_free(option);
   return enif_make_int(env, error);
 }
 
 static ERL_NIF_TERM
-database_create_transaction(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+database_create_transaction(ErlNifEnv *env, int argc,
+                            const ERL_NIF_TERM argv[]) {
   Database *database;
   FDBTransaction *fdb_transaction;
   fdb_error_t error;
   ERL_NIF_TERM result;
-  VERIFY_ARGV(enif_get_resource(env, argv[0], DATABASE_RESOURCE_TYPE, (void **)&database), "database");
+  VERIFY_ARGV(enif_get_resource(env, argv[0], DATABASE_RESOURCE_TYPE,
+                                (void **)&database),
+              "database");
   error = fdb_database_create_transaction(database->handle, &fdb_transaction);
   if (error) {
-    return enif_make_tuple2(env, enif_make_int(env, error), make_atom(env, "nil"));
+    return enif_make_tuple2(env, enif_make_int(env, error),
+                            make_atom(env, "nil"));
   }
   result = fdb_transaction_to_transaction(env, fdb_transaction);
   return enif_make_tuple2(env, enif_make_int(env, error), result);
@@ -554,7 +578,9 @@ transaction_set_option(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   ERL_NIF_TERM option_status;
   fdb_error_t error;
 
-  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE, (void **)&transaction), "transaction");
+  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE,
+                                (void **)&transaction),
+              "transaction");
 
   option_status = option_inspect(env, 1, argc, argv, &option);
   if (option_status != OPTION_SUCCESS) {
@@ -562,7 +588,8 @@ transaction_set_option(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
     return option_status;
   }
 
-  error = fdb_transaction_set_option(transaction->handle, option->code, option->value, option->size);
+  error = fdb_transaction_set_option(transaction->handle, option->code,
+                                     option->value, option->size);
   option_free(option);
   return enif_make_int(env, error);
 }
@@ -574,43 +601,58 @@ transaction_get(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   ERL_NIF_TERM key_term = argv[1];
   ErlNifBinary *key = enif_alloc(sizeof(ErlNifBinary));
   fdb_bool_t snapshot;
-  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE, (void **)&transaction), "transaction");
+  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE,
+                                (void **)&transaction),
+              "transaction");
   VERIFY_ARGV(enif_is_binary(env, key_term), "key");
   VERIFY_ARGV(enif_get_int(env, argv[2], &snapshot), "snapshot");
 
-  enif_inspect_binary(transaction->env, enif_make_copy(transaction->env, key_term), key);
-  fdb_future = fdb_transaction_get(transaction->handle, key->data, key->size, snapshot);
+  enif_inspect_binary(transaction->env,
+                      enif_make_copy(transaction->env, key_term), key);
+  fdb_future =
+      fdb_transaction_get(transaction->handle, key->data, key->size, snapshot);
   enif_free(key);
   return fdb_future_to_future(env, fdb_future, VALUE, transaction);
 }
 
 static ERL_NIF_TERM
-transaction_get_read_version(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+transaction_get_read_version(ErlNifEnv *env, int argc,
+                             const ERL_NIF_TERM argv[]) {
   Transaction *transaction;
   FDBFuture *fdb_future;
-  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE, (void **)&transaction), "transaction");
+  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE,
+                                (void **)&transaction),
+              "transaction");
   fdb_future = fdb_transaction_get_read_version(transaction->handle);
   return fdb_future_to_future(env, fdb_future, VERSION, transaction);
 }
 
 static ERL_NIF_TERM
-transaction_get_committed_version(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+transaction_get_committed_version(ErlNifEnv *env, int argc,
+                                  const ERL_NIF_TERM argv[]) {
   Transaction *transaction;
   fdb_error_t error;
   int64_t version;
-  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE, (void **)&transaction), "transaction");
+  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE,
+                                (void **)&transaction),
+              "transaction");
   error = fdb_transaction_get_committed_version(transaction->handle, &version);
   if (error) {
-    return enif_make_tuple2(env, enif_make_int(env, error), make_atom(env, "nil"));
+    return enif_make_tuple2(env, enif_make_int(env, error),
+                            make_atom(env, "nil"));
   }
-  return enif_make_tuple2(env, enif_make_int(env, error), enif_make_int64(env, version));
+  return enif_make_tuple2(env, enif_make_int(env, error),
+                          enif_make_int64(env, version));
 }
 
 static ERL_NIF_TERM
-transaction_get_versionstamp(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+transaction_get_versionstamp(ErlNifEnv *env, int argc,
+                             const ERL_NIF_TERM argv[]) {
   Transaction *transaction;
   FDBFuture *fdb_future;
-  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE, (void **)&transaction), "transaction");
+  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE,
+                                (void **)&transaction),
+              "transaction");
   fdb_future = fdb_transaction_get_versionstamp(transaction->handle);
   return fdb_future_to_future(env, fdb_future, KEY, transaction);
 }
@@ -626,31 +668,40 @@ transaction_get_key(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
 
   ErlNifBinary *key = enif_alloc(sizeof(ErlNifBinary));
 
-  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE, (void **)&transaction), "transaction");
+  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE,
+                                (void **)&transaction),
+              "transaction");
   VERIFY_ARGV(enif_is_binary(env, key_term), "key");
   VERIFY_ARGV(enif_get_int(env, argv[2], &or_equal), "or_equal");
   VERIFY_ARGV(enif_get_int(env, argv[3], &offset), "offset");
   VERIFY_ARGV(enif_get_int(env, argv[4], &snapshot), "snapshot");
 
-  enif_inspect_binary(transaction->env, enif_make_copy(transaction->env, key_term), key);
-  fdb_future = fdb_transaction_get_key(transaction->handle, key->data, key->size, or_equal, offset, snapshot);
+  enif_inspect_binary(transaction->env,
+                      enif_make_copy(transaction->env, key_term), key);
+  fdb_future = fdb_transaction_get_key(transaction->handle, key->data,
+                                       key->size, or_equal, offset, snapshot);
   enif_free(key);
   return fdb_future_to_future(env, fdb_future, KEY, transaction);
 }
 
 static ERL_NIF_TERM
-transaction_get_addresses_for_key(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+transaction_get_addresses_for_key(ErlNifEnv *env, int argc,
+                                  const ERL_NIF_TERM argv[]) {
   Transaction *transaction;
   FDBFuture *fdb_future;
   ERL_NIF_TERM key_term = argv[1];
 
   ErlNifBinary *key = enif_alloc(sizeof(ErlNifBinary));
 
-  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE, (void **)&transaction), "transaction");
+  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE,
+                                (void **)&transaction),
+              "transaction");
   VERIFY_ARGV(enif_is_binary(env, key_term), "key");
 
-  enif_inspect_binary(transaction->env, enif_make_copy(transaction->env, key_term), key);
-  fdb_future = fdb_transaction_get_addresses_for_key(transaction->handle, key->data, key->size);
+  enif_inspect_binary(transaction->env,
+                      enif_make_copy(transaction->env, key_term), key);
+  fdb_future = fdb_transaction_get_addresses_for_key(transaction->handle,
+                                                     key->data, key->size);
   enif_free(key);
   return fdb_future_to_future(env, fdb_future, STRING_ARRAY, transaction);
 }
@@ -679,7 +730,9 @@ transaction_get_range(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   ErlNifBinary *begin_key = enif_alloc(sizeof(ErlNifBinary));
   ErlNifBinary *end_key = enif_alloc(sizeof(ErlNifBinary));
 
-  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE, (void **)&transaction), "transaction");
+  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE,
+                                (void **)&transaction),
+              "transaction");
   VERIFY_ARGV(enif_is_binary(env, begin_key_term), "begin_key");
   VERIFY_ARGV(enif_get_int(env, argv[2], &begin_or_equal), "begin_or_equal");
   VERIFY_ARGV(enif_get_int(env, argv[3], &begin_offset), "begin_offset");
@@ -693,11 +746,18 @@ transaction_get_range(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   VERIFY_ARGV(enif_get_int(env, argv[11], &snapshot), "snapshot");
   VERIFY_ARGV(enif_get_int(env, argv[12], &reverse), "reverse");
 
-  enif_inspect_binary(transaction->env, enif_make_copy(transaction->env, begin_key_term), begin_key);
-  enif_inspect_binary(transaction->env, enif_make_copy(transaction->env, end_key_term), end_key);
+  enif_inspect_binary(transaction->env,
+                      enif_make_copy(transaction->env, begin_key_term),
+                      begin_key);
+  enif_inspect_binary(transaction->env,
+                      enif_make_copy(transaction->env, end_key_term), end_key);
 
-  fdb_future = fdb_transaction_get_range(transaction->handle, begin_key->data, begin_key->size, begin_or_equal, begin_offset, end_key->data, end_key->size, end_or_equal, end_offset, limit, target_bytes, mode, iteration, snapshot, reverse);
-  fdb_transaction_clear_range(transaction->handle, begin_key->data, begin_key->size, end_key->data, end_key->size);
+  fdb_future = fdb_transaction_get_range(
+      transaction->handle, begin_key->data, begin_key->size, begin_or_equal,
+      begin_offset, end_key->data, end_key->size, end_or_equal, end_offset,
+      limit, target_bytes, mode, iteration, snapshot, reverse);
+  fdb_transaction_clear_range(transaction->handle, begin_key->data,
+                              begin_key->size, end_key->data, end_key->size);
 
   enif_free(begin_key);
   enif_free(end_key);
@@ -713,24 +773,32 @@ transaction_set(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   ErlNifBinary *key = enif_alloc(sizeof(ErlNifBinary));
   ErlNifBinary *value = enif_alloc(sizeof(ErlNifBinary));
 
-  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE, (void **)&transaction), "transaction");
+  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE,
+                                (void **)&transaction),
+              "transaction");
   VERIFY_ARGV(enif_is_binary(env, key_term), "key");
   VERIFY_ARGV(enif_is_binary(env, key_term), "value");
 
-  enif_inspect_binary(transaction->env, enif_make_copy(transaction->env, key_term), key);
-  enif_inspect_binary(transaction->env, enif_make_copy(transaction->env, value_term), value);
-  fdb_transaction_set(transaction->handle, key->data, key->size, value->data, value->size);
+  enif_inspect_binary(transaction->env,
+                      enif_make_copy(transaction->env, key_term), key);
+  enif_inspect_binary(transaction->env,
+                      enif_make_copy(transaction->env, value_term), value);
+  fdb_transaction_set(transaction->handle, key->data, key->size, value->data,
+                      value->size);
   enif_free(key);
   enif_free(value);
   return enif_make_int(env, 0);
 }
 
 static ERL_NIF_TERM
-transaction_set_read_version(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+transaction_set_read_version(ErlNifEnv *env, int argc,
+                             const ERL_NIF_TERM argv[]) {
   Transaction *transaction;
   ErlNifSInt64 version;
 
-  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE, (void **)&transaction), "transaction");
+  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE,
+                                (void **)&transaction),
+              "transaction");
   VERIFY_ARGV(enif_get_int64(env, argv[1], &version), "version");
   fdb_transaction_set_read_version(transaction->handle, version);
   return enif_make_int(env, 0);
@@ -745,14 +813,19 @@ transaction_atomic_op(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   ErlNifBinary *param = enif_alloc(sizeof(ErlNifBinary));
   int operation_type;
 
-  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE, (void **)&transaction), "transaction");
+  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE,
+                                (void **)&transaction),
+              "transaction");
   VERIFY_ARGV(enif_is_binary(env, key_term), "key");
   VERIFY_ARGV(enif_is_binary(env, key_term), "param");
   VERIFY_ARGV(enif_get_int(env, argv[3], &operation_type), "operation_type");
 
-  enif_inspect_binary(transaction->env, enif_make_copy(transaction->env, key_term), key);
-  enif_inspect_binary(transaction->env, enif_make_copy(transaction->env, param_term), param);
-  fdb_transaction_atomic_op(transaction->handle, key->data, key->size, param->data, param->size, operation_type);
+  enif_inspect_binary(transaction->env,
+                      enif_make_copy(transaction->env, key_term), key);
+  enif_inspect_binary(transaction->env,
+                      enif_make_copy(transaction->env, param_term), param);
+  fdb_transaction_atomic_op(transaction->handle, key->data, key->size,
+                            param->data, param->size, operation_type);
   enif_free(key);
   enif_free(param);
   return enif_make_int(env, 0);
@@ -763,10 +836,13 @@ transaction_clear(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   Transaction *transaction;
   ERL_NIF_TERM key_term = argv[1];
   ErlNifBinary *key = enif_alloc(sizeof(ErlNifBinary));
-  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE, (void **)&transaction), "transaction");
+  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE,
+                                (void **)&transaction),
+              "transaction");
   VERIFY_ARGV(enif_is_binary(env, key_term), "key");
 
-  enif_inspect_binary(transaction->env, enif_make_copy(transaction->env, key_term), key);
+  enif_inspect_binary(transaction->env,
+                      enif_make_copy(transaction->env, key_term), key);
   fdb_transaction_clear(transaction->handle, key->data, key->size);
   enif_free(key);
   return enif_make_int(env, 0);
@@ -779,13 +855,19 @@ transaction_clear_range(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   ERL_NIF_TERM end_key_term = argv[2];
   ErlNifBinary *begin_key = enif_alloc(sizeof(ErlNifBinary));
   ErlNifBinary *end_key = enif_alloc(sizeof(ErlNifBinary));
-  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE, (void **)&transaction), "transaction");
+  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE,
+                                (void **)&transaction),
+              "transaction");
   VERIFY_ARGV(enif_is_binary(env, begin_key_term), "begin_key");
   VERIFY_ARGV(enif_is_binary(env, end_key_term), "end_key");
 
-  enif_inspect_binary(transaction->env, enif_make_copy(transaction->env, begin_key_term), begin_key);
-  enif_inspect_binary(transaction->env, enif_make_copy(transaction->env, end_key_term), end_key);
-  fdb_transaction_clear_range(transaction->handle, begin_key->data, begin_key->size, end_key->data, end_key->size);
+  enif_inspect_binary(transaction->env,
+                      enif_make_copy(transaction->env, begin_key_term),
+                      begin_key);
+  enif_inspect_binary(transaction->env,
+                      enif_make_copy(transaction->env, end_key_term), end_key);
+  fdb_transaction_clear_range(transaction->handle, begin_key->data,
+                              begin_key->size, end_key->data, end_key->size);
   enif_free(begin_key);
   enif_free(end_key);
   return enif_make_int(env, 0);
@@ -795,7 +877,9 @@ static ERL_NIF_TERM
 transaction_commit(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   Transaction *transaction;
   FDBFuture *fdb_future;
-  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE, (void **)&transaction), "transaction");
+  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE,
+                                (void **)&transaction),
+              "transaction");
 
   fdb_future = fdb_transaction_commit(transaction->handle);
   return fdb_future_to_future(env, fdb_future, COMMIT, transaction);
@@ -809,10 +893,13 @@ transaction_watch(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
 
   FDBFuture *fdb_future;
 
-  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE, (void **)&transaction), "transaction");
+  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE,
+                                (void **)&transaction),
+              "transaction");
   VERIFY_ARGV(enif_is_binary(env, key_term), "key");
 
-  enif_inspect_binary(transaction->env, enif_make_copy(transaction->env, key_term), key);
+  enif_inspect_binary(transaction->env,
+                      enif_make_copy(transaction->env, key_term), key);
   fdb_future = fdb_transaction_watch(transaction->handle, key->data, key->size);
   enif_free(key);
   return fdb_future_to_future(env, fdb_future, WATCH, NULL);
@@ -821,51 +908,60 @@ transaction_watch(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
 int
 load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info) {
   int flags = ERL_NIF_RT_CREATE | ERL_NIF_RT_TAKEOVER;
-  FUTURE_RESOURCE_TYPE = enif_open_resource_type(env, "fdb", "Future", future_destroy, flags, NULL);
-  if(FUTURE_RESOURCE_TYPE == NULL) return -1;
-  CLUSTER_RESOURCE_TYPE = enif_open_resource_type(env, "fdb", "Cluster", cluster_destroy, flags, NULL);
-  if(CLUSTER_RESOURCE_TYPE == NULL) return -1;
-  DATABASE_RESOURCE_TYPE = enif_open_resource_type(env, "fdb", "Transaction", database_destroy, flags, NULL);
-  if(DATABASE_RESOURCE_TYPE == NULL) return -1;
-  TRANSACTION_RESOURCE_TYPE = enif_open_resource_type(env, "fdb", "Transaction", transaction_destroy, flags, NULL);
-  if(TRANSACTION_RESOURCE_TYPE == NULL) return -1;
+  FUTURE_RESOURCE_TYPE = enif_open_resource_type(env, "fdb", "Future",
+                                                 future_destroy, flags, NULL);
+  if (FUTURE_RESOURCE_TYPE == NULL)
+    return -1;
+  CLUSTER_RESOURCE_TYPE = enif_open_resource_type(env, "fdb", "Cluster",
+                                                  cluster_destroy, flags, NULL);
+  if (CLUSTER_RESOURCE_TYPE == NULL)
+    return -1;
+  DATABASE_RESOURCE_TYPE = enif_open_resource_type(
+      env, "fdb", "Transaction", database_destroy, flags, NULL);
+  if (DATABASE_RESOURCE_TYPE == NULL)
+    return -1;
+  TRANSACTION_RESOURCE_TYPE = enif_open_resource_type(
+      env, "fdb", "Transaction", transaction_destroy, flags, NULL);
+  if (TRANSACTION_RESOURCE_TYPE == NULL)
+    return -1;
   return 0;
 }
 
 static ErlNifFunc nif_funcs[] = {
-  {"get_max_api_version", 0, get_max_api_version, 0},
-  {"select_api_version_impl", 2, select_api_version_impl, 0},
-  {"setup_network", 0, setup_network, 0},
-  {"run_network", 0, run_network, 0},
-  {"stop_network", 0, stop_network, 0},
-  {"create_cluster", 0, create_cluster, 0},
-  {"cluster_set_option", 2, cluster_set_option, 0},
-  {"cluster_set_option", 3, cluster_set_option, 0},
-  {"network_set_option", 1, network_set_option, 0},
-  {"network_set_option", 2, network_set_option, 0},
-  {"database_set_option", 2, database_set_option, 0},
-  {"database_set_option", 3, database_set_option, 0},
-  {"transaction_set_option", 2, transaction_set_option, 0},
-  {"transaction_set_option", 3, transaction_set_option, 0},
-  {"get_error", 1, get_error, 0},
-  {"get_error_predicate", 2, get_error_predicate, 0},
-  {"future_resolve", 2, future_resolve, 0},
-  {"cluster_create_database", 1, cluster_create_database, 0},
-  {"database_create_transaction", 1, database_create_transaction, 0},
-  {"transaction_get", 3, transaction_get, 0},
-  {"transaction_get_read_version", 1, transaction_get_read_version, 0},
-  {"transaction_get_key", 5, transaction_get_key, 0},
-  {"transaction_get_addresses_for_key", 2, transaction_get_addresses_for_key, 0},
-  {"transaction_get_range", 13, transaction_get_range, 0},
-  {"transaction_set", 3, transaction_set, 0},
-  {"transaction_set_read_version", 2, transaction_set_read_version, 0},
-  {"transaction_get_committed_version", 1, transaction_get_committed_version, 0},
-  {"transaction_get_versionstamp", 1, transaction_get_versionstamp, 0},
-  {"transaction_atomic_op", 4, transaction_atomic_op, 0},
-  {"transaction_clear", 2, transaction_clear, 0},
-  {"transaction_clear_range", 3, transaction_clear_range, 0},
-  {"transaction_watch", 2, transaction_watch, 0},
-  {"transaction_commit", 1, transaction_commit, 0}
-};
+    {"get_max_api_version", 0, get_max_api_version, 0},
+    {"select_api_version_impl", 2, select_api_version_impl, 0},
+    {"setup_network", 0, setup_network, 0},
+    {"run_network", 0, run_network, 0},
+    {"stop_network", 0, stop_network, 0},
+    {"create_cluster", 0, create_cluster, 0},
+    {"cluster_set_option", 2, cluster_set_option, 0},
+    {"cluster_set_option", 3, cluster_set_option, 0},
+    {"network_set_option", 1, network_set_option, 0},
+    {"network_set_option", 2, network_set_option, 0},
+    {"database_set_option", 2, database_set_option, 0},
+    {"database_set_option", 3, database_set_option, 0},
+    {"transaction_set_option", 2, transaction_set_option, 0},
+    {"transaction_set_option", 3, transaction_set_option, 0},
+    {"get_error", 1, get_error, 0},
+    {"get_error_predicate", 2, get_error_predicate, 0},
+    {"future_resolve", 2, future_resolve, 0},
+    {"cluster_create_database", 1, cluster_create_database, 0},
+    {"database_create_transaction", 1, database_create_transaction, 0},
+    {"transaction_get", 3, transaction_get, 0},
+    {"transaction_get_read_version", 1, transaction_get_read_version, 0},
+    {"transaction_get_key", 5, transaction_get_key, 0},
+    {"transaction_get_addresses_for_key", 2, transaction_get_addresses_for_key,
+     0},
+    {"transaction_get_range", 13, transaction_get_range, 0},
+    {"transaction_set", 3, transaction_set, 0},
+    {"transaction_set_read_version", 2, transaction_set_read_version, 0},
+    {"transaction_get_committed_version", 1, transaction_get_committed_version,
+     0},
+    {"transaction_get_versionstamp", 1, transaction_get_versionstamp, 0},
+    {"transaction_atomic_op", 4, transaction_atomic_op, 0},
+    {"transaction_clear", 2, transaction_clear, 0},
+    {"transaction_clear_range", 3, transaction_clear_range, 0},
+    {"transaction_watch", 2, transaction_watch, 0},
+    {"transaction_commit", 1, transaction_commit, 0}};
 
 ERL_NIF_INIT(Elixir.FDB.Native, nif_funcs, load, NULL, NULL, NULL)
