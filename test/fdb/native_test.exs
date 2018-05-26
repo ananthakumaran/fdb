@@ -22,9 +22,9 @@ defmodule FDB.NativeTest do
 
   test "can be resolved multiple times" do
     cluster_future = create_cluster()
-    cluster_a = FDB.resolve(cluster_future)
+    cluster_a = FDB.Future.resolve(cluster_future)
     assert cluster_a
-    cluster_b = FDB.resolve(cluster_future)
+    cluster_b = FDB.Future.resolve(cluster_future)
     assert cluster_b
   end
 end

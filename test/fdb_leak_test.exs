@@ -1,8 +1,10 @@
 defmodule FDBLeakTest do
   use ExUnit.Case
-  import FDB
   import TestUtils
   require Logger
+  alias FDB.Database
+  alias FDB.Cluster
+  alias FDB.Transaction
 
   setup do
     flushdb()
@@ -13,8 +15,8 @@ defmodule FDBLeakTest do
     assert_memory()
 
     db =
-      create_cluster()
-      |> create_database()
+      Cluster.create()
+      |> Database.create()
 
     Task.async_stream(
       1..100_000,
@@ -27,10 +29,10 @@ defmodule FDBLeakTest do
         value = random_value(10 * 1024)
         key = random_key(64)
 
-        t = create_transaction(db)
-        set(t, key, value)
-        assert get(t, key) == value
-        assert commit(t) == :ok
+        t = Transaction.create(db)
+        Transaction.set(t, key, value)
+        assert Transaction.get(t, key) == value
+        assert Transaction.commit(t) == :ok
       end,
       max_concurrency: 200,
       ordered: false,

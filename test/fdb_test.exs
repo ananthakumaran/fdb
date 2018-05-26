@@ -1,9 +1,13 @@
 defmodule FDBTest do
   use ExUnit.Case, async: false
-  import FDB
   import FDB.Option
   import TestUtils
   alias FDB.KeySelector
+  alias FDB.Database
+  alias FDB.Cluster
+  alias FDB.Transaction
+  alias FDB.Network
+  alias FDB.Future
 
   setup do
     flushdb()
@@ -14,47 +18,47 @@ defmodule FDBTest do
     key = random_key()
 
     transaction = new_transaction()
-    set(transaction, key, value)
-    assert get(transaction, key) == value
-    assert commit(transaction) == :ok
+    Transaction.set(transaction, key, value)
+    assert Transaction.get(transaction, key) == value
+    assert Transaction.commit(transaction) == :ok
 
     transaction = new_transaction()
-    assert get(transaction, key) == value
-    assert clear(transaction, key) == :ok
-    assert commit(transaction) == :ok
+    assert Transaction.get(transaction, key) == value
+    assert Transaction.clear(transaction, key) == :ok
+    assert Transaction.commit(transaction) == :ok
 
     transaction = new_transaction()
-    assert get(transaction, key) == nil
-    assert commit(transaction) == :ok
+    assert Transaction.get(transaction, key) == nil
+    assert Transaction.commit(transaction) == :ok
   end
 
   test "options" do
-    assert_raise ErlangError, ~r/value/, fn -> cluster_set_option(create_cluster(), 5, :ok) end
-    assert_raise ErlangError, ~r/option/, fn -> cluster_set_option(create_cluster(), :ok) end
-    assert_raise ErlangError, ~r/cluster/, fn -> cluster_set_option(0, 0) end
-    assert_raise ErlangError, ~r/option/, fn -> transaction_set_option(new_transaction(), :ok) end
-    assert_raise ErlangError, ~r/transaction/, fn -> transaction_set_option(0, 0) end
+    assert_raise ErlangError, ~r/value/, fn -> Cluster.set_option(Cluster.create(), 5, :ok) end
+    assert_raise ErlangError, ~r/option/, fn -> Cluster.set_option(Cluster.create(), :ok) end
+    assert_raise ErlangError, ~r/cluster/, fn -> Cluster.set_option(0, 0) end
+    assert_raise ErlangError, ~r/option/, fn -> Transaction.set_option(new_transaction(), :ok) end
+    assert_raise ErlangError, ~r/transaction/, fn -> Transaction.set_option(0, 0) end
 
     assert_raise ErlangError, ~r/value/, fn ->
-      transaction_set_option(new_transaction(), 5, :ok)
+      Transaction.set_option(new_transaction(), 5, :ok)
     end
 
-    assert_raise ErlangError, ~r/option/, fn -> database_set_option(new_database(), :ok) end
-    assert_raise ErlangError, ~r/value/, fn -> database_set_option(new_database(), 5, :ok) end
-    assert_raise ErlangError, ~r/database/, fn -> database_set_option(0, 0) end
-    assert_raise ErlangError, ~r/value/, fn -> network_set_option(0, :ok) end
+    assert_raise ErlangError, ~r/option/, fn -> Database.set_option(new_database(), :ok) end
+    assert_raise ErlangError, ~r/value/, fn -> Database.set_option(new_database(), 5, :ok) end
+    assert_raise ErlangError, ~r/database/, fn -> Database.set_option(0, 0) end
+    assert_raise ErlangError, ~r/value/, fn -> Network.set_option(0, :ok) end
 
     db = new_database()
-    assert database_set_option(db, database_option_datacenter_id(), "DATA_CENTER_42") == :ok
+    assert Database.set_option(db, database_option_datacenter_id(), "DATA_CENTER_42") == :ok
   end
 
   test "timeout" do
     t = new_transaction()
-    assert transaction_set_option(t, transaction_option_timeout(), 1) == :ok
+    assert Transaction.set_option(t, transaction_option_timeout(), 1) == :ok
     :timer.sleep(1)
     key = random_key()
-    assert_raise FDB.Error, ~r/timed out/, fn -> get(t, key) end
-    assert_raise FDB.Error, ~r/timed out/, fn -> commit(t) end
+    assert_raise FDB.Error, ~r/timed out/, fn -> Transaction.get(t, key) end
+    assert_raise FDB.Error, ~r/timed out/, fn -> Transaction.commit(t) end
   end
 
   test "reuse transaction" do
@@ -62,11 +66,11 @@ defmodule FDBTest do
 
     value = random_value()
     key = random_key()
-    set(t, key, value)
-    assert get(t, key) == value
-    assert commit(t) == :ok
+    Transaction.set(t, key, value)
+    assert Transaction.get(t, key) == value
+    assert Transaction.commit(t) == :ok
 
-    assert_raise FDB.Error, ~r/commit/, fn -> get(t, key) end
+    assert_raise FDB.Error, ~r/commit/, fn -> Transaction.get(t, key) end
   end
 
   test "range" do
@@ -76,16 +80,16 @@ defmodule FDBTest do
       Enum.map(1..100, fn i ->
         key = "fdb:" <> String.pad_leading(Integer.to_string(i), 3, "0")
         value = random_value(100)
-        set(t, key, value)
+        Transaction.set(t, key, value)
         {key, value}
       end)
 
-    assert commit(t) == :ok
+    assert Transaction.commit(t) == :ok
 
     d = new_database()
 
     actual =
-      get_range_stream(
+      Transaction.get_range_stream(
         d,
         KeySelector.first_greater_than("fdb"),
         KeySelector.first_greater_than("fdc")
@@ -95,7 +99,7 @@ defmodule FDBTest do
     assert actual == expected
 
     actual =
-      get_range_stream(
+      Transaction.get_range_stream(
         d,
         KeySelector.first_greater_than("fdb"),
         KeySelector.first_greater_than("fdc"),
@@ -106,7 +110,7 @@ defmodule FDBTest do
     assert actual == Enum.reverse(expected)
 
     actual =
-      get_range_stream(
+      Transaction.get_range_stream(
         d,
         KeySelector.first_greater_than("fdb"),
         KeySelector.first_greater_than("fdc"),
@@ -117,7 +121,7 @@ defmodule FDBTest do
     assert actual == Enum.take(expected, 10)
 
     actual =
-      get_range_stream(
+      Transaction.get_range_stream(
         d,
         KeySelector.first_greater_than("fdb"),
         KeySelector.first_greater_than("fdc"),
@@ -128,7 +132,7 @@ defmodule FDBTest do
     assert actual == Enum.take(Enum.reverse(expected), 10)
 
     actual =
-      get_range_stream(
+      Transaction.get_range_stream(
         d,
         KeySelector.first_greater_than("fdb"),
         KeySelector.first_greater_than("fdc"),
@@ -139,7 +143,7 @@ defmodule FDBTest do
     assert actual == expected
 
     actual =
-      get_range_stream(
+      Transaction.get_range_stream(
         d,
         KeySelector.first_greater_or_equal("fdb:011"),
         KeySelector.first_greater_than("fdc"),
@@ -150,7 +154,7 @@ defmodule FDBTest do
     assert actual == Enum.drop(expected, 10)
 
     actual =
-      get_range_stream(
+      Transaction.get_range_stream(
         d,
         KeySelector.first_greater_than("fdb:010"),
         KeySelector.first_greater_than("fdc"),
@@ -161,7 +165,7 @@ defmodule FDBTest do
     assert actual == Enum.drop(expected, 10)
 
     actual =
-      get_range_stream(
+      Transaction.get_range_stream(
         d,
         KeySelector.first_greater_or_equal("fdb:000"),
         KeySelector.first_greater_or_equal("fdb:011")
@@ -171,7 +175,7 @@ defmodule FDBTest do
     assert actual == Enum.take(expected, 10)
 
     actual =
-      get_range_stream(
+      Transaction.get_range_stream(
         d,
         KeySelector.first_greater_or_equal("fdb:000"),
         KeySelector.first_greater_or_equal("fdb:011"),
@@ -184,65 +188,65 @@ defmodule FDBTest do
 
   test "atomic_op" do
     t = new_transaction()
-    set(t, "fdb:counter", <<0::little-integer-unsigned-size(64)>>)
-    assert commit(t) == :ok
+    Transaction.set(t, "fdb:counter", <<0::little-integer-unsigned-size(64)>>)
+    assert Transaction.commit(t) == :ok
 
     t = new_transaction()
 
-    atomic_op(
+    Transaction.atomic_op(
       t,
       "fdb:counter",
       <<1::little-integer-unsigned-size(64)>>,
       mutation_type_add()
     )
 
-    assert commit(t) == :ok
+    assert Transaction.commit(t) == :ok
 
     t = new_transaction()
-    <<counter::little-integer-unsigned-size(64)>> = get(t, "fdb:counter")
+    <<counter::little-integer-unsigned-size(64)>> = Transaction.get(t, "fdb:counter")
     assert counter == 1
-    assert commit(t) == :ok
+    assert Transaction.commit(t) == :ok
 
     t = new_transaction()
 
-    atomic_op(
+    Transaction.atomic_op(
       t,
       "fdb:counter",
       <<5::little-integer-unsigned-size(64)>>,
       mutation_type_add()
     )
 
-    assert commit(t) == :ok
+    assert Transaction.commit(t) == :ok
 
     t = new_transaction()
-    <<counter::little-integer-unsigned-size(64)>> = get(t, "fdb:counter")
+    <<counter::little-integer-unsigned-size(64)>> = Transaction.get(t, "fdb:counter")
     assert counter == 6
-    assert commit(t) == :ok
+    assert Transaction.commit(t) == :ok
   end
 
   test "version" do
     t = new_transaction()
-    version = get_read_version(t)
+    version = Transaction.get_read_version(t)
     assert version > 0
-    assert get_read_version(t) == version
+    assert Transaction.get_read_version(t) == version
 
     t = new_transaction()
-    set(t, random_key(), random_value())
-    assert commit(t) == :ok
+    Transaction.set(t, random_key(), random_value())
+    assert Transaction.commit(t) == :ok
 
     t = new_transaction()
-    assert get_read_version(t) > version
+    assert Transaction.get_read_version(t) > version
 
     t = new_transaction()
-    assert set_read_version(t, version) == :ok
+    assert Transaction.set_read_version(t, version) == :ok
 
     t = new_transaction()
-    assert set_read_version(t, version + 1000) == :ok
-    assert get(t, random_key()) == nil
+    assert Transaction.set_read_version(t, version + 1000) == :ok
+    assert Transaction.get(t, random_key()) == nil
 
     t = new_transaction()
-    assert set_read_version(t, version + 1000_000_000) == :ok
-    assert_raise FDB.Error, fn -> get(t, random_key()) == nil end
+    assert Transaction.set_read_version(t, version + 1000_000_000) == :ok
+    assert_raise FDB.Error, fn -> Transaction.get(t, random_key()) == nil end
   end
 
   test "get_key" do
@@ -251,36 +255,36 @@ defmodule FDBTest do
     Enum.each(1..100, fn i ->
       key = "fdb:" <> String.pad_leading(Integer.to_string(i), 3, "0")
       value = random_value(100)
-      assert set(t, key, value) == :ok
+      assert Transaction.set(t, key, value) == :ok
       {key, value}
     end)
 
-    assert commit(t) == :ok
+    assert Transaction.commit(t) == :ok
 
     t = new_transaction()
-    assert get_key(t, KeySelector.first_greater_or_equal("fdb:000")) == "fdb:001"
-    assert get_key(t, KeySelector.first_greater_or_equal("fdb:001")) == "fdb:001"
-    assert get_key(t, KeySelector.first_greater_or_equal("fdb:001", 0)) == "fdb:001"
-    assert get_key(t, KeySelector.first_greater_or_equal("fdb:001", 1)) == "fdb:002"
-    assert get_key(t, KeySelector.first_greater_or_equal("fdb:001", 10)) == "fdb:011"
-    assert get_key(t, KeySelector.first_greater_or_equal("fdb:010", -1)) == "fdb:009"
-    assert get_key(t, KeySelector.first_greater_or_equal("fdb:010", -9)) == "fdb:001"
-    assert get_key(t, KeySelector.first_greater_or_equal("fdb:010", -10)) == ""
-    assert get_key(t, KeySelector.first_greater_than("fdb:001")) == "fdb:002"
-    assert get_key(t, KeySelector.first_greater_than("fdb:001", 1)) == "fdb:003"
-    assert get_key(t, KeySelector.first_greater_than("fdb:002", 5)) == "fdb:008"
-    assert get_key(t, KeySelector.first_greater_than("fdb:005", -1)) == "fdb:005"
-    assert get_key(t, KeySelector.first_greater_than("fdb:005", -2)) == "fdb:004"
-    assert get_key(t, KeySelector.first_greater_than("fdb:005", -5)) == "fdb:001"
-    assert get_key(t, KeySelector.first_greater_than("fdb:005", -6)) == ""
-    assert get_key(t, KeySelector.first_greater_than("fdb:005", -10)) == ""
+    assert Transaction.get_key(t, KeySelector.first_greater_or_equal("fdb:000")) == "fdb:001"
+    assert Transaction.get_key(t, KeySelector.first_greater_or_equal("fdb:001")) == "fdb:001"
+    assert Transaction.get_key(t, KeySelector.first_greater_or_equal("fdb:001", 0)) == "fdb:001"
+    assert Transaction.get_key(t, KeySelector.first_greater_or_equal("fdb:001", 1)) == "fdb:002"
+    assert Transaction.get_key(t, KeySelector.first_greater_or_equal("fdb:001", 10)) == "fdb:011"
+    assert Transaction.get_key(t, KeySelector.first_greater_or_equal("fdb:010", -1)) == "fdb:009"
+    assert Transaction.get_key(t, KeySelector.first_greater_or_equal("fdb:010", -9)) == "fdb:001"
+    assert Transaction.get_key(t, KeySelector.first_greater_or_equal("fdb:010", -10)) == ""
+    assert Transaction.get_key(t, KeySelector.first_greater_than("fdb:001")) == "fdb:002"
+    assert Transaction.get_key(t, KeySelector.first_greater_than("fdb:001", 1)) == "fdb:003"
+    assert Transaction.get_key(t, KeySelector.first_greater_than("fdb:002", 5)) == "fdb:008"
+    assert Transaction.get_key(t, KeySelector.first_greater_than("fdb:005", -1)) == "fdb:005"
+    assert Transaction.get_key(t, KeySelector.first_greater_than("fdb:005", -2)) == "fdb:004"
+    assert Transaction.get_key(t, KeySelector.first_greater_than("fdb:005", -5)) == "fdb:001"
+    assert Transaction.get_key(t, KeySelector.first_greater_than("fdb:005", -6)) == ""
+    assert Transaction.get_key(t, KeySelector.first_greater_than("fdb:005", -10)) == ""
 
-    assert get_key(t, KeySelector.last_less_than("fdb:050")) == "fdb:049"
-    assert get_key(t, KeySelector.last_less_than("fdb:050", 5)) == "fdb:054"
-    assert get_key(t, KeySelector.last_less_than("fdb:050", -5)) == "fdb:044"
-    assert get_key(t, KeySelector.last_less_or_equal("fdb:050")) == "fdb:050"
-    assert get_key(t, KeySelector.last_less_or_equal("fdb:050", 5)) == "fdb:055"
-    assert get_key(t, KeySelector.last_less_or_equal("fdb:050", -5)) == "fdb:045"
+    assert Transaction.get_key(t, KeySelector.last_less_than("fdb:050")) == "fdb:049"
+    assert Transaction.get_key(t, KeySelector.last_less_than("fdb:050", 5)) == "fdb:054"
+    assert Transaction.get_key(t, KeySelector.last_less_than("fdb:050", -5)) == "fdb:044"
+    assert Transaction.get_key(t, KeySelector.last_less_or_equal("fdb:050")) == "fdb:050"
+    assert Transaction.get_key(t, KeySelector.last_less_or_equal("fdb:050", 5)) == "fdb:055"
+    assert Transaction.get_key(t, KeySelector.last_less_or_equal("fdb:050", -5)) == "fdb:045"
   end
 
   test "addresses" do
@@ -289,71 +293,72 @@ defmodule FDBTest do
     Enum.each(1..100, fn i ->
       key = "fdb:" <> String.pad_leading(Integer.to_string(i), 3, "0")
       value = random_value(100)
-      assert set(t, key, value) == :ok
+      assert Transaction.set(t, key, value) == :ok
       {key, value}
     end)
 
-    assert commit(t) == :ok
+    assert Transaction.commit(t) == :ok
 
     t = new_transaction()
-    addresses = get_addresses_for_key(t, "fdb:001")
+    addresses = Transaction.get_addresses_for_key(t, "fdb:001")
     assert length(addresses) == 1
-    assert get_addresses_for_key(t, "fdb:100") == addresses
-    assert get_addresses_for_key(t, "unknown") == addresses
+    assert Transaction.get_addresses_for_key(t, "fdb:100") == addresses
+    assert Transaction.get_addresses_for_key(t, "unknown") == addresses
   end
 
   test "commited version" do
     t = new_transaction()
-    set(t, random_key(), random_value())
-    assert commit(t) == :ok
-    v1 = get_committed_version(t)
+    Transaction.set(t, random_key(), random_value())
+    assert Transaction.commit(t) == :ok
+    v1 = Transaction.get_committed_version(t)
     assert v1 > 0
 
     t = new_transaction()
-    set(t, random_key(), random_value())
-    assert commit(t) == :ok
-    v2 = get_committed_version(t)
+    Transaction.set(t, random_key(), random_value())
+    assert Transaction.commit(t) == :ok
+    v2 = Transaction.get_committed_version(t)
     assert v2 > 0
     assert v2 > v1
 
     t = new_transaction()
-    get(t, random_key())
-    assert commit(t) == :ok
-    read_only_version = get_committed_version(t)
+    Transaction.get(t, random_key())
+    assert Transaction.commit(t) == :ok
+    read_only_version = Transaction.get_committed_version(t)
     assert read_only_version == -1
   end
 
   test "versionstamp" do
     t = new_transaction()
-    assert set(t, random_key(), random_value()) == :ok
-    future = get_versionstamp(t)
-    assert commit(t) == :ok
-    stamp = FDB.resolve(future)
+    assert Transaction.set(t, random_key(), random_value()) == :ok
+    future = Transaction.get_versionstamp(t)
+    assert Transaction.commit(t) == :ok
+    stamp = Future.resolve(future)
     assert byte_size(stamp) == 10
 
     t = new_transaction()
-    get(t, random_key())
-    future = get_versionstamp(t)
-    assert commit(t) == :ok
-    assert_raise FDB.Error, ~r/read-only/, fn -> FDB.resolve(future) end
+    Transaction.get(t, random_key())
+    future = Transaction.get_versionstamp(t)
+    assert Transaction.commit(t) == :ok
+    assert_raise FDB.Error, ~r/read-only/, fn -> Future.resolve(future) end
   end
 
   test "watch" do
     value = random_value()
     key = random_key()
     t = new_transaction()
-    assert set(t, key, value) == :ok
-    assert commit(t) == :ok
+    assert Transaction.set(t, key, value) == :ok
+    assert Transaction.commit(t) == :ok
+    alias FDB.Future
 
     t = new_transaction()
-    assert get(t, key) == value
-    w1 = watch(t, key)
-    assert commit(t) == :ok
+    assert Transaction.get(t, key) == value
+    w1 = Transaction.watch(t, key)
+    assert Transaction.commit(t) == :ok
 
     t = new_transaction()
-    assert set(t, key, random_value()) == :ok
-    assert commit(t) == :ok
+    assert Transaction.set(t, key, random_value()) == :ok
+    assert Transaction.commit(t) == :ok
 
-    assert FDB.resolve(w1) == :ok
+    assert Future.resolve(w1) == :ok
   end
 end
