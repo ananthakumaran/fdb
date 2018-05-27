@@ -21,6 +21,7 @@ defmodule FDB.MixProject do
   defp deps do
     [
       {:sweet_xml, "~> 0.6"},
+      {:stream_data, "~> 0.4", only: :test},
       {:ex_doc, "~> 0.18", only: :dev}
     ]
   end

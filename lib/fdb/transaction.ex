@@ -3,25 +3,42 @@ defmodule FDB.Transaction do
   alias FDB.Future
   alias FDB.Utils
   alias FDB.KeySelector
+  alias FDB.Transaction
+  alias FDB.Transaction.Coder
 
-  def create(database) do
-    Native.database_create_transaction(database)
-    |> Utils.verify_result()
+  defstruct resource: nil, coder: nil
+
+  def create(database, coder \\ nil) do
+    resource =
+      Native.database_create_transaction(database.resource)
+      |> Utils.verify_result()
+
+    coder =
+      if coder do
+        coder
+      else
+        database.coder
+      end
+
+    %Transaction{resource: resource, coder: coder}
   end
 
   def set_option(transaction, option) do
-    Native.transaction_set_option(transaction, option)
+    Native.transaction_set_option(transaction.resource, option)
     |> Utils.verify_result()
   end
 
   def set_option(transaction, option, value) do
-    Native.transaction_set_option(transaction, option, value)
+    Native.transaction_set_option(transaction.resource, option, value)
     |> Utils.verify_result()
   end
 
   def get(transaction, key) do
-    Native.transaction_get(transaction, key, 0)
-    |> Future.resolve()
+    v =
+      Native.transaction_get(transaction.resource, Coder.encode_key(transaction.coder, key), 0)
+      |> Future.resolve()
+
+    Coder.decode_value(transaction.coder, v)
   end
 
   def get_range(transaction, begin_key_selector, end_key_selector, options \\ %{}) do
@@ -29,7 +46,7 @@ defmodule FDB.Transaction do
     {end_key, end_or_equal, end_offset} = end_key_selector
 
     Native.transaction_get_range(
-      transaction,
+      transaction.resource,
       begin_key,
       begin_or_equal,
       begin_offset,
@@ -116,67 +133,85 @@ defmodule FDB.Transaction do
   end
 
   def get_snapshot(transaction, key) do
-    Native.transaction_get(transaction, key, 1)
-    |> Future.resolve()
+    v =
+      Native.transaction_get(transaction.resource, Coder.encode_key(transaction.coder, key), 1)
+      |> Future.resolve()
+
+    Coder.decode_value(transaction.coder, v)
   end
 
   def get_read_version(transaction) do
-    Native.transaction_get_read_version(transaction)
+    Native.transaction_get_read_version(transaction.resource)
     |> Future.resolve()
   end
 
   def get_committed_version(transaction) do
-    Native.transaction_get_committed_version(transaction)
+    Native.transaction_get_committed_version(transaction.resource)
     |> Utils.verify_result()
   end
 
   def get_versionstamp(transaction) do
-    Native.transaction_get_versionstamp(transaction)
+    Native.transaction_get_versionstamp(transaction.resource)
   end
 
   def watch(transaction, key) do
-    Native.transaction_watch(transaction, key)
+    Native.transaction_watch(transaction.resource, Coder.encode_key(transaction.coder, key))
   end
 
   def get_key(transaction, key_selector, snapshot \\ 0) do
     {key, or_equal, offset} = key_selector
 
-    Native.transaction_get_key(transaction, key, or_equal, offset, snapshot)
-    |> Future.resolve()
+    k =
+      Native.transaction_get_key(transaction.resource, key, or_equal, offset, snapshot)
+      |> Future.resolve()
+
+    Coder.decode_key(transaction.coder, k)
   end
 
   def get_addresses_for_key(transaction, key) do
-    Native.transaction_get_addresses_for_key(transaction, key)
+    Native.transaction_get_addresses_for_key(
+      transaction.resource,
+      Coder.encode_key(transaction.coder, key)
+    )
     |> Future.resolve()
   end
 
   def set(transaction, key, value) do
-    Native.transaction_set(transaction, key, value)
+    Native.transaction_set(
+      transaction.resource,
+      Coder.encode_key(transaction.coder, key),
+      Coder.encode_value(transaction.coder, value)
+    )
     |> Utils.verify_result()
   end
 
   def set_read_version(transaction, version) do
-    Native.transaction_set_read_version(transaction, version)
+    Native.transaction_set_read_version(transaction.resource, version)
     |> Utils.verify_result()
   end
 
   def atomic_op(transaction, key, value, op) do
-    Native.transaction_atomic_op(transaction, key, value, op)
+    Native.transaction_atomic_op(
+      transaction.resource,
+      Coder.encode_key(transaction.coder, key),
+      value,
+      op
+    )
     |> Utils.verify_result()
   end
 
   def clear(transaction, key) do
-    Native.transaction_clear(transaction, key)
+    Native.transaction_clear(transaction.resource, Coder.encode_key(transaction.coder, key))
     |> Utils.verify_result()
   end
 
   def clear_range(transaction, begin_key, end_key) do
-    Native.transaction_clear_range(transaction, begin_key, end_key)
+    Native.transaction_clear_range(transaction.resource, begin_key, end_key)
     |> Utils.verify_result()
   end
 
   def commit(transaction) do
-    Native.transaction_commit(transaction)
+    Native.transaction_commit(transaction.resource)
     |> Future.resolve()
   end
 

@@ -38,7 +38,6 @@ defmodule FDBTest do
     assert_raise ErlangError, ~r/option/, fn -> Cluster.set_option(Cluster.create(), :ok) end
     assert_raise ErlangError, ~r/cluster/, fn -> Cluster.set_option(0, 0) end
     assert_raise ErlangError, ~r/option/, fn -> Transaction.set_option(new_transaction(), :ok) end
-    assert_raise ErlangError, ~r/transaction/, fn -> Transaction.set_option(0, 0) end
 
     assert_raise ErlangError, ~r/value/, fn ->
       Transaction.set_option(new_transaction(), 5, :ok)
@@ -46,7 +45,6 @@ defmodule FDBTest do
 
     assert_raise ErlangError, ~r/option/, fn -> Database.set_option(new_database(), :ok) end
     assert_raise ErlangError, ~r/value/, fn -> Database.set_option(new_database(), 5, :ok) end
-    assert_raise ErlangError, ~r/database/, fn -> Database.set_option(0, 0) end
     assert_raise ErlangError, ~r/value/, fn -> Network.set_option(0, :ok) end
 
     db = new_database()

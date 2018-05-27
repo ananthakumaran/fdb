@@ -9,4 +9,10 @@ defmodule FDB.Utils do
 
   def verify_result({code, _}) when is_integer(code),
     do: raise(FDB.Error, code: code, message: Native.get_error(code))
+
+  def binary_cut(binary, at) do
+    first = binary_part(binary, 0, at)
+    rest = binary_part(binary, at, byte_size(binary) - at)
+    {first, rest}
+  end
 end
