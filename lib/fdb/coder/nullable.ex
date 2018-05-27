@@ -8,7 +8,7 @@ defmodule FDB.Coder.Nullable do
   @code <<0x00>>
 
   @impl true
-  def encode(nil, coder), do: @code
+  def encode(nil, _coder), do: @code
   def encode(value, coder), do: coder.module.encode(value, coder.opts)
 
   @impl true

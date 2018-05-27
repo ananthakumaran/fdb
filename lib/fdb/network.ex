@@ -1,6 +1,5 @@
 defmodule FDB.Network do
   alias FDB.Native
-  alias FDB.KeySelector
   alias FDB.Utils
 
   def start do

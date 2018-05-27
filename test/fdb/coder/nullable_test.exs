@@ -7,8 +7,7 @@ defmodule FDB.Coder.NullableTest do
   use ExUnitProperties
 
   property "encode / decode" do
-    check all binaries <- list_of(one_of([constant(nil), binary()])),
-              prefix <- binary() do
+    check all binaries <- list_of(one_of([constant(nil), binary()])) do
       coder = Nullable.new(ByteString.new())
       assert_coder_order_symmetry(coder, binaries)
     end
