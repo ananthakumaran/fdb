@@ -1,7 +1,7 @@
 defmodule FDB.Coder.Identity do
   @behaviour FDB.Coder.Behaviour
 
-  def new(_opts \\ nil) do
+  def new do
     %FDB.Coder{module: __MODULE__}
   end
 
