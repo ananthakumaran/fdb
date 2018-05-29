@@ -33,6 +33,10 @@ defmodule FDBTest do
     end)
   end
 
+  test "cluster path" do
+    assert_raise(FDB.Error, ~r/file/, fn -> Cluster.create("/hello/world") end)
+  end
+
   test "options" do
     assert_raise ErlangError, ~r/value/, fn -> Cluster.set_option(Cluster.create(), 5, :ok) end
     assert_raise ErlangError, ~r/option/, fn -> Cluster.set_option(Cluster.create(), :ok) end

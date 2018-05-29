@@ -490,7 +490,20 @@ future_resolve(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
 
 static ERL_NIF_TERM
 create_cluster(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
-  FDBFuture *fdb_future = fdb_create_cluster(NULL);
+  char *path = NULL;
+  ErlNifBinary *path_binary;
+  FDBFuture *fdb_future;
+
+  if (enif_is_binary(env, argv[0])) {
+    path_binary = enif_alloc(sizeof(ErlNifBinary));
+    enif_inspect_binary(env, argv[0], path_binary);
+    path = enif_alloc(sizeof(char) * (path_binary->size + 1));
+    memcpy((void *)path, path_binary->data, path_binary->size);
+    path[path_binary->size] = '\0';
+    enif_free(path_binary);
+  }
+
+  fdb_future = fdb_create_cluster(path);
   return fdb_future_to_future(env, fdb_future, CLUSTER, NULL);
 }
 
@@ -933,7 +946,7 @@ static ErlNifFunc nif_funcs[] = {
     {"setup_network", 0, setup_network, 0},
     {"run_network", 0, run_network, 0},
     {"stop_network", 0, stop_network, 0},
-    {"create_cluster", 0, create_cluster, 0},
+    {"create_cluster", 1, create_cluster, 0},
     {"cluster_set_option", 2, cluster_set_option, 0},
     {"cluster_set_option", 3, cluster_set_option, 0},
     {"network_set_option", 1, network_set_option, 0},

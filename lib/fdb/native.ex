@@ -20,7 +20,7 @@ defmodule FDB.Native do
   def setup_network, do: exit(:nif_library_not_loaded)
   def run_network, do: exit(:nif_library_not_loaded)
   def stop_network, do: exit(:nif_library_not_loaded)
-  def create_cluster, do: exit(:nif_library_not_loaded)
+  def create_cluster(_file_path), do: exit(:nif_library_not_loaded)
   def cluster_set_option(_cluster, _option), do: exit(:nif_library_not_loaded)
   def cluster_set_option(_cluster, _option, _value), do: exit(:nif_library_not_loaded)
   def cluster_create_database(_cluster), do: exit(:nif_library_not_loaded)

@@ -3,8 +3,8 @@ defmodule FDB.Cluster do
   alias FDB.Future
   alias FDB.Utils
 
-  def create do
-    Native.create_cluster()
+  def create(file_path \\ nil) do
+    Native.create_cluster(file_path)
     |> Future.resolve()
   end
 

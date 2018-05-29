@@ -2,8 +2,8 @@ defmodule FDB.Network do
   alias FDB.Native
   alias FDB.Utils
 
-  def start do
-    Native.select_api_version_impl(510, 510)
+  def start(version \\ 510) do
+    Native.select_api_version_impl(version, 510)
     |> Utils.verify_result()
 
     Native.setup_network()
