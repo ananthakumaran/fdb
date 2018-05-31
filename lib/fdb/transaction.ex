@@ -41,7 +41,7 @@ defmodule FDB.Transaction do
     Coder.decode_value(transaction.coder, v)
   end
 
-  def get_range(transaction, begin_key_selector, end_key_selector, options \\ %{}) do
+  defp get_range(transaction, begin_key_selector, end_key_selector, options) do
     {begin_key, begin_or_equal, begin_offset} = begin_key_selector
     {end_key, end_or_equal, end_offset} = end_key_selector
 
@@ -63,8 +63,23 @@ defmodule FDB.Transaction do
     |> Future.resolve()
   end
 
+  defp decode_range_items(coder, items) do
+    Enum.map(items, fn {key, value} ->
+      key = Coder.decode_key(coder, key)
+      value = Coder.decode_value(coder, value)
+      {key, value}
+    end)
+  end
+
   def get_range_stream(database, begin_key_selector, end_key_selector, options \\ %{}) do
     has_limit = Map.has_key?(options, :limit)
+
+    {begin_key, begin_or_equal, begin_offset} = begin_key_selector
+    {end_key, end_or_equal, end_offset} = end_key_selector
+    begin_key = Coder.encode_range_start(database.coder, begin_key)
+    end_key = Coder.encode_range_end(database.coder, end_key)
+    begin_key_selector = {begin_key, begin_or_equal, begin_offset}
+    end_key_selector = {end_key, end_or_equal, end_offset}
 
     state =
       Map.merge(
@@ -75,8 +90,8 @@ defmodule FDB.Transaction do
           has_more: 1,
           iteration: 1,
           mode: FDB.Option.streaming_mode_iterator(),
-          begin_key_selector: begin_key_selector,
-          end_key_selector: end_key_selector
+          begin_key_selector: {begin_key, begin_or_equal, begin_offset},
+          end_key_selector: {end_key, end_or_equal, end_offset}
         }
       )
 
@@ -118,7 +133,7 @@ defmodule FDB.Transaction do
               {nil, nil}
             end
 
-          {list,
+          {decode_range_items(database.coder, list),
            %{
              state
              | has_more: has_more,

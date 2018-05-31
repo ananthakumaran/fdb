@@ -27,4 +27,12 @@ defmodule FDB.Coder.UnicodeString do
 
   defp do_decode(<<char::utf8>> <> rest, acc),
     do: do_decode(rest, <<acc::binary, char::utf8>>)
+
+  @impl true
+  def range(nil, _), do: {<<0x00>>, <<0xFF>>}
+
+  def range(value, null_pattern) do
+    encoded = encode(value, null_pattern)
+    {encoded <> <<0x00>>, encoded <> <<0xFF>>}
+  end
 end

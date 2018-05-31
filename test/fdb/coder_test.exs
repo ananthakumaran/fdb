@@ -44,5 +44,15 @@ defmodule FDB.CoderTest do
 
     assert stored_value == value
     assert String.starts_with?(stored_key, "fdb")
+
+    all =
+      Transaction.get_range_stream(
+        db,
+        KeySelector.first_greater_or_equal(nil),
+        KeySelector.first_greater_or_equal(nil)
+      )
+      |> Enum.to_list()
+
+    assert all == [{key, value}]
   end
 end

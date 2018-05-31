@@ -18,4 +18,14 @@ defmodule FDB.Transaction.Coder do
     {value, <<>>} = coder.value.module.decode(key, coder.value.opts)
     value
   end
+
+  def encode_range_start(coder, key) do
+    {range_start, _} = coder.key.module.range(key, coder.key.opts)
+    range_start
+  end
+
+  def encode_range_end(coder, key) do
+    {_, range_end} = coder.key.module.range(key, coder.key.opts)
+    range_end
+  end
 end

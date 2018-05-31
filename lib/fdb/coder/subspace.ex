@@ -28,4 +28,12 @@ defmodule FDB.Coder.Subspace do
     {^prefix, rest} = Utils.binary_cut(value, byte_size(prefix))
     coder.module.decode(rest, coder.opts)
   end
+
+  @impl true
+  def range(nil, opts), do: {opts.prefix <> <<0x00>>, opts.prefix <> <<0xFF>>}
+
+  def range(value, opts) do
+    {s, e} = opts.coder.range(value, opts)
+    {opts.prefix <> s, opts.prefix <> e}
+  end
 end
