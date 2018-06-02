@@ -14,6 +14,10 @@ defmodule FDB.Database do
     %Database{resource: resource, coder: coder}
   end
 
+  def set_coder(db, coder) do
+    %{db | coder: coder}
+  end
+
   def set_option(database, option) do
     Native.database_set_option(database.resource, option)
     |> Utils.verify_result()

@@ -226,8 +226,12 @@ defmodule FDB.Transaction do
   end
 
   def commit(transaction) do
-    Native.transaction_commit(transaction.resource)
+    commit_q(transaction)
     |> Future.resolve()
+  end
+
+  def commit_q(transaction) do
+    Native.transaction_commit(transaction.resource)
   end
 
   def transact(database, callback) do
