@@ -769,8 +769,6 @@ transaction_get_range(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
       transaction->handle, begin_key->data, begin_key->size, begin_or_equal,
       begin_offset, end_key->data, end_key->size, end_or_equal, end_offset,
       limit, target_bytes, mode, iteration, snapshot, reverse);
-  fdb_transaction_clear_range(transaction->handle, begin_key->data,
-                              begin_key->size, end_key->data, end_key->size);
 
   enif_free(begin_key);
   enif_free(end_key);

@@ -102,9 +102,10 @@ defmodule FDB.Transaction do
           nil
 
         state ->
-          t = create(database)
-
-          {has_more, list} = get_range(t, state.begin_key_selector, state.end_key_selector, state)
+          {has_more, list} =
+            Transaction.transact(database, fn t ->
+              get_range(t, state.begin_key_selector, state.end_key_selector, state)
+            end)
 
           limit =
             if has_limit do
