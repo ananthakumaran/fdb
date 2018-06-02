@@ -399,4 +399,21 @@ defmodule FDBTest do
     )
     |> Stream.run()
   end
+
+  test "conflict range" do
+    value = random_value()
+    key = random_key()
+    db = new_database()
+
+    Transaction.transact(db, fn transaction ->
+      :ok =
+        Transaction.add_conflict_range(transaction, "fdb:a", "fdb:z", conflict_range_type_read())
+
+      :ok =
+        Transaction.add_conflict_range(transaction, "fdb:a", "fdb:z", conflict_range_type_write())
+
+      Transaction.set(transaction, key, value)
+      assert Transaction.get(transaction, key) == value
+    end)
+  end
 end

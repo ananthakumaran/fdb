@@ -816,6 +816,42 @@ transaction_set_read_version(ErlNifEnv *env, int argc,
 }
 
 static ERL_NIF_TERM
+transaction_add_conflict_range(ErlNifEnv *env, int argc,
+                               const ERL_NIF_TERM argv[]) {
+  Transaction *transaction;
+  int conflict_range_type;
+  fdb_error_t error;
+  ERL_NIF_TERM begin_key_term = argv[1];
+  ERL_NIF_TERM end_key_term = argv[2];
+
+  ErlNifBinary *begin_key = enif_alloc(sizeof(ErlNifBinary));
+  ErlNifBinary *end_key = enif_alloc(sizeof(ErlNifBinary));
+
+  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE,
+                                (void **)&transaction),
+              "transaction");
+  VERIFY_ARGV(enif_is_binary(env, begin_key_term), "begin_key");
+  VERIFY_ARGV(enif_is_binary(env, end_key_term), "end_key");
+  VERIFY_ARGV(enif_get_int(env, argv[3], &conflict_range_type),
+              "conflict_range_type");
+
+  enif_inspect_binary(transaction->env,
+                      enif_make_copy(transaction->env, begin_key_term),
+                      begin_key);
+  enif_inspect_binary(transaction->env,
+                      enif_make_copy(transaction->env, end_key_term), end_key);
+
+  error = fdb_transaction_add_conflict_range(
+      transaction->handle, begin_key->data, begin_key->size, end_key->data,
+      end_key->size, conflict_range_type);
+
+  enif_free(begin_key);
+  enif_free(end_key);
+
+  return enif_make_int(env, error);
+}
+
+static ERL_NIF_TERM
 transaction_atomic_op(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   Transaction *transaction;
   ERL_NIF_TERM key_term = argv[1];
@@ -966,6 +1002,7 @@ static ErlNifFunc nif_funcs[] = {
     {"transaction_get_range", 13, transaction_get_range, 0},
     {"transaction_set", 3, transaction_set, 0},
     {"transaction_set_read_version", 2, transaction_set_read_version, 0},
+    {"transaction_add_conflict_range", 4, transaction_add_conflict_range, 0},
     {"transaction_get_committed_version", 1, transaction_get_committed_version,
      0},
     {"transaction_get_versionstamp", 1, transaction_get_versionstamp, 0},

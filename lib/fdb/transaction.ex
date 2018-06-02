@@ -248,4 +248,9 @@ defmodule FDB.Transaction do
         raise e
       end
   end
+
+  def add_conflict_range(transaction, begin_key, end_key, type) do
+    Native.transaction_add_conflict_range(transaction.resource, begin_key, end_key, type)
+    |> Utils.verify_result()
+  end
 end
