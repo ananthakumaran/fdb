@@ -21,7 +21,18 @@ defmodule FDB.Coder.Dynamic do
     coder.module.encode(value, coder.opts)
   end
 
-  @impl true
+  def encode({:float32, n}, coders), do: <<0x20>> <> n
+  def encode({:float64, n}, coders), do: <<0x21>> <> n
+  def encode({nil, nil}, coders), do: <<0x00>>
+
+  def encode({:nested, values}, coders) do
+    Enum.map(Tuple.to_list(values), fn
+      {nil, nil} -> <<0x00, 0xFF>>
+      value -> encode(value, coders)
+    end)
+    |> Enum.join(<<>>)
+  end
+
   def encode(values, coders) when is_tuple(values) do
     Enum.map(Tuple.to_list(values), fn value ->
       encode(value, coders)
@@ -35,8 +46,11 @@ defmodule FDB.Coder.Dynamic do
   end
 
   @impl true
-  def range(_, _) do
-    raise "range not supported"
+  def range(nil, _), do: {<<0x00>>, <<0xFF>>}
+
+  def range(n, opts) do
+    encoded = encode(n, opts)
+    {encoded <> <<0x00>>, encoded <> <<0xFF>>}
   end
 
   defp loop(<<>>, coders, acc), do: acc
@@ -59,7 +73,7 @@ defmodule FDB.Coder.Dynamic do
     do: {Tuple.append(acc, {:float32, n}), rest}
 
   defp do_decode(<<0x21>> <> <<n::binary-size(8), rest::binary>>, coders, acc),
-    do: {Tuple.append(acc, {:floa64, n}), rest}
+    do: {Tuple.append(acc, {:float64, n}), rest}
 
   defp do_decode(<<0x30>> <> rest = full, coders, acc),
     do: apply_coder(:uuid, full, coders, acc)

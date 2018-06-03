@@ -4,6 +4,7 @@ defmodule FDB.Transaction do
   alias FDB.Utils
   alias FDB.KeySelector
   alias FDB.Transaction
+  alias FDB.Database
   alias FDB.Transaction.Coder
 
   defstruct resource: nil, coder: nil
@@ -71,13 +72,18 @@ defmodule FDB.Transaction do
     end)
   end
 
-  def get_range_stream(database, begin_key_selector, end_key_selector, options \\ %{}) do
+  def get_range_stream(
+        database_or_transaction,
+        begin_key_selector,
+        end_key_selector,
+        options \\ %{}
+      ) do
     has_limit = Map.has_key?(options, :limit)
 
     {begin_key, begin_or_equal, begin_offset} = begin_key_selector
     {end_key, end_or_equal, end_offset} = end_key_selector
-    begin_key = Coder.encode_range_start(database.coder, begin_key)
-    end_key = Coder.encode_range_end(database.coder, end_key)
+    begin_key = Coder.encode_range_start(database_or_transaction.coder, begin_key)
+    end_key = Coder.encode_range_end(database_or_transaction.coder, end_key)
     begin_key_selector = {begin_key, begin_or_equal, begin_offset}
     end_key_selector = {end_key, end_or_equal, end_offset}
 
@@ -103,9 +109,20 @@ defmodule FDB.Transaction do
 
         state ->
           {has_more, list} =
-            Transaction.transact(database, fn t ->
-              get_range(t, state.begin_key_selector, state.end_key_selector, state)
-            end)
+            case database_or_transaction do
+              %Database{} ->
+                Transaction.transact(database_or_transaction, fn t ->
+                  get_range(t, state.begin_key_selector, state.end_key_selector, state)
+                end)
+
+              %Transaction{} ->
+                get_range(
+                  database_or_transaction,
+                  state.begin_key_selector,
+                  state.end_key_selector,
+                  state
+                )
+            end
 
           limit =
             if has_limit do
@@ -134,7 +151,7 @@ defmodule FDB.Transaction do
               {nil, nil}
             end
 
-          {decode_range_items(database.coder, list),
+          {decode_range_items(database_or_transaction.coder, list),
            %{
              state
              | has_more: has_more,
@@ -222,6 +239,9 @@ defmodule FDB.Transaction do
   end
 
   def clear_range(transaction, begin_key, end_key) do
+    begin_key = Coder.encode_range_start(transaction.coder, begin_key)
+    end_key = Coder.encode_range_end(transaction.coder, end_key)
+
     Native.transaction_clear_range(transaction.resource, begin_key, end_key)
     |> Utils.verify_result()
   end
@@ -250,6 +270,9 @@ defmodule FDB.Transaction do
   end
 
   def add_conflict_range(transaction, begin_key, end_key, type) do
+    begin_key = Coder.encode_range_start(transaction.coder, begin_key)
+    end_key = Coder.encode_range_end(transaction.coder, end_key)
+
     Native.transaction_add_conflict_range(transaction.resource, begin_key, end_key, type)
     |> Utils.verify_result()
   end

@@ -19,6 +19,8 @@ defmodule FDB.Machine do
   alias FDB.Future
   alias FDB.TransactionMap
   alias FDB.Coder.Dynamic
+  alias FDB.KeySelector
+  alias FDB.Option
 
   defmodule State do
     defstruct stack: [], db: nil, prefix: nil, transaction_name: nil, last_version: nil
@@ -56,22 +58,48 @@ defmodule FDB.Machine do
   def execute({id, {{_, "TUPLE_PACK"}}}, s) do
     [{_, i} | stack] = s.stack
     {items, stack} = Enum.split(stack, i)
-    coder = Dynamic.new()
-    value = coder.module.encode(List.to_tuple(items), coder.opts)
-    %{s | stack: [value | stack]}
+    %{s | stack: [tuple_pack(items) | stack]}
+  end
+
+  def execute({id, {{_, "TUPLE_SORT"}}}, s) do
+    [{_, i} | stack] = s.stack
+    {items, stack} = Enum.split(stack, i)
+    %{s | stack: [tuple_sort(items) | stack]}
   end
 
   def execute({id, {{_, op}}}, s) when op in ["NEW_TRANSACTION", "RESET"] do
     :ok = TransactionMap.put(s.transaction_name, Transaction.create(s.db))
     s
-  end <
-    def execute({id, {{_, "GET_READ_VERSION"}}}, s) do
-      %{
-        s
-        | last_version: Transaction.get_read_version(trx(s)),
-          stack: [{:unicode_string, "GOT_READ_VERSION"} | s.stack]
-      }
-    end
+  end
+
+  def execute({id, {{_, "GET_READ_VERSION"}}}, s) do
+    %{
+      s
+      | last_version: Transaction.get_read_version(trx(s)),
+        stack: [{:byte_string, "GOT_READ_VERSION"} | s.stack]
+    }
+  end
+
+  def execute({id, {{_, "GET_RANGE_STARTS_WITH"}}}, s) do
+    {[prefix, {:integer, limit}, {:integer, reverse}, {:integer, streaming_mode}], stack} =
+      Enum.split(s.stack, 4)
+
+    result =
+      Transaction.get_range_stream(
+        trx(s),
+        KeySelector.first_greater_or_equal(prefix),
+        KeySelector.first_greater_or_equal(prefix),
+        %{
+          limit: limit,
+          reverse: reverse,
+          mode: streaming_mode
+        }
+      )
+      |> Enum.map(&Tuple.to_list/1)
+      |> Enum.concat()
+
+    %{s | stack: [tuple_pack(result) | stack]}
+  end
 
   def execute({id, {{_, "SET"}}}, s) do
     [key | [value | stack]] = s.stack
@@ -79,11 +107,47 @@ defmodule FDB.Machine do
     %{s | stack: stack}
   end
 
+  def execute({id, {{_, "DISABLE_WRITE_CONFLICT"}}}, s) do
+    :ok =
+      Transaction.set_option(
+        trx(s),
+        Option.transaction_option_next_write_no_write_conflict_range()
+      )
+
+    s
+  end
+
+  def execute({id, {{_, "WRITE_CONFLICT_RANGE"}}}, s) do
+    [begin_key | [end_key | stack]] = s.stack
+
+    result =
+      rescue_error(2, s, fn ->
+        Transaction.add_conflict_range(
+          trx(s),
+          begin_key,
+          end_key,
+          Option.conflict_range_type_write()
+        )
+      end)
+
+    %{s | stack: [result | stack]}
+  end
+
   def execute({id, {{_, "CLEAR_DATABASE"}}}, s) do
     [key | stack] = s.stack
 
     t = Transaction.create(s.db)
     :ok = Transaction.clear(t, key)
+    f = Transaction.commit_q(t)
+
+    %{s | stack: [f | stack]}
+  end
+
+  def execute({id, {{_, "CLEAR_RANGE_STARTS_WITH_DATABASE"}}}, s) do
+    [key | stack] = s.stack
+
+    t = Transaction.create(s.db)
+    :ok = Transaction.clear_range(t, key, key)
     f = Transaction.commit_q(t)
 
     %{s | stack: [f | stack]}
@@ -102,8 +166,33 @@ defmodule FDB.Machine do
     raise "Unknown instruction #{inspect(instruction)}"
   end
 
+  defp tuple_pack(items) do
+    coder = Dynamic.new()
+    value = coder.module.encode(List.to_tuple(items), coder.opts)
+  end
+
+  defp tuple_sort(items) do
+    coder = Dynamic.new()
+
+    Enum.map(items, fn item ->
+      {value, ""} = coder.module.decode(item, coder.opts)
+      value
+    end)
+    |> Enum.sort_by(fn item -> coder.module.encode(item, coder.opts) end)
+    |> tuple_pack()
+  end
+
   defp trx(s) do
     FDB.TransactionMap.get(s.transaction_name)
+  end
+
+  defp rescue_error(size, s, cb) do
+    cb.()
+  rescue
+    e in FDB.Error ->
+      stack = Enum.drop(s.stack, size)
+      error = {{:byte_string, "ERROR"}, {:byte_string, Integer.to_string(e.code)}}
+      %{s | stack: [error | stack]}
   end
 end
 
