@@ -121,7 +121,7 @@ defmodule FDB.Machine do
     [begin_key | [end_key | stack]] = s.stack
 
     result =
-      rescue_error(2, s, fn ->
+      rescue_error(fn ->
         Transaction.add_conflict_range(
           trx(s),
           begin_key,
@@ -186,13 +186,11 @@ defmodule FDB.Machine do
     FDB.TransactionMap.get(s.transaction_name)
   end
 
-  defp rescue_error(size, s, cb) do
+  defp rescue_error(cb) do
     cb.()
   rescue
     e in FDB.Error ->
-      stack = Enum.drop(s.stack, size)
-      error = {{:byte_string, "ERROR"}, {:byte_string, Integer.to_string(e.code)}}
-      %{s | stack: [error | stack]}
+      {{:byte_string, "ERROR"}, {:byte_string, Integer.to_string(e.code)}}
   end
 end
 
