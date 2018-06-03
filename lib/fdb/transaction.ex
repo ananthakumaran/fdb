@@ -193,6 +193,7 @@ defmodule FDB.Transaction do
 
   def get_key(transaction, key_selector, snapshot \\ 0) do
     {key, or_equal, offset} = key_selector
+    key = Coder.encode_range_start(transaction.coder, key)
 
     k =
       Native.transaction_get_key(transaction.resource, key, or_equal, offset, snapshot)
