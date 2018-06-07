@@ -24,6 +24,10 @@ defmodule FDB.Transaction do
     %Transaction{resource: resource, coder: coder}
   end
 
+  def set_coder(transaction, coder) do
+    %{transaction | coder: coder}
+  end
+
   def set_option(transaction, option) do
     Native.transaction_set_option(transaction.resource, option)
     |> Utils.verify_result()
@@ -95,7 +99,7 @@ defmodule FDB.Transaction do
           reverse: Map.get(options, :reverse, 0),
           has_more: 1,
           iteration: 1,
-          mode: FDB.Option.streaming_mode_iterator(),
+          mode: Map.get(options, :mode, FDB.Option.streaming_mode_iterator()),
           begin_key_selector: {begin_key, begin_or_equal, begin_offset},
           end_key_selector: {end_key, end_or_equal, end_offset}
         }

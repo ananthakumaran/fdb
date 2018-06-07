@@ -59,7 +59,34 @@ defmodule FDB.Machine do
 
   def execute({id, instruction}, s) do
     [{:unicode_string, op} | rest] = Tuple.to_list(instruction)
-    do_execute(id, List.to_tuple([op | rest]), s)
+
+    IO.puts(
+      "#{String.pad_leading(to_string(id), 5)} #{String.pad_leading(op, 20)} #{inspect(rest)}"
+    )
+
+    cond do
+      String.ends_with?(op, "_DATABASE") ->
+        op = String.replace(op, "_DATABASE", "")
+        old_t = trx(s)
+        t = Transaction.create(s.db)
+        :ok = TransactionMap.put(s.transaction_name, t)
+        s = do_execute(id, List.to_tuple([op | rest]), s)
+        :ok = TransactionMap.put(s.transaction_name, old_t)
+
+        [top | rest] = s.stack
+
+        case top do
+          {_, ^id} ->
+            s
+
+          _ ->
+            f = Transaction.commit_q(t)
+            %{s | stack: push(s.stack, f, id)}
+        end
+
+      true ->
+        do_execute(id, List.to_tuple([op | rest]), s)
+    end
   end
 
   def do_execute(id, {"PUSH", value}, s) do
@@ -105,13 +132,19 @@ defmodule FDB.Machine do
     db =
       Database.set_coder(s.db, %Transaction.Coder{
         key: Coder.Tuple.new({Coder.Identity.new(), Coder.Integer.new(), Coder.Integer.new()}),
-        value: Coder.ByteString.new()
+        value: Coder.Dynamic.new()
       })
 
     Transaction.transact(db, fn t ->
       Enum.reverse(stack)
       |> Enum.with_index()
       |> Enum.each(fn {{item, id}, i} ->
+        item =
+          cond do
+            is_binary(item) -> {:byte_string, item}
+            true -> item
+          end
+
         Transaction.set(t, {prefix, i, id}, item)
       end)
     end)
@@ -127,21 +160,24 @@ defmodule FDB.Machine do
     }
   end
 
-  def do_execute(id, {"GET_KEY_DATABASE"}, s) do
+  def do_execute(id, {"GET_KEY"}, s) do
     {{:byte_string, key}, {:integer, or_equal}, {:integer, offset}, {:byte_string, prefix}, stack} =
       pop(s.stack, 4)
 
-    {{:byte_string, result}} =
-      Transaction.get_key(trx(s), {{:byte_string, key}, or_equal, offset})
+    result =
+      Transaction.get_key(
+        trx(s, %Transaction.Coder{}),
+        {key, or_equal, offset}
+      )
 
     result =
       cond do
-        String.starts_with?(result, key) -> result
+        String.starts_with?(result, prefix) -> result
         result < prefix -> prefix
         true -> strinc(result)
       end
 
-    %{s | stack: push(stack, {:byte_string, result}, id)}
+    %{s | stack: push(stack, result, id)}
   end
 
   def do_execute(id, {"GET_RANGE_STARTS_WITH"}, s) do
@@ -149,25 +185,28 @@ defmodule FDB.Machine do
      stack} = pop(s.stack, 4)
 
     result =
-      Transaction.get_range_stream(
-        trx(s),
-        KeySelector.first_greater_or_equal(prefix),
-        KeySelector.first_greater_or_equal(prefix),
-        %{
-          limit: limit,
-          reverse: reverse,
-          mode: streaming_mode
-        }
-      )
-      |> Enum.map(&Tuple.to_list/1)
-      |> Enum.concat()
+      rescue_error(fn ->
+        Transaction.get_range_stream(
+          trx(s, %Transaction.Coder{}),
+          KeySelector.first_greater_or_equal(prefix),
+          KeySelector.first_greater_or_equal(prefix),
+          %{
+            limit: limit,
+            reverse: reverse,
+            mode: streaming_mode
+          }
+        )
+        |> Enum.map(&Tuple.to_list/1)
+        |> Enum.concat()
+        |> tuple_pack()
+      end)
 
-    %{s | stack: push(stack, tuple_pack(result), id)}
+    %{s | stack: push(stack, result, id)}
   end
 
   def do_execute(id, {"SET"}, s) do
     {{:byte_string, key}, {:byte_string, value}, stack} = pop(s.stack, 2)
-    :ok = Transaction.set(trx(s), key, value)
+    :ok = Transaction.set(trx(s, %Transaction.Coder{}), key, value)
     %{s | stack: stack}
   end
 
@@ -197,24 +236,16 @@ defmodule FDB.Machine do
     %{s | stack: push(stack, result, id)}
   end
 
-  def do_execute(id, {"CLEAR_DATABASE"}, s) do
+  def do_execute(id, {"CLEAR"}, s) do
     {key, stack} = pop(s.stack)
-
-    t = Transaction.create(s.db)
-    :ok = Transaction.clear(t, key)
-    f = Transaction.commit_q(t)
-
-    %{s | stack: push(stack, f, id)}
+    :ok = Transaction.clear(trx(s, s.db.coder), key)
+    %{s | stack: stack}
   end
 
-  def do_execute(id, {"CLEAR_RANGE_STARTS_WITH_DATABASE"}, s) do
+  def do_execute(id, {"CLEAR_RANGE_STARTS_WITH"}, s) do
     {key, stack} = pop(s.stack)
-
-    t = Transaction.create(s.db)
-    :ok = Transaction.clear_range(t, key, key)
-    f = Transaction.commit_q(t)
-
-    %{s | stack: push(stack, f, id)}
+    :ok = Transaction.clear_range(trx(s, s.db.coder), key, key)
+    %{s | stack: stack}
   end
 
   def do_execute(id, {"COMMIT"}, s) do
@@ -271,15 +302,21 @@ defmodule FDB.Machine do
     prefix <> <<last + 1::integer>>
   end
 
-  defp trx(s) do
-    FDB.TransactionMap.get(s.transaction_name)
+  defp trx(s, coder \\ nil) do
+    t = FDB.TransactionMap.get(s.transaction_name)
+
+    if coder do
+      Transaction.set_coder(t, coder)
+    else
+      t
+    end
   end
 
   defp rescue_error(cb) do
     cb.()
   rescue
     e in FDB.Error ->
-      {{:byte_string, "ERROR"}, {:byte_string, Integer.to_string(e.code)}}
+      tuple_pack([{:byte_string, "ERROR"}, {:byte_string, Integer.to_string(e.code)}])
   end
 end
 
