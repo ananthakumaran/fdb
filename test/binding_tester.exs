@@ -57,16 +57,21 @@ defmodule FDB.Machine do
     %State{db: db, prefix: prefix, transaction_name: prefix}
   end
 
-  def execute({id, {{_, "PUSH"}, value}}, s) do
+  def execute({id, instruction}, s) do
+    [{:unicode_string, op} | rest] = Tuple.to_list(instruction)
+    do_execute(id, List.to_tuple([op | rest]), s)
+  end
+
+  def do_execute(id, {"PUSH", value}, s) do
     %{s | stack: push(s.stack, value, id)}
   end
 
-  def execute({id, {{_, "SUB"}}}, s) do
+  def do_execute(id, {"SUB"}, s) do
     {{_, a}, {_, b}, stack} = pop(s.stack, 2)
     %{s | stack: push(stack, {:arbitrary_integer, a - b}, id)}
   end
 
-  def execute({id, {{_, "SWAP"}}}, s) do
+  def do_execute(id, {"SWAP"}, s) do
     {{_, i}, stack} = pop(s.stack)
 
     stack =
@@ -76,25 +81,25 @@ defmodule FDB.Machine do
     %{s | stack: stack}
   end
 
-  def execute({id, {{_, "TUPLE_PACK"}}}, s) do
+  def do_execute(id, {"TUPLE_PACK"}, s) do
     {{_, i}, stack} = pop(s.stack)
     {items, stack} = split(stack, i)
     %{s | stack: push(stack, tuple_pack(items), id)}
   end
 
-  def execute({id, {{_, "TUPLE_SORT"}}}, s) do
+  def do_execute(id, {"TUPLE_SORT"}, s) do
     {{_, i}, stack} = pop(s.stack)
     {items, stack} = split(stack, i)
     %{s | stack: push(stack, tuple_sort(items), id)}
   end
 
-  def execute({id, {{_, op}}}, s) when op in ["NEW_TRANSACTION", "RESET"] do
+  def do_execute(id, {op}, s) when op in ["NEW_TRANSACTION", "RESET"] do
     db = Database.set_coder(s.db, %Transaction.Coder{})
     :ok = TransactionMap.put(s.transaction_name, Transaction.create(db))
     s
   end
 
-  def execute({id, {{_, "LOG_STACK"}}}, s) do
+  def do_execute(id, {"LOG_STACK"}, s) do
     {{:byte_string, prefix}, stack} = pop(s.stack)
 
     db =
@@ -114,7 +119,7 @@ defmodule FDB.Machine do
     %{s | stack: []}
   end
 
-  def execute({id, {{_, "GET_READ_VERSION"}}}, s) do
+  def do_execute(id, {"GET_READ_VERSION"}, s) do
     %{
       s
       | last_version: Transaction.get_read_version(trx(s)),
@@ -122,7 +127,7 @@ defmodule FDB.Machine do
     }
   end
 
-  def execute({id, {{_, "GET_KEY_DATABASE"}}}, s) do
+  def do_execute(id, {"GET_KEY_DATABASE"}, s) do
     {{:byte_string, key}, {:integer, or_equal}, {:integer, offset}, {:byte_string, prefix}, stack} =
       pop(s.stack, 4)
 
@@ -139,7 +144,7 @@ defmodule FDB.Machine do
     %{s | stack: push(stack, {:byte_string, result}, id)}
   end
 
-  def execute({id, {{_, "GET_RANGE_STARTS_WITH"}}}, s) do
+  def do_execute(id, {"GET_RANGE_STARTS_WITH"}, s) do
     {{:byte_string, prefix}, {:integer, limit}, {:integer, reverse}, {:integer, streaming_mode},
      stack} = pop(s.stack, 4)
 
@@ -160,13 +165,13 @@ defmodule FDB.Machine do
     %{s | stack: push(stack, tuple_pack(result), id)}
   end
 
-  def execute({id, {{_, "SET"}}}, s) do
+  def do_execute(id, {"SET"}, s) do
     {{:byte_string, key}, {:byte_string, value}, stack} = pop(s.stack, 2)
     :ok = Transaction.set(trx(s), key, value)
     %{s | stack: stack}
   end
 
-  def execute({id, {{_, "DISABLE_WRITE_CONFLICT"}}}, s) do
+  def do_execute(id, {"DISABLE_WRITE_CONFLICT"}, s) do
     :ok =
       Transaction.set_option(
         trx(s),
@@ -176,7 +181,7 @@ defmodule FDB.Machine do
     s
   end
 
-  def execute({id, {{_, "WRITE_CONFLICT_RANGE"}}}, s) do
+  def do_execute(id, {"WRITE_CONFLICT_RANGE"}, s) do
     {begin_key, end_key, stack} = pop(s.stack, 2)
 
     result =
@@ -192,7 +197,7 @@ defmodule FDB.Machine do
     %{s | stack: push(stack, result, id)}
   end
 
-  def execute({id, {{_, "CLEAR_DATABASE"}}}, s) do
+  def do_execute(id, {"CLEAR_DATABASE"}, s) do
     {key, stack} = pop(s.stack)
 
     t = Transaction.create(s.db)
@@ -202,7 +207,7 @@ defmodule FDB.Machine do
     %{s | stack: push(stack, f, id)}
   end
 
-  def execute({id, {{_, "CLEAR_RANGE_STARTS_WITH_DATABASE"}}}, s) do
+  def do_execute(id, {"CLEAR_RANGE_STARTS_WITH_DATABASE"}, s) do
     {key, stack} = pop(s.stack)
 
     t = Transaction.create(s.db)
@@ -212,11 +217,11 @@ defmodule FDB.Machine do
     %{s | stack: push(stack, f, id)}
   end
 
-  def execute({id, {{_, "COMMIT"}}}, s) do
+  def do_execute(id, {"COMMIT"}, s) do
     %{s | stack: push(s.stack, Transaction.commit_q(trx(s)), id)}
   end
 
-  def execute({id, {{_, "WAIT_FUTURE"}}}, s) do
+  def do_execute(id, {"WAIT_FUTURE"}, s) do
     [{f, id} | stack] = s.stack
 
     stack =
@@ -234,7 +239,7 @@ defmodule FDB.Machine do
     %{s | stack: stack}
   end
 
-  def execute({id, instruction}, _) do
+  def do_execute(id, instruction, _s) do
     raise "Unknown instruction #{inspect(instruction)}"
   end
 
