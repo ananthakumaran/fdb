@@ -65,7 +65,7 @@ defmodule FDB.Machine do
     )
 
     cond do
-      String.ends_with?(op, "_DATABASE") ->
+      String.contains?(op, "_DATABASE") ->
         op = String.replace(op, "_DATABASE", "")
         old_t = trx(s)
         t = Transaction.create(s.db)
@@ -83,6 +83,11 @@ defmodule FDB.Machine do
             f = Transaction.commit_q(t)
             %{s | stack: push(s.stack, f, id)}
         end
+
+      String.contains?(op, "_SNAPSHOT") ->
+        op = String.replace(op, "_SNAPSHOT", "")
+        enable_snapshot(trx(s))
+        do_execute(id, List.to_tuple([op | rest]), s)
 
       true ->
         do_execute(id, List.to_tuple([op | rest]), s)
@@ -387,6 +392,10 @@ defmodule FDB.Machine do
     else
       t
     end
+  end
+
+  defp enable_snapshot(transaction) do
+    Transaction.set_option(transaction, Option.transaction_option_snapshot_ryw_enable())
   end
 
   defp rescue_error(cb) do
