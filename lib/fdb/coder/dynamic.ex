@@ -8,29 +8,43 @@ defmodule FDB.Coder.Dynamic do
       integer: FDB.Coder.Integer.new(),
       boolean: FDB.Coder.Boolean.new(),
       arbitrary_integer: FDB.Coder.ArbitraryInteger.new(),
-      uuid: FDB.Coder.UUID.new()
+      uuid: FDB.Coder.UUID.new(),
+      float32: FDB.Coder.Float.new(),
+      float64: FDB.Coder.Float.new(64)
     }
 
     %FDB.Coder{module: __MODULE__, opts: coders}
   end
 
   @impl true
+  def encode({:float32, n}, coders) when is_binary(n), do: <<0x20>> <> n
+  def encode({:float64, n}, coders) when is_binary(n), do: <<0x21>> <> n
+  def encode({nil, nil}, coders), do: <<0x00>>
+
   def encode({tag, value}, coders)
-      when tag in [:byte_string, :unicode_string, :integer, :boolean, :arbitrary_integer, :uuid] do
+      when tag in [
+             :byte_string,
+             :unicode_string,
+             :integer,
+             :boolean,
+             :arbitrary_integer,
+             :uuid,
+             :float32,
+             :float64
+           ] do
     coder = coders[tag]
     coder.module.encode(value, coder.opts)
   end
 
-  def encode({:float32, n}, coders), do: <<0x20>> <> n
-  def encode({:float64, n}, coders), do: <<0x21>> <> n
-  def encode({nil, nil}, coders), do: <<0x00>>
-
   def encode({:nested, values}, coders) do
-    Enum.map(Tuple.to_list(values), fn
-      {nil, nil} -> <<0x00, 0xFF>>
-      value -> encode(value, coders)
-    end)
-    |> Enum.join(<<>>)
+    encoded =
+      Enum.map(Tuple.to_list(values), fn
+        {nil, nil} -> <<0x00, 0xFF>>
+        value -> encode(value, coders)
+      end)
+      |> Enum.join(<<>>)
+
+    <<0x05>> <> encoded <> <<0x00>>
   end
 
   def encode(values, coders) when is_tuple(values) do
@@ -69,11 +83,15 @@ defmodule FDB.Coder.Dynamic do
   defp do_decode(<<0x02>> <> rest = full, coders, acc),
     do: apply_coder(:unicode_string, full, coders, acc)
 
-  defp do_decode(<<0x20>> <> <<n::binary-size(4), rest::binary>>, coders, acc),
-    do: {Tuple.append(acc, {:float32, n}), rest}
+  defp do_decode(<<0x20>> <> <<n::binary-size(4), rest::binary>> = full, coders, acc),
+    do: apply_coder(:float32, full, coders, acc)
 
-  defp do_decode(<<0x21>> <> <<n::binary-size(8), rest::binary>>, coders, acc),
-    do: {Tuple.append(acc, {:float64, n}), rest}
+  # do: {Tuple.append(acc, {:float32, n}), rest}
+
+  defp do_decode(<<0x21>> <> <<n::binary-size(8), rest::binary>> = full, coders, acc),
+    do: apply_coder(:float64, full, coders, acc)
+
+  # do: {Tuple.append(acc, {:float64, n}), rest}
 
   defp do_decode(<<0x30>> <> rest = full, coders, acc),
     do: apply_coder(:uuid, full, coders, acc)

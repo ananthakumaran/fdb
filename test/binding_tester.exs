@@ -120,6 +120,24 @@ defmodule FDB.Machine do
     %{s | stack: push(stack, tuple_sort(items), id)}
   end
 
+  def do_execute(id, {"TUPLE_RANGE"}, s) do
+    {{_, i}, stack} = pop(s.stack)
+    {items, stack} = split(stack, i)
+    IO.inspect(items, label: "tuple")
+    {start_key, end_key} = tuple_range(items)
+
+    stack =
+      push(stack, start_key, id)
+      |> push(end_key, id)
+
+    %{s | stack: stack}
+  end
+
+  def do_execute(id, {"ENCODE_DOUBLE"}, s) do
+    {{_, <<n::64-float-big>>}, stack} = pop(s.stack)
+    %{s | stack: push(stack, {:float64, n}, id)}
+  end
+
   def do_execute(id, {op}, s) when op in ["NEW_TRANSACTION", "RESET"] do
     db = Database.set_coder(s.db, %Transaction.Coder{})
     :ok = TransactionMap.put(s.transaction_name, Transaction.create(db))
@@ -210,6 +228,15 @@ defmodule FDB.Machine do
     %{s | stack: stack}
   end
 
+  def do_execute(id, {"ATOMIC_OP"}, s) do
+    {{:unicode_string, op_name}, {:byte_string, key}, {:byte_string, value}, stack} =
+      pop(s.stack, 3)
+
+    op = apply(Option, String.to_atom("mutation_type_" <> String.downcase(op_name)), [])
+    :ok = Transaction.atomic_op(trx(s, %Transaction.Coder{}), key, value, op)
+    %{s | stack: stack}
+  end
+
   def do_execute(id, {"DISABLE_WRITE_CONFLICT"}, s) do
     :ok =
       Transaction.set_option(
@@ -226,11 +253,31 @@ defmodule FDB.Machine do
     result =
       rescue_error(fn ->
         Transaction.add_conflict_range(
-          trx(s),
+          trx(s, s.db.coder),
           begin_key,
           end_key,
           Option.conflict_range_type_write()
         )
+
+        "SET_CONFLICT_RANGE"
+      end)
+
+    %{s | stack: push(stack, result, id)}
+  end
+
+  def do_execute(id, {"READ_CONFLICT_KEY"}, s) do
+    {{:byte_string, key}, stack} = pop(s.stack)
+
+    result =
+      rescue_error(fn ->
+        Transaction.add_conflict_range(
+          trx(s, %Transaction.Coder{}),
+          key,
+          key,
+          Option.conflict_range_type_read()
+        )
+
+        "SET_CONFLICT_KEY"
       end)
 
     %{s | stack: push(stack, result, id)}
@@ -239,6 +286,12 @@ defmodule FDB.Machine do
   def do_execute(id, {"CLEAR"}, s) do
     {key, stack} = pop(s.stack)
     :ok = Transaction.clear(trx(s, s.db.coder), key)
+    %{s | stack: stack}
+  end
+
+  def do_execute(id, {"CLEAR_RANGE"}, s) do
+    {{:byte_string, start_key}, {:byte_string, end_key}, stack} = pop(s.stack, 2)
+    :ok = Transaction.clear_range(trx(s, %Transaction.Coder{}), start_key, end_key)
     %{s | stack: stack}
   end
 
@@ -294,6 +347,11 @@ defmodule FDB.Machine do
     end)
     |> Enum.sort_by(fn item -> coder.module.encode(item, coder.opts) end)
     |> tuple_pack()
+  end
+
+  defp tuple_range(items) do
+    coder = Dynamic.new()
+    coder.module.range(List.to_tuple(items), coder.opts)
   end
 
   defp strinc(text) do
