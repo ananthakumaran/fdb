@@ -245,6 +245,12 @@ defmodule FDB.Machine do
     %{s | stack: stack}
   end
 
+  def do_execute(id, {"GET"}, s) do
+    {{:byte_string, key}, stack} = pop(s.stack)
+    value = Transaction.get(trx(s, %Transaction.Coder{}), key)
+    %{s | stack: push(stack, value, id)}
+  end
+
   def do_execute(id, {"ATOMIC_OP"}, s) do
     {{:unicode_string, op_name}, {:byte_string, key}, {:byte_string, value}, stack} =
       pop(s.stack, 3)
