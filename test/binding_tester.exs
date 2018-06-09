@@ -61,7 +61,7 @@ defmodule FDB.Machine do
     [{:unicode_string, op} | rest] = Tuple.to_list(instruction)
 
     IO.puts(
-      "#{String.pad_leading(to_string(id), 5)} #{String.pad_leading(op, 20)} #{inspect(rest)}"
+      "#{String.pad_leading(to_string(id), 5)} #{String.pad_trailing(op, 20)} #{inspect(rest)}"
     )
 
     cond do
@@ -120,7 +120,7 @@ defmodule FDB.Machine do
   end
 
   def do_execute(id, {"TUPLE_UNPACK"}, s) do
-    {tuple, stack} = pop(s.stack)
+    {{:byte_string, tuple}, stack} = pop(s.stack)
     unpacked = tuple_unpack({:byte_string, tuple})
 
     stack =
@@ -134,18 +134,24 @@ defmodule FDB.Machine do
   def do_execute(id, {"TUPLE_SORT"}, s) do
     {{_, i}, stack} = pop(s.stack)
     {items, stack} = split(stack, i)
-    %{s | stack: push(stack, tuple_sort(items), id)}
+    sorted = tuple_sort(items)
+
+    stack =
+      Enum.reduce(sorted, stack, fn tuple, stack ->
+        push(stack, tuple, id)
+      end)
+
+    %{s | stack: stack}
   end
 
   def do_execute(id, {"TUPLE_RANGE"}, s) do
     {{_, i}, stack} = pop(s.stack)
     {items, stack} = split(stack, i)
-    IO.inspect(items, label: "tuple")
     {start_key, end_key} = tuple_range(items)
 
     stack =
-      push(stack, start_key, id)
-      |> push(end_key, id)
+      push(stack, {:byte_string, start_key}, id)
+      |> push({:byte_string, end_key}, id)
 
     %{s | stack: stack}
   end
@@ -153,6 +159,21 @@ defmodule FDB.Machine do
   def do_execute(id, {"ENCODE_DOUBLE"}, s) do
     {{_, <<n::64-float-big>>}, stack} = pop(s.stack)
     %{s | stack: push(stack, {:float64, n}, id)}
+  end
+
+  def do_execute(id, {"DECODE_DOUBLE"}, s) do
+    {{_, n}, stack} = pop(s.stack)
+    %{s | stack: push(stack, {:byte_string, <<n::64-float-big>>}, id)}
+  end
+
+  def do_execute(id, {"ENCODE_FLOAT"}, s) do
+    {{_, <<n::32-float-big>>}, stack} = pop(s.stack)
+    %{s | stack: push(stack, {:float32, n}, id)}
+  end
+
+  def do_execute(id, {"DECODE_FLOAT"}, s) do
+    {{_, n}, stack} = pop(s.stack)
+    %{s | stack: push(stack, {:byte_string, <<n::32-float-big>>}, id)}
   end
 
   def do_execute(id, {op}, s) when op in ["NEW_TRANSACTION", "RESET"] do
@@ -167,20 +188,25 @@ defmodule FDB.Machine do
     db =
       Database.set_coder(s.db, %Transaction.Coder{
         key: Coder.Tuple.new({Coder.Identity.new(), Coder.Integer.new(), Coder.Integer.new()}),
-        value: Coder.Dynamic.new()
+        value: Coder.Identity.new()
       })
 
-    Transaction.transact(db, fn t ->
-      Enum.reverse(stack)
-      |> Enum.with_index()
-      |> Enum.each(fn {{item, id}, i} ->
-        item =
-          cond do
-            is_binary(item) -> {:byte_string, item}
-            true -> item
-          end
+    Enum.reverse(stack)
+    |> Enum.with_index()
+    |> Enum.chunk_every(10)
+    |> Enum.each(fn chunk ->
+      Transaction.transact(db, fn t ->
+        Enum.each(chunk, fn {{item, id}, i} ->
+          item =
+            cond do
+              is_binary(item) -> {:byte_string, item}
+              true -> item
+            end
 
-        Transaction.set(t, {prefix, i, id}, item)
+          {:byte_string, binary} = tuple_pack([item])
+
+          Transaction.set(t, {prefix, i, id}, trim(binary))
+        end)
       end)
     end)
 
@@ -188,11 +214,41 @@ defmodule FDB.Machine do
   end
 
   def do_execute(id, {"GET_READ_VERSION"}, s) do
-    %{
-      s
-      | last_version: Transaction.get_read_version(trx(s)),
-        stack: push(s.stack, "GOT_READ_VERSION", id)
-    }
+    version =
+      rescue_error(fn ->
+        Transaction.get_read_version(trx(s))
+      end)
+
+    cond do
+      is_integer(version) ->
+        %{
+          s
+          | last_version: version,
+            stack: push(s.stack, {:byte_string, "GOT_READ_VERSION"}, id)
+        }
+
+      true ->
+        %{s | stack: push(s.stack, version, id)}
+    end
+  end
+
+  def do_execute(id, {"GET_COMMITTED_VERSION"}, s) do
+    version =
+      rescue_error(fn ->
+        Transaction.get_committed_version(trx(s))
+      end)
+
+    cond do
+      is_integer(version) ->
+        %{
+          s
+          | last_version: version,
+            stack: push(s.stack, {:byte_string, "GOT_COMMITTED_VERSION"}, id)
+        }
+
+      true ->
+        %{s | stack: push(s.stack, version, id)}
+    end
   end
 
   def do_execute(id, {"GET_KEY"}, s) do
@@ -200,17 +256,22 @@ defmodule FDB.Machine do
       pop(s.stack, 4)
 
     result =
-      Transaction.get_key(
-        trx(s, %Transaction.Coder{}),
-        {key, or_equal, offset}
-      )
+      rescue_error(fn ->
+        result =
+          Transaction.get_key(
+            trx(s, %Transaction.Coder{}),
+            {key, or_equal, offset}
+          )
 
-    result =
-      cond do
-        String.starts_with?(result, prefix) -> result
-        result < prefix -> prefix
-        true -> strinc(result)
-      end
+        result =
+          cond do
+            String.starts_with?(result, prefix) -> result
+            result < prefix -> prefix
+            true -> strinc(result)
+          end
+
+        {:byte_string, result}
+      end)
 
     %{s | stack: push(stack, result, id)}
   end
@@ -234,6 +295,31 @@ defmodule FDB.Machine do
           }
         )
         |> Enum.filter(fn {key, value} -> String.starts_with?(key, prefix) end)
+        |> Enum.map(fn {key, value} -> {{:byte_string, key}, {:byte_string, value}} end)
+        |> Enum.map(&Tuple.to_list/1)
+        |> Enum.concat()
+        |> tuple_pack()
+      end)
+
+    %{s | stack: push(stack, result, id)}
+  end
+
+  def do_execute(id, {"GET_RANGE"}, s) do
+    {{:byte_string, begin_key}, {:byte_string, end_key}, {:integer, limit}, {:integer, reverse},
+     {:integer, streaming_mode}, stack} = pop(s.stack, 5)
+
+    result =
+      rescue_error(fn ->
+        Transaction.get_range_stream(
+          trx(s, %Transaction.Coder{}),
+          KeySelector.first_greater_or_equal(begin_key),
+          KeySelector.first_greater_or_equal(end_key),
+          %{
+            limit: limit,
+            reverse: reverse,
+            mode: streaming_mode
+          }
+        )
         |> Enum.map(fn {key, value} -> {{:byte_string, key}, {:byte_string, value}} end)
         |> Enum.map(&Tuple.to_list/1)
         |> Enum.concat()
@@ -274,10 +360,21 @@ defmodule FDB.Machine do
     %{s | stack: stack}
   end
 
+  def do_execute(id, {"SET_READ_VERSION"}, s) do
+    :ok = Transaction.set_read_version(trx(s), s.last_version)
+    s
+  end
+
   def do_execute(id, {"GET"}, s) do
     {{:byte_string, key}, stack} = pop(s.stack)
-    value = Transaction.get(trx(s, %Transaction.Coder{}), key)
-    %{s | stack: push(stack, value, id)}
+
+    result =
+      rescue_error(fn ->
+        value = Transaction.get(trx(s, %Transaction.Coder{}), key)
+        {:byte_string, value || "RESULT_NOT_PRESENT"}
+      end)
+
+    %{s | stack: push(stack, result, id)}
   end
 
   def do_execute(id, {"ATOMIC_OP"}, s) do
@@ -318,25 +415,28 @@ defmodule FDB.Machine do
     s
   end
 
-  def do_execute(id, {"WRITE_CONFLICT_RANGE"}, s) do
-    {begin_key, end_key, stack} = pop(s.stack, 2)
+  def do_execute(id, {op}, s) when op in ["WRITE_CONFLICT_RANGE", "READ_CONFLICT_RANGE"] do
+    {{:byte_string, begin_key}, {:byte_string, end_key}, stack} = pop(s.stack, 2)
 
     result =
       rescue_error(fn ->
         Transaction.add_conflict_range(
-          trx(s, s.db.coder),
+          trx(s, %Transaction.Coder{}),
           begin_key,
           end_key,
-          Option.conflict_range_type_write()
+          case op do
+            "READ_CONFLICT_RANGE" -> Option.conflict_range_type_read()
+            "WRITE_CONFLICT_RANGE" -> Option.conflict_range_type_write()
+          end
         )
 
-        "SET_CONFLICT_RANGE"
+        {:byte_string, "SET_CONFLICT_RANGE"}
       end)
 
     %{s | stack: push(stack, result, id)}
   end
 
-  def do_execute(id, {"READ_CONFLICT_KEY"}, s) do
+  def do_execute(id, {op}, s) when op in ["READ_CONFLICT_KEY", "WRITE_CONFLICT_KEY"] do
     {{:byte_string, key}, stack} = pop(s.stack)
 
     result =
@@ -345,18 +445,21 @@ defmodule FDB.Machine do
           trx(s, %Transaction.Coder{}),
           key,
           key,
-          Option.conflict_range_type_read()
+          case op do
+            "READ_CONFLICT_KEY" -> Option.conflict_range_type_read()
+            "WRITE_CONFLICT_KEY" -> Option.conflict_range_type_write()
+          end
         )
 
-        "SET_CONFLICT_KEY"
+        {:byte_string, "SET_CONFLICT_KEY"}
       end)
 
     %{s | stack: push(stack, result, id)}
   end
 
   def do_execute(id, {"CLEAR"}, s) do
-    {key, stack} = pop(s.stack)
-    :ok = Transaction.clear(trx(s, s.db.coder), key)
+    {{:byte_string, key}, stack} = pop(s.stack)
+    :ok = Transaction.clear(trx(s, %Transaction.Coder{}), key)
     %{s | stack: stack}
   end
 
@@ -367,8 +470,8 @@ defmodule FDB.Machine do
   end
 
   def do_execute(id, {"CLEAR_RANGE_STARTS_WITH"}, s) do
-    {key, stack} = pop(s.stack)
-    :ok = Transaction.clear_range(trx(s, s.db.coder), key, key)
+    {{:byte_string, key}, stack} = pop(s.stack)
+    :ok = Transaction.clear_range(trx(s, %Transaction.Coder{}), key, strinc(key))
     %{s | stack: stack}
   end
 
@@ -376,15 +479,21 @@ defmodule FDB.Machine do
     %{s | stack: push(s.stack, Transaction.commit_q(trx(s)), id)}
   end
 
+  def do_execute(id, {"CANCEL"}, s) do
+    :ok = Transaction.cancel(trx(s))
+    s
+  end
+
   def do_execute(id, {"WAIT_FUTURE"}, s) do
     [{f, id} | stack] = s.stack
 
     stack =
       if is_reference(f) do
-        result = Future.resolve(f)
+        result = rescue_error(fn -> Future.resolve(f) end)
 
         cond do
-          result in [:ok, nil] -> push(stack, "RESULT_NOT_PRESENT", id)
+          result in [:ok, nil] -> push(stack, {:byte_string, "RESULT_NOT_PRESENT"}, id)
+          is_binary(result) -> push(stack, {:byte_string, result}, id)
           true -> push(stack, result, id)
         end
       else
@@ -401,6 +510,7 @@ defmodule FDB.Machine do
   defp tuple_pack(items) do
     coder = Dynamic.new()
     value = coder.module.encode(List.to_tuple(items), coder.opts)
+    {:byte_string, value}
   end
 
   defp tuple_unpack({:byte_string, binary}) do
@@ -412,12 +522,13 @@ defmodule FDB.Machine do
   defp tuple_sort(items) do
     coder = Dynamic.new()
 
-    Enum.map(items, fn item ->
+    Enum.map(items, fn {:byte_string, item} ->
       {value, ""} = coder.module.decode(item, coder.opts)
       value
     end)
-    |> Enum.sort_by(fn item -> coder.module.encode(item, coder.opts) end)
-    |> tuple_pack()
+    |> Enum.map(fn item -> coder.module.encode(item, coder.opts) end)
+    |> Enum.sort()
+    |> Enum.map(&{:byte_string, &1})
   end
 
   defp tuple_range(items) do
@@ -427,8 +538,21 @@ defmodule FDB.Machine do
 
   defp strinc(text) do
     text = String.replace(text, ~r/#{<<0xFF>>}*\z/, "")
-    {prefix, <<last::integer>>} = String.split_at(text, -1)
-    prefix <> <<last + 1::integer>>
+
+    case text do
+      "" ->
+        <<0x00>>
+
+      _ ->
+        {prefix, <<last::integer>>} = cut(text, byte_size(text) - 1)
+        prefix <> <<last + 1::integer>>
+    end
+  end
+
+  defp cut(bin, at) do
+    first = binary_part(bin, 0, at)
+    rest = binary_part(bin, at, byte_size(bin) - at)
+    {first, rest}
   end
 
   defp trx(s, coder \\ nil) do
@@ -451,6 +575,12 @@ defmodule FDB.Machine do
     e in FDB.Error ->
       tuple_pack([{:byte_string, "ERROR"}, {:byte_string, Integer.to_string(e.code)}])
   end
+
+  defp trim(binary) when byte_size(binary) > 40000 do
+    binary_part(binary, 0, 40000)
+  end
+
+  defp trim(x), do: x
 end
 
 defmodule FDB.BindingTester do
