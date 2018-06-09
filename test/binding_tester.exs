@@ -119,6 +119,18 @@ defmodule FDB.Machine do
     %{s | stack: push(stack, tuple_pack(items), id)}
   end
 
+  def do_execute(id, {"TUPLE_UNPACK"}, s) do
+    {tuple, stack} = pop(s.stack)
+    unpacked = tuple_unpack({:byte_string, tuple})
+
+    stack =
+      Enum.reduce(Tuple.to_list(unpacked), stack, fn item, stack ->
+        push(stack, tuple_pack([item]), id)
+      end)
+
+    %{s | stack: stack}
+  end
+
   def do_execute(id, {"TUPLE_SORT"}, s) do
     {{_, i}, stack} = pop(s.stack)
     {items, stack} = split(stack, i)
