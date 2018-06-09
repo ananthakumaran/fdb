@@ -261,17 +261,22 @@ defmodule FDB.Transaction do
   end
 
   def transact(database, callback) do
-    transaction = create(database)
+    do_transact(create(database), callback)
+  end
+
+  defp do_transact(transaction, callback) do
     result = callback.(transaction)
     :ok = commit(transaction)
     result
   rescue
     e in FDB.Error ->
-      if Native.get_error_predicate(FDB.Option.error_predicate_retryable(), e.code) do
-        transact(database, callback)
-      else
-        raise e
-      end
+      :ok = on_error(transaction, e.code)
+      do_transact(transaction, callback)
+  end
+
+  def on_error(transaction, code) when is_integer(code) do
+    Native.transaction_on_error(transaction.resource, code)
+    |> Future.resolve()
   end
 
   def add_conflict_range(transaction, begin_key, end_key, type) do

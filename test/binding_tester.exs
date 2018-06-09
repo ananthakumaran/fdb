@@ -237,6 +237,25 @@ defmodule FDB.Machine do
     %{s | stack: stack}
   end
 
+  def do_execute(id, {"ON_ERROR"}, s) do
+    {{:integer, error_code}, stack} = pop(s.stack)
+
+    error =
+      rescue_error(fn ->
+        Transaction.on_error(trx(s), error_code)
+        nil
+      end)
+
+    stack =
+      if error do
+        push(stack, error, id)
+      else
+        stack
+      end
+
+    %{s | stack: stack}
+  end
+
   def do_execute(id, {"DISABLE_WRITE_CONFLICT"}, s) do
     :ok =
       Transaction.set_option(

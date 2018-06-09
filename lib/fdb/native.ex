@@ -72,6 +72,7 @@ defmodule FDB.Native do
     do: exit(:nif_library_not_loaded)
 
   def transaction_commit(_transaction), do: exit(:nif_library_not_loaded)
+  def transaction_on_error(_transaction, _error_code), do: exit(:nif_library_not_loaded)
   def get_error(_code), do: exit(:nif_library_not_loaded)
   def get_error_predicate(_predicate_test, _code), do: exit(:nif_library_not_loaded)
   def future_resolve(_future, _reference), do: exit(:nif_library_not_loaded)
