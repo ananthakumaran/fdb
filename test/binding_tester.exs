@@ -215,6 +215,34 @@ defmodule FDB.Machine do
     %{s | stack: push(stack, result, id)}
   end
 
+  def do_execute(id, {"GET_RANGE_SELECTOR"}, s) do
+    {{:byte_string, begin_key}, {:integer, begin_or_equal}, {:integer, begin_offset},
+     {:byte_string, end_key}, {:integer, end_or_equal}, {:integer, end_offset}, {:integer, limit},
+     {:integer, reverse}, {:integer, streaming_mode}, {:byte_string, prefix},
+     stack} = pop(s.stack, 10)
+
+    result =
+      rescue_error(fn ->
+        Transaction.get_range_stream(
+          trx(s, %Transaction.Coder{}),
+          {begin_key, begin_or_equal, begin_offset},
+          {end_key, end_or_equal, end_offset},
+          %{
+            limit: limit,
+            reverse: reverse,
+            mode: streaming_mode
+          }
+        )
+        |> Enum.filter(fn {key, value} -> String.starts_with?(key, prefix) end)
+        |> Enum.map(fn {key, value} -> {{:byte_string, key}, {:byte_string, value}} end)
+        |> Enum.map(&Tuple.to_list/1)
+        |> Enum.concat()
+        |> tuple_pack()
+      end)
+
+    %{s | stack: push(stack, result, id)}
+  end
+
   def do_execute(id, {"GET_RANGE_STARTS_WITH"}, s) do
     {{:byte_string, prefix}, {:integer, limit}, {:integer, reverse}, {:integer, streaming_mode},
      stack} = pop(s.stack, 4)
@@ -224,13 +252,14 @@ defmodule FDB.Machine do
         Transaction.get_range_stream(
           trx(s, %Transaction.Coder{}),
           KeySelector.first_greater_or_equal(prefix),
-          KeySelector.first_greater_or_equal(prefix),
+          KeySelector.first_greater_or_equal(strinc(prefix)),
           %{
             limit: limit,
             reverse: reverse,
             mode: streaming_mode
           }
         )
+        |> Enum.map(fn {key, value} -> {{:byte_string, key}, {:byte_string, value}} end)
         |> Enum.map(&Tuple.to_list/1)
         |> Enum.concat()
         |> tuple_pack()
