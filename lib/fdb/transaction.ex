@@ -256,6 +256,11 @@ defmodule FDB.Transaction do
     |> Future.resolve()
   end
 
+  def cancel(transaction) do
+    Native.transaction_cancel(transaction.resource)
+    |> Utils.verify_result()
+  end
+
   def commit_q(transaction) do
     Native.transaction_commit(transaction.resource)
   end

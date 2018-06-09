@@ -971,6 +971,16 @@ transaction_on_error(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   return fdb_future_to_future(env, fdb_future, ERROR, transaction);
 }
 
+static ERL_NIF_TERM
+transaction_cancel(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+  Transaction *transaction;
+  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE,
+                                (void **)&transaction),
+              "transaction");
+  fdb_transaction_cancel(transaction->handle);
+  return enif_make_int(env, 0);
+}
+
 int
 load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info) {
   int flags = ERL_NIF_RT_CREATE | ERL_NIF_RT_TAKEOVER;
@@ -1030,6 +1040,7 @@ static ErlNifFunc nif_funcs[] = {
     {"transaction_clear_range", 3, transaction_clear_range, 0},
     {"transaction_watch", 2, transaction_watch, 0},
     {"transaction_commit", 1, transaction_commit, 0},
+    {"transaction_cancel", 1, transaction_cancel, 0},
     {"transaction_on_error", 2, transaction_on_error, 0}};
 
 ERL_NIF_INIT(Elixir.FDB.Native, nif_funcs, load, NULL, NULL, NULL)
