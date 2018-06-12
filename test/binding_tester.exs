@@ -73,7 +73,7 @@ defmodule FDB.Machine do
         s = do_execute(id, List.to_tuple([op | rest]), s)
         :ok = TransactionMap.put(s.transaction_name, old_t)
 
-        [top | rest] = s.stack
+        [top | _rest] = s.stack
 
         case top do
           {_, ^id} ->
@@ -103,7 +103,7 @@ defmodule FDB.Machine do
     %{s | stack: push(stack, {:arbitrary_integer, a - b}, id)}
   end
 
-  def do_execute(id, {"SWAP"}, s) do
+  def do_execute(_id, {"SWAP"}, s) do
     {{_, i}, stack} = pop(s.stack)
 
     stack =
@@ -176,13 +176,13 @@ defmodule FDB.Machine do
     %{s | stack: push(stack, {:byte_string, <<n::32-float-big>>}, id)}
   end
 
-  def do_execute(id, {op}, s) when op in ["NEW_TRANSACTION", "RESET"] do
+  def do_execute(_id, {op}, s) when op in ["NEW_TRANSACTION", "RESET"] do
     db = Database.set_coder(s.db, %Transaction.Coder{})
     :ok = TransactionMap.put(s.transaction_name, Transaction.create(db))
     s
   end
 
-  def do_execute(id, {"LOG_STACK"}, s) do
+  def do_execute(_id, {"LOG_STACK"}, s) do
     {{:byte_string, prefix}, stack} = pop(s.stack)
 
     db =
@@ -294,7 +294,7 @@ defmodule FDB.Machine do
             mode: streaming_mode
           }
         )
-        |> Enum.filter(fn {key, value} -> String.starts_with?(key, prefix) end)
+        |> Enum.filter(fn {key, _value} -> String.starts_with?(key, prefix) end)
         |> Enum.map(fn {key, value} -> {{:byte_string, key}, {:byte_string, value}} end)
         |> Enum.map(&Tuple.to_list/1)
         |> Enum.concat()
@@ -354,13 +354,13 @@ defmodule FDB.Machine do
     %{s | stack: push(stack, result, id)}
   end
 
-  def do_execute(id, {"SET"}, s) do
+  def do_execute(_id, {"SET"}, s) do
     {{:byte_string, key}, {:byte_string, value}, stack} = pop(s.stack, 2)
     :ok = Transaction.set(trx(s, %Transaction.Coder{}), key, value)
     %{s | stack: stack}
   end
 
-  def do_execute(id, {"SET_READ_VERSION"}, s) do
+  def do_execute(_id, {"SET_READ_VERSION"}, s) do
     :ok = Transaction.set_read_version(trx(s), s.last_version)
     s
   end
@@ -377,7 +377,7 @@ defmodule FDB.Machine do
     %{s | stack: push(stack, result, id)}
   end
 
-  def do_execute(id, {"ATOMIC_OP"}, s) do
+  def do_execute(_id, {"ATOMIC_OP"}, s) do
     {{:unicode_string, op_name}, {:byte_string, key}, {:byte_string, value}, stack} =
       pop(s.stack, 3)
 
@@ -405,7 +405,7 @@ defmodule FDB.Machine do
     %{s | stack: stack}
   end
 
-  def do_execute(id, {"DISABLE_WRITE_CONFLICT"}, s) do
+  def do_execute(_id, {"DISABLE_WRITE_CONFLICT"}, s) do
     :ok =
       Transaction.set_option(
         trx(s),
@@ -457,19 +457,19 @@ defmodule FDB.Machine do
     %{s | stack: push(stack, result, id)}
   end
 
-  def do_execute(id, {"CLEAR"}, s) do
+  def do_execute(_id, {"CLEAR"}, s) do
     {{:byte_string, key}, stack} = pop(s.stack)
     :ok = Transaction.clear(trx(s, %Transaction.Coder{}), key)
     %{s | stack: stack}
   end
 
-  def do_execute(id, {"CLEAR_RANGE"}, s) do
+  def do_execute(_id, {"CLEAR_RANGE"}, s) do
     {{:byte_string, start_key}, {:byte_string, end_key}, stack} = pop(s.stack, 2)
     :ok = Transaction.clear_range(trx(s, %Transaction.Coder{}), start_key, end_key)
     %{s | stack: stack}
   end
 
-  def do_execute(id, {"CLEAR_RANGE_STARTS_WITH"}, s) do
+  def do_execute(_id, {"CLEAR_RANGE_STARTS_WITH"}, s) do
     {{:byte_string, key}, stack} = pop(s.stack)
     :ok = Transaction.clear_range(trx(s, %Transaction.Coder{}), key, strinc(key))
     %{s | stack: stack}
@@ -479,12 +479,12 @@ defmodule FDB.Machine do
     %{s | stack: push(s.stack, Transaction.commit_q(trx(s)), id)}
   end
 
-  def do_execute(id, {"CANCEL"}, s) do
+  def do_execute(_id, {"CANCEL"}, s) do
     :ok = Transaction.cancel(trx(s))
     s
   end
 
-  def do_execute(id, {"WAIT_FUTURE"}, s) do
+  def do_execute(_id, {"WAIT_FUTURE"}, s) do
     [{f, id} | stack] = s.stack
 
     stack =
@@ -503,7 +503,7 @@ defmodule FDB.Machine do
     %{s | stack: stack}
   end
 
-  def do_execute(id, instruction, _s) do
+  def do_execute(_id, instruction, _s) do
     raise "Unknown instruction #{inspect(instruction)}"
   end
 
@@ -586,7 +586,7 @@ end
 defmodule FDB.BindingTester do
   alias FDB.Transaction
   alias FDB.KeySelector
-  alias FDB.Coder.{Subspace, Identity, UnicodeString, Tuple, Integer, Dynamic}
+  alias FDB.Coder.{Subspace, Dynamic}
 
   def run(prefix, version, cluster) do
     :ok = FDB.Network.start(version)
