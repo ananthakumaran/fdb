@@ -49,7 +49,8 @@ defmodule FDB.Machine do
               prefix: nil,
               transaction_name: nil,
               last_version: nil,
-              debug: nil
+              debug: nil,
+              snapshot: 0
   end
 
   def init(db, prefix, debug) do
@@ -71,6 +72,15 @@ defmodule FDB.Machine do
       )
     end
 
+    {op, snapshot} =
+      if String.contains?(op, "_SNAPSHOT") do
+        {String.replace(op, "_SNAPSHOT", ""), 1}
+      else
+        {op, 0}
+      end
+
+    s = %{s | snapshot: snapshot}
+
     cond do
       String.contains?(op, "_DATABASE") ->
         op = String.replace(op, "_DATABASE", "")
@@ -90,11 +100,6 @@ defmodule FDB.Machine do
             f = Transaction.commit_q(t)
             %{s | stack: push(s.stack, f, id)}
         end
-
-      String.contains?(op, "_SNAPSHOT") ->
-        op = String.replace(op, "_SNAPSHOT", "")
-        enable_snapshot(trx(s))
-        do_execute(id, List.to_tuple([op | rest]), s)
 
       true ->
         do_execute(id, List.to_tuple([op | rest]), s)
@@ -267,14 +272,15 @@ defmodule FDB.Machine do
         result =
           Transaction.get_key(
             trx(s, %Transaction.Coder{}),
-            {key, or_equal, offset}
+            {key, or_equal, offset},
+            s.snapshot
           )
 
         result =
           cond do
             String.starts_with?(result, prefix) -> result
             result < prefix -> prefix
-            true -> strinc(result)
+            true -> strinc(prefix)
           end
 
         {:byte_string, result}
@@ -298,7 +304,8 @@ defmodule FDB.Machine do
           %{
             limit: limit,
             reverse: reverse,
-            mode: streaming_mode
+            mode: streaming_mode,
+            snapshot: s.snapshot
           }
         )
         |> Enum.filter(fn {key, _value} -> String.starts_with?(key, prefix) end)
@@ -324,7 +331,8 @@ defmodule FDB.Machine do
           %{
             limit: limit,
             reverse: reverse,
-            mode: streaming_mode
+            mode: streaming_mode,
+            snapshot: s.snapshot
           }
         )
         |> Enum.map(fn {key, value} -> {{:byte_string, key}, {:byte_string, value}} end)
@@ -349,7 +357,8 @@ defmodule FDB.Machine do
           %{
             limit: limit,
             reverse: reverse,
-            mode: streaming_mode
+            mode: streaming_mode,
+            snapshot: s.snapshot
           }
         )
         |> Enum.map(fn {key, value} -> {{:byte_string, key}, {:byte_string, value}} end)
@@ -377,7 +386,7 @@ defmodule FDB.Machine do
 
     result =
       rescue_error(fn ->
-        value = Transaction.get(trx(s, %Transaction.Coder{}), key)
+        value = Transaction.get(trx(s, %Transaction.Coder{}), key, s.snapshot)
         {:byte_string, value || "RESULT_NOT_PRESENT"}
       end)
 
@@ -570,10 +579,6 @@ defmodule FDB.Machine do
     else
       t
     end
-  end
-
-  defp enable_snapshot(transaction) do
-    Transaction.set_option(transaction, Option.transaction_option_snapshot_ryw_enable())
   end
 
   defp rescue_error(cb) do

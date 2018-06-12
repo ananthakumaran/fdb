@@ -38,9 +38,13 @@ defmodule FDB.Transaction do
     |> Utils.verify_result()
   end
 
-  def get(transaction, key) do
+  def get(transaction, key, snapshot \\ 0) do
     v =
-      Native.transaction_get(transaction.resource, Coder.encode_key(transaction.coder, key), 0)
+      Native.transaction_get(
+        transaction.resource,
+        Coder.encode_key(transaction.coder, key),
+        snapshot
+      )
       |> Future.resolve()
 
     Coder.decode_value(transaction.coder, v)
