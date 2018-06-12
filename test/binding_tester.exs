@@ -44,25 +44,32 @@ defmodule FDB.Machine do
   import Stack
 
   defmodule State do
-    defstruct stack: [], db: nil, prefix: nil, transaction_name: nil, last_version: nil
+    defstruct stack: [],
+              db: nil,
+              prefix: nil,
+              transaction_name: nil,
+              last_version: nil,
+              debug: nil
   end
 
-  def init(db, prefix) do
+  def init(db, prefix, debug) do
     db =
       FDB.Database.set_coder(
         db,
         %FDB.Transaction.Coder{key: Dynamic.new(), value: Dynamic.new()}
       )
 
-    %State{db: db, prefix: prefix, transaction_name: prefix}
+    %State{db: db, prefix: prefix, transaction_name: prefix, debug: debug}
   end
 
   def execute({id, instruction}, s) do
     [{:unicode_string, op} | rest] = Tuple.to_list(instruction)
 
-    IO.puts(
-      "#{String.pad_leading(to_string(id), 5)} #{String.pad_trailing(op, 20)} #{inspect(rest)}"
-    )
+    if s.debug do
+      IO.puts(
+        "#{String.pad_leading(to_string(id), 5)} #{String.pad_trailing(op, 20)} #{inspect(rest)}"
+      )
+    end
 
     cond do
       String.contains?(op, "_DATABASE") ->
@@ -607,7 +614,7 @@ defmodule FDB.BindingTester do
       KeySelector.first_greater_than(nil),
       KeySelector.last_less_than(nil)
     )
-    |> Enum.reduce(FDB.Machine.init(db, prefix), &FDB.Machine.execute/2)
+    |> Enum.reduce(FDB.Machine.init(db, prefix, System.get_env("DEBUG")), &FDB.Machine.execute/2)
   end
 end
 
