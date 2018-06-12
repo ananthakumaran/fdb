@@ -82,7 +82,7 @@ defmodule FDB.Transaction do
         end_key_selector,
         options \\ %{}
       ) do
-    has_limit = Map.has_key?(options, :limit)
+    has_limit = Map.has_key?(options, :limit) && options.limit > 0
 
     {begin_key, begin_or_equal, begin_offset} = begin_key_selector
     {end_key, end_or_equal, end_offset} = end_key_selector
