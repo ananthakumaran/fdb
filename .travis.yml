@@ -4,6 +4,8 @@ addons:
   apt:
     packages:
       - build-essential
+      - python-dev
+      - python-pip
 before_install:
   - |
     if [ $TRAVIS_OS_NAME = linux ]; then
@@ -45,9 +47,10 @@ script:
       curl -L "https://github.com/apple/foundationdb/archive/$FDB_VERSION.tar.gz" > foundation.tar.gz
       tar -xvf foundation.tar.gz
       rm foundation.tar.gz
-      mv foundationdb* foundationdb
+      mv foundationdb-$FDB_VERSION foundationdb
       cd foundationdb
       patch -p1 < ../test/foundationdb.patch
       cd ..
+      pip install "http://www.foundationdb.org/downloads/$FDB_VERSION/bindings/python/foundationdb-$FDB_VERSION.tar.gz"
       ./test/loop.sh
     fi
