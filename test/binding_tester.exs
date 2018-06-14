@@ -35,7 +35,6 @@ end
 defmodule FDB.Machine do
   alias FDB.Transaction
   alias FDB.Database
-  alias FDB.Future
   alias FDB.TransactionMap
   alias FDB.Coder.Dynamic
   alias FDB.Coder
@@ -50,7 +49,8 @@ defmodule FDB.Machine do
               transaction_name: nil,
               last_version: nil,
               debug: nil,
-              snapshot: 0
+              snapshot: 0,
+              processes: []
   end
 
   def init(db, prefix, debug) do
@@ -97,13 +97,29 @@ defmodule FDB.Machine do
             s
 
           _ ->
-            f = Transaction.commit_q(t)
-            %{s | stack: push(s.stack, f, id)}
+            value =
+              rescue_error(fn ->
+                :ok = Transaction.commit(t)
+                {:byte_string, "RESULT_NOT_PRESENT"}
+              end)
+
+            %{s | stack: push(s.stack, value, id)}
         end
 
       true ->
         do_execute(id, List.to_tuple([op | rest]), s)
     end
+  end
+
+  def do_execute(_id, {"START_THREAD"}, s) do
+    {{:byte_string, prefix}, stack} = pop(s.stack)
+
+    result =
+      spawn_monitor(fn ->
+        FDB.Runner.run(s.db, prefix)
+      end)
+
+    %{s | processes: [result | s.processes], stack: stack}
   end
 
   def do_execute(id, {"PUSH", value}, s) do
@@ -405,20 +421,13 @@ defmodule FDB.Machine do
   def do_execute(id, {"ON_ERROR"}, s) do
     {{:integer, error_code}, stack} = pop(s.stack)
 
-    error =
+    value =
       rescue_error(fn ->
         Transaction.on_error(trx(s), error_code)
-        nil
+        {:byte_string, "RESULT_NOT_PRESENT"}
       end)
 
-    stack =
-      if error do
-        push(stack, error, id)
-      else
-        stack
-      end
-
-    %{s | stack: stack}
+    %{s | stack: push(stack, value, id)}
   end
 
   def do_execute(_id, {"DISABLE_WRITE_CONFLICT"}, s) do
@@ -460,7 +469,7 @@ defmodule FDB.Machine do
         Transaction.add_conflict_range(
           trx(s, %Transaction.Coder{}),
           key,
-          key,
+          key <> <<0x00>>,
           case op do
             "READ_CONFLICT_KEY" -> Option.conflict_range_type_read()
             "WRITE_CONFLICT_KEY" -> Option.conflict_range_type_write()
@@ -492,7 +501,13 @@ defmodule FDB.Machine do
   end
 
   def do_execute(id, {"COMMIT"}, s) do
-    %{s | stack: push(s.stack, Transaction.commit_q(trx(s)), id)}
+    value =
+      rescue_error(fn ->
+        :ok = Transaction.commit(trx(s))
+        {:byte_string, "RESULT_NOT_PRESENT"}
+      end)
+
+    %{s | stack: push(s.stack, value, id)}
   end
 
   def do_execute(_id, {"CANCEL"}, s) do
@@ -501,22 +516,7 @@ defmodule FDB.Machine do
   end
 
   def do_execute(_id, {"WAIT_FUTURE"}, s) do
-    [{f, id} | stack] = s.stack
-
-    stack =
-      if is_reference(f) do
-        result = rescue_error(fn -> Future.resolve(f) end)
-
-        cond do
-          result in [:ok, nil] -> push(stack, {:byte_string, "RESULT_NOT_PRESENT"}, id)
-          is_binary(result) -> push(stack, {:byte_string, result}, id)
-          true -> push(stack, result, id)
-        end
-      else
-        push(stack, f, id)
-      end
-
-    %{s | stack: stack}
+    s
   end
 
   def do_execute(_id, instruction, _s) do
@@ -595,31 +595,50 @@ defmodule FDB.Machine do
   defp trim(x), do: x
 end
 
-defmodule FDB.BindingTester do
+defmodule FDB.Runner do
   alias FDB.Transaction
-  alias FDB.KeySelector
   alias FDB.Coder.{Subspace, Dynamic}
+  alias FDB.KeySelector
 
-  def run(prefix, version, cluster) do
-    :ok = FDB.Network.start(version)
-
+  def run(db, prefix) do
     coder = %Transaction.Coder{
       key: Subspace.new(<<0x01>> <> prefix <> <<0x00>>, FDB.Coder.Integer.new()),
       value: Dynamic.new()
     }
 
+    db = FDB.Database.set_coder(db, coder)
+
+    state =
+      Transaction.get_range_stream(
+        db,
+        KeySelector.first_greater_than(nil),
+        KeySelector.last_less_than(nil)
+      )
+      |> Enum.reduce(
+        FDB.Machine.init(db, prefix, System.get_env("DEBUG")),
+        &FDB.Machine.execute/2
+      )
+
+    for {pid, reference} <- state.processes do
+      receive do
+        {:DOWN, ^reference, :process, ^pid, reason} ->
+          :normal = reason
+          :ok
+      end
+    end
+  end
+end
+
+defmodule FDB.BindingTester do
+  def run(prefix, version, cluster) do
+    :ok = FDB.Network.start(version)
     {:ok, _pid} = FDB.TransactionMap.start_link()
 
     db =
       FDB.Cluster.create(cluster)
-      |> FDB.Database.create(coder)
+      |> FDB.Database.create()
 
-    Transaction.get_range_stream(
-      db,
-      KeySelector.first_greater_than(nil),
-      KeySelector.last_less_than(nil)
-    )
-    |> Enum.reduce(FDB.Machine.init(db, prefix, System.get_env("DEBUG")), &FDB.Machine.execute/2)
+    FDB.Runner.run(db, prefix)
   end
 end
 
