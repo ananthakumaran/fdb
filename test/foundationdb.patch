@@ -1,0 +1,23 @@
+diff --git a/bindings/bindingtester/known_testers.py b/bindings/bindingtester/known_testers.py
+index b7aca68..1656819 100644
+--- a/bindings/bindingtester/known_testers.py
++++ b/bindings/bindingtester/known_testers.py
+@@ -63,4 +63,5 @@ testers = {
+     'java_async': Tester('java', _java_cmd + 'AsyncStackTester', 2040, 510, MAX_API_VERSION, types=ALL_TYPES),
+     'go': Tester('go', _absolute_path('go/build/bin/_stacktester'), 63, 200, MAX_API_VERSION),
+     'flow': Tester('flow', _absolute_path('flow/bin/fdb_flow_tester'), 63, 500, MAX_API_VERSION),
++    'elixir': Tester('elixir', './test/binding_tester.sh', 2040, 510, MAX_API_VERSION, types=['null', 'bytes', 'string', 'int', 'uuid', 'bool', 'tuple'])
+ }
+diff --git a/bindings/bindingtester/tests/api.py b/bindings/bindingtester/tests/api.py
+index cf7eb39..efad26a 100644
+--- a/bindings/bindingtester/tests/api.py
++++ b/bindings/bindingtester/tests/api.py
+@@ -149,7 +149,7 @@ class ApiTest(Test):
+         mutations += ['VERSIONSTAMP']
+         versions = ['GET_READ_VERSION', 'SET_READ_VERSION', 'GET_COMMITTED_VERSION']
+         snapshot_versions = ['GET_READ_VERSION_SNAPSHOT']
+-        tuples = ['TUPLE_PACK', 'TUPLE_UNPACK', 'TUPLE_RANGE', 'TUPLE_SORT', 'SUB', 'ENCODE_FLOAT', 'ENCODE_DOUBLE', 'DECODE_DOUBLE', 'DECODE_FLOAT']
++        tuples = ['TUPLE_PACK', 'TUPLE_UNPACK', 'TUPLE_RANGE', 'TUPLE_SORT', 'SUB']
+         if 'versionstamp' in args.types:
+             tuples.append('TUPLE_PACK_WITH_VERSIONSTAMP')
+         resets = ['ON_ERROR', 'RESET', 'CANCEL']
