@@ -34,7 +34,7 @@ matrix:
       otp_release: 20.3
       elixir: 1.6
       os: linux
-      env: BINDINGS_TEST=true
+      env: BINDINGS_TEST=true FDB_VERSION="5.1.7"
     - os: osx
 
 script:
