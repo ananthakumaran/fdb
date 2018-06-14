@@ -45,12 +45,12 @@ script:
   - |
     if [ "$BINDINGS_TEST" = "true" ]; then
       curl -L "https://github.com/apple/foundationdb/archive/$FDB_VERSION.tar.gz" > foundation.tar.gz
-      tar -xvf foundation.tar.gz
+      tar -xf foundation.tar.gz
       rm foundation.tar.gz
       mv foundationdb-$FDB_VERSION foundationdb
       cd foundationdb
       patch -p1 < ../test/foundationdb.patch
       cd ..
-      pip install "http://www.foundationdb.org/downloads/$FDB_VERSION/bindings/python/foundationdb-$FDB_VERSION.tar.gz"
+      pip install --user "http://www.foundationdb.org/downloads/$FDB_VERSION/bindings/python/foundationdb-$FDB_VERSION.tar.gz"
       ./test/loop.sh
     fi
