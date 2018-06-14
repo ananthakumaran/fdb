@@ -1,5 +1,5 @@
 diff --git a/bindings/bindingtester/__init__.py b/bindings/bindingtester/__init__.py
-index b4daa2d..d33c035 100644
+index b4daa2d..aecb623 100644
 --- a/bindings/bindingtester/__init__.py
 +++ b/bindings/bindingtester/__init__.py
 @@ -21,7 +21,7 @@
@@ -7,7 +7,7 @@ index b4daa2d..d33c035 100644
  import os
  
 -sys.path[:0] = [os.path.join(os.path.dirname(__file__), '..', '..', 'bindings', 'python')]
-+sys.path[:0] = ['~/.local/lib/python2.7/site-packages']
++sys.path[:0] = ['/home/travis/.local/lib/python2.7/site-packages/']
  
  import util
  
