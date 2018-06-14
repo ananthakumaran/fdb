@@ -5,12 +5,12 @@ index b4daa2d..aecb623 100644
 @@ -21,7 +21,7 @@
  import sys
  import os
- 
+
 -sys.path[:0] = [os.path.join(os.path.dirname(__file__), '..', '..', 'bindings', 'python')]
 +sys.path[:0] = ['/home/travis/.local/lib/python2.7/site-packages/']
- 
+
  import util
- 
+
 diff --git a/bindings/bindingtester/known_testers.py b/bindings/bindingtester/known_testers.py
 index b7aca68..1656819 100644
 --- a/bindings/bindingtester/known_testers.py
@@ -34,3 +34,15 @@ index cf7eb39..efad26a 100644
          if 'versionstamp' in args.types:
              tuples.append('TUPLE_PACK_WITH_VERSIONSTAMP')
          resets = ['ON_ERROR', 'RESET', 'CANCEL']
+diff --git a/bindings/python/tests/tester.py b/bindings/python/tests/tester.py
+index daa16fb..f48d004 100755
+--- a/bindings/python/tests/tester.py
++++ b/bindings/python/tests/tester.py
+@@ -30,7 +30,7 @@ import random
+ import time
+ import traceback
+
+-sys.path[:0] = [os.path.join(os.path.dirname(__file__), '..')]
++sys.path[:0] = ['/home/travis/.local/lib/python2.7/site-packages/']
+ import fdb
+ fdb.api_version(int(sys.argv[2]))
