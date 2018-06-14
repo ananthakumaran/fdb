@@ -52,5 +52,6 @@ script:
       patch -p1 < ../test/foundationdb.patch
       cd ..
       pip install --user "http://www.foundationdb.org/downloads/$FDB_VERSION/bindings/python/foundationdb-$FDB_VERSION.tar.gz"
+      ls /usr/local/lib/python2.7/dist-packages/
       ./test/loop.sh
     fi

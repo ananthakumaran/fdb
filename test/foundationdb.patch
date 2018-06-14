@@ -1,16 +1,16 @@
 diff --git a/bindings/bindingtester/__init__.py b/bindings/bindingtester/__init__.py
-index b4daa2d..d2a9b30 100644
+index b4daa2d..273a760 100644
 --- a/bindings/bindingtester/__init__.py
 +++ b/bindings/bindingtester/__init__.py
-@@ -21,8 +21,6 @@
+@@ -21,7 +21,7 @@
  import sys
  import os
-
+ 
 -sys.path[:0] = [os.path.join(os.path.dirname(__file__), '..', '..', 'bindings', 'python')]
--
++sys.path[:0] = ['/usr/local/lib/python2.7/dist-packages/']
+ 
  import util
-
- FDB_API_VERSION = 510
+ 
 diff --git a/bindings/bindingtester/known_testers.py b/bindings/bindingtester/known_testers.py
 index b7aca68..1656819 100644
 --- a/bindings/bindingtester/known_testers.py
