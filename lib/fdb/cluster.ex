@@ -4,8 +4,12 @@ defmodule FDB.Cluster do
   alias FDB.Utils
 
   def create(file_path \\ nil) do
-    Native.create_cluster(file_path)
+    create_q(file_path)
     |> Future.resolve()
+  end
+
+  def create_q(file_path \\ nil) do
+    Native.create_cluster(file_path)
   end
 
   def set_option(cluster, option) do

@@ -30,3 +30,5 @@ GTAGS
 !priv/fdb.options
 .dir-locals.el
 foundationdb
+.cquery*
+docker*

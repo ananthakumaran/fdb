@@ -61,4 +61,29 @@ defmodule TestUtils do
     assert values == decoded
     assert sort_order(values) == sort_order(encoded)
   end
+
+  defmacro fuzz(module, method, arity, generator) do
+    module = Macro.expand(module, __CALLER__)
+    name = "#{module}.#{method}/#{arity}"
+
+    quote do
+      property unquote(name) do
+        check all arguments <- unquote(generator) do
+          try do
+            apply(unquote(module), unquote(method), arguments)
+          rescue
+            e in [FDB.Error, ArgumentError, FunctionClauseError] ->
+              :ok
+
+            e in [ErlangError] ->
+              unless Map.has_key?(e, :original) do
+                reraise e, System.stacktrace()
+              end
+
+              :ok
+          end
+        end
+      end
+    end
+  end
 end

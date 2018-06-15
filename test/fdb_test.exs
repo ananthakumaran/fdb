@@ -3,10 +3,8 @@ defmodule FDBTest do
   import FDB.Option
   import TestUtils
   alias FDB.KeySelector
-  alias FDB.Database
   alias FDB.Cluster
   alias FDB.Transaction
-  alias FDB.Network
   alias FDB.Future
 
   setup do
@@ -35,24 +33,6 @@ defmodule FDBTest do
 
   test "cluster path" do
     assert_raise(FDB.Error, ~r/file/, fn -> Cluster.create("/hello/world") end)
-  end
-
-  test "options" do
-    assert_raise ErlangError, ~r/value/, fn -> Cluster.set_option(Cluster.create(), 5, :ok) end
-    assert_raise ErlangError, ~r/option/, fn -> Cluster.set_option(Cluster.create(), :ok) end
-    assert_raise ErlangError, ~r/cluster/, fn -> Cluster.set_option(0, 0) end
-    assert_raise ErlangError, ~r/option/, fn -> Transaction.set_option(new_transaction(), :ok) end
-
-    assert_raise ErlangError, ~r/value/, fn ->
-      Transaction.set_option(new_transaction(), 5, :ok)
-    end
-
-    assert_raise ErlangError, ~r/option/, fn -> Database.set_option(new_database(), :ok) end
-    assert_raise ErlangError, ~r/value/, fn -> Database.set_option(new_database(), 5, :ok) end
-    assert_raise ErlangError, ~r/value/, fn -> Network.set_option(0, :ok) end
-
-    db = new_database()
-    assert Database.set_option(db, database_option_datacenter_id(), "DATA_CENTER_42") == :ok
   end
 
   test "timeout" do

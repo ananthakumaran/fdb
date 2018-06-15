@@ -3,27 +3,34 @@ defmodule FDB.Database do
   alias FDB.Future
   alias FDB.Utils
   alias FDB.Database
+  alias FDB.Option
 
   defstruct resource: nil, coder: nil
 
   def create(cluster, coder \\ %FDB.Transaction.Coder{}) do
-    resource =
-      Native.cluster_create_database(cluster)
-      |> Future.resolve()
-
-    %Database{resource: resource, coder: coder}
+    create_q(cluster, coder)
+    |> Future.resolve()
   end
 
-  def set_coder(db, coder) do
+  def create_q(cluster, coder \\ %FDB.Transaction.Coder{}) do
+    Native.cluster_create_database(cluster)
+    |> Future.map(&%Database{resource: &1, coder: coder})
+  end
+
+  def set_coder(%Database{} = db, coder) do
     %{db | coder: coder}
   end
 
-  def set_option(database, option) do
+  def set_option(%Database{} = database, option) do
+    Option.verify_database_option(option)
+
     Native.database_set_option(database.resource, option)
     |> Utils.verify_result()
   end
 
-  def set_option(database, option, value) do
+  def set_option(%Database{} = database, option, value) do
+    Option.verify_database_option(option, value)
+
     Native.database_set_option(database.resource, option, value)
     |> Utils.verify_result()
   end
