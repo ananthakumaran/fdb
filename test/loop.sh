@@ -7,6 +7,9 @@ do
     echo "========"
     echo ""
 
+    echo "# scripted"
+    foundationdb/bindings/bindingtester/bindingtester.py elixir --test-name scripted || exit 1
+
     echo "# api"
     foundationdb/bindings/bindingtester/bindingtester.py elixir --test-name api --num-ops 1000 --compare python || exit 1
 

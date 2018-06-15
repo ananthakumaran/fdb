@@ -40,6 +40,7 @@ defmodule FDB.Machine do
   alias FDB.Coder
   alias FDB.KeySelector
   alias FDB.Option
+  alias FDB.Future
   import Stack
 
   defmodule State do
@@ -90,10 +91,8 @@ defmodule FDB.Machine do
         s = do_execute(id, List.to_tuple([op | rest]), s)
         :ok = TransactionMap.put(s.transaction_name, old_t)
 
-        [top | _rest] = s.stack
-
-        case top do
-          {_, ^id} ->
+        case s.stack do
+          [{_, ^id} | _] ->
             s
 
           _ ->
@@ -126,9 +125,35 @@ defmodule FDB.Machine do
     %{s | stack: push(s.stack, value, id)}
   end
 
+  def do_execute(_id, {"POP"}, s) do
+    {_, stack} = pop(s.stack)
+    %{s | stack: stack}
+  end
+
+  def do_execute(_id, {"DUP"}, s) do
+    %{s | stack: [hd(s.stack) | s.stack]}
+  end
+
+  def do_execute(id, {"CONCAT"}, s) do
+    {{type, a}, {type, b}, stack} = pop(s.stack, 2)
+
+    %{s | stack: push(stack, {type, a <> b}, id)}
+  end
+
+  def do_execute(_id, {"EMPTY_STACK"}, s) do
+    %{s | stack: []}
+  end
+
   def do_execute(id, {"SUB"}, s) do
-    {{_, a}, {_, b}, stack} = pop(s.stack, 2)
-    %{s | stack: push(stack, {:arbitrary_integer, a - b}, id)}
+    {{type_a, a}, {type_b, b}, stack} = pop(s.stack, 2)
+
+    type =
+      cond do
+        type_a == type_b -> type_a
+        type_a == :arbitrary_integer || type_b == :arbitrary_integer -> :arbitrary_integer
+      end
+
+    %{s | stack: push(stack, {type, a - b}, id)}
   end
 
   def do_execute(_id, {"SWAP"}, s) do
@@ -279,6 +304,11 @@ defmodule FDB.Machine do
     end
   end
 
+  def do_execute(id, {"GET_VERSIONSTAMP"}, s) do
+    future = Transaction.get_versionstamp(trx(s))
+    %{s | stack: push(s.stack, future, id)}
+  end
+
   def do_execute(id, {"GET_KEY"}, s) do
     {{:byte_string, key}, {:integer, or_equal}, {:integer, offset}, {:byte_string, prefix}, stack} =
       pop(s.stack, 4)
@@ -381,6 +411,30 @@ defmodule FDB.Machine do
         |> Enum.map(&Tuple.to_list/1)
         |> Enum.concat()
         |> tuple_pack()
+      end)
+
+    %{s | stack: push(stack, result, id)}
+  end
+
+  def do_execute(id, {"WAIT_EMPTY"}, s) do
+    {{:byte_string, prefix}, stack} = pop(s.stack)
+
+    result =
+      Transaction.transact(s.db, fn t ->
+        result =
+          Transaction.get_range_stream(
+            Transaction.set_coder(t, %Transaction.Coder{}),
+            KeySelector.first_greater_or_equal(prefix),
+            KeySelector.first_greater_or_equal(strinc(prefix))
+          )
+          |> Enum.to_list()
+
+        unless Enum.empty?(result) do
+          # raise error with code 1020
+          FDB.Utils.verify_result(1020)
+        end
+
+        {:byte_string, "WAITED_FOR_EMPTY"}
       end)
 
     %{s | stack: push(stack, result, id)}
@@ -516,6 +570,29 @@ defmodule FDB.Machine do
   end
 
   def do_execute(_id, {"WAIT_FUTURE"}, s) do
+    # scripted test doesn't issue seperate WAIT_FUTURE for the
+    # GET_VERSIONSTAMP
+    size = 2
+
+    stack =
+      Enum.map(Enum.take(s.stack, size), fn {f, id} ->
+        if is_reference(f) do
+          result = rescue_error(fn -> Future.resolve(f) end)
+
+          cond do
+            result in [:ok, nil] -> {{:byte_string, "RESULT_NOT_PRESENT"}, id}
+            is_binary(result) -> {{:byte_string, result}, id}
+            true -> {result, id}
+          end
+        else
+          {f, id}
+        end
+      end) ++ Enum.drop(s.stack, size)
+
+    %{s | stack: stack}
+  end
+
+  def do_execute(_id, {"UNIT_TESTS"}, s) do
     s
   end
 
