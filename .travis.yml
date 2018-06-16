@@ -7,6 +7,12 @@ addons:
       - build-essential
       - python-dev
       - python-pip
+
+cache:
+  directories:
+    - _build
+    - deps
+
 before_install:
   - |
     if [ $TRAVIS_OS_NAME = linux ]; then
@@ -37,6 +43,11 @@ matrix:
       otp_release: 20.3
       elixir: 1.6
       os: linux
+      env: DIALYZER=true
+    - language: elixir
+      otp_release: 20.3
+      elixir: 1.6
+      os: linux
       env: BINDINGS_TEST=true
     - os: osx
 
@@ -45,6 +56,7 @@ script:
   - "! mix help format > /dev/null || mix format --check-formatted"
   - mix compile --force --warnings-as-errors
   - mix test --trace --include integration
+  - if [ "$DIALYZER" = "true" ]; then travis_wait mix dialyzer --halt-exit-status; fi
   - |
     if [ "$BINDINGS_TEST" = "true" ]; then
       curl -L "https://github.com/apple/foundationdb/archive/$FDB_VERSION.tar.gz" > foundation.tar.gz
