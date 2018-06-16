@@ -41,7 +41,7 @@ matrix:
 
 script:
   - make
-  - mix format --check-formatted
+  - "! mix help format > /dev/null || mix format --check-formatted"
   - mix compile --force --warnings-as-errors
   - mix test --trace --include integration
   - |
