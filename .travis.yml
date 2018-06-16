@@ -1,5 +1,6 @@
 env:
-  - FDB_VERSION="5.1.7"
+  global:
+    - FDB_VERSION="5.1.7"
 addons:
   apt:
     packages:
@@ -36,7 +37,7 @@ matrix:
       otp_release: 20.3
       elixir: 1.6
       os: linux
-      env: BINDINGS_TEST=true FDB_VERSION="5.1.7"
+      env: BINDINGS_TEST=true
     - os: osx
 
 script:
