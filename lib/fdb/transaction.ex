@@ -6,10 +6,11 @@ defmodule FDB.Transaction do
   alias FDB.Transaction
   alias FDB.Database
   alias FDB.Transaction.Coder
+  alias FDB.Option
 
   defstruct resource: nil, coder: nil
 
-  def create(database, coder \\ nil) do
+  def create(%Database{} = database, coder \\ nil) do
     resource =
       Native.database_create_transaction(database.resource)
       |> Utils.verify_result()
@@ -24,33 +25,39 @@ defmodule FDB.Transaction do
     %Transaction{resource: resource, coder: coder}
   end
 
-  def set_coder(transaction, coder) do
+  def set_coder(%Transaction{} = transaction, coder) do
     %{transaction | coder: coder}
   end
 
-  def set_option(transaction, option) do
+  def set_option(%Transaction{} = transaction, option) do
+    Option.verify_transaction_option(option)
+
     Native.transaction_set_option(transaction.resource, option)
     |> Utils.verify_result()
   end
 
-  def set_option(transaction, option, value) do
+  def set_option(%Transaction{} = transaction, option, value) do
+    Option.verify_transaction_option(option, value)
+
     Native.transaction_set_option(transaction.resource, option, value)
     |> Utils.verify_result()
   end
 
-  def get(transaction, key, snapshot \\ 0) do
-    v =
-      Native.transaction_get(
-        transaction.resource,
-        Coder.encode_key(transaction.coder, key),
-        snapshot
-      )
-      |> Future.resolve()
-
-    Coder.decode_value(transaction.coder, v)
+  def get(%Transaction{} = transaction, key, snapshot \\ 0) do
+    get_q(transaction, key, snapshot)
+    |> Future.resolve()
   end
 
-  defp get_range(transaction, begin_key_selector, end_key_selector, options) do
+  def get_q(%Transaction{} = transaction, key, snapshot \\ 0) do
+    Native.transaction_get(
+      transaction.resource,
+      Coder.encode_key(transaction.coder, key),
+      snapshot
+    )
+    |> Future.map(&Coder.decode_value(transaction.coder, &1))
+  end
+
+  defp get_range(%Transaction{} = transaction, begin_key_selector, end_key_selector, options) do
     {begin_key, begin_or_equal, begin_offset} = begin_key_selector
     {end_key, end_or_equal, end_offset} = end_key_selector
 
@@ -173,7 +180,7 @@ defmodule FDB.Transaction do
     |> Stream.flat_map(& &1)
   end
 
-  def get_snapshot(transaction, key) do
+  def get_snapshot(%Transaction{} = transaction, key) do
     v =
       Native.transaction_get(transaction.resource, Coder.encode_key(transaction.coder, key), 1)
       |> Future.resolve()
@@ -181,25 +188,25 @@ defmodule FDB.Transaction do
     Coder.decode_value(transaction.coder, v)
   end
 
-  def get_read_version(transaction) do
+  def get_read_version(%Transaction{} = transaction) do
     Native.transaction_get_read_version(transaction.resource)
     |> Future.resolve()
   end
 
-  def get_committed_version(transaction) do
+  def get_committed_version(%Transaction{} = transaction) do
     Native.transaction_get_committed_version(transaction.resource)
     |> Utils.verify_result()
   end
 
-  def get_versionstamp(transaction) do
+  def get_versionstamp(%Transaction{} = transaction) do
     Native.transaction_get_versionstamp(transaction.resource)
   end
 
-  def watch(transaction, key) do
+  def watch(%Transaction{} = transaction, key) do
     Native.transaction_watch(transaction.resource, Coder.encode_key(transaction.coder, key))
   end
 
-  def get_key(transaction, key_selector, snapshot \\ 0) do
+  def get_key(%Transaction{} = transaction, key_selector, snapshot \\ 0) do
     {key, or_equal, offset} = key_selector
     key = Coder.encode_range_start(transaction.coder, key)
 
@@ -210,7 +217,7 @@ defmodule FDB.Transaction do
     Coder.decode_key(transaction.coder, k)
   end
 
-  def get_addresses_for_key(transaction, key) do
+  def get_addresses_for_key(%Transaction{} = transaction, key) do
     Native.transaction_get_addresses_for_key(
       transaction.resource,
       Coder.encode_key(transaction.coder, key)
@@ -218,7 +225,7 @@ defmodule FDB.Transaction do
     |> Future.resolve()
   end
 
-  def set(transaction, key, value) do
+  def set(%Transaction{} = transaction, key, value) do
     Native.transaction_set(
       transaction.resource,
       Coder.encode_key(transaction.coder, key),
@@ -227,12 +234,12 @@ defmodule FDB.Transaction do
     |> Utils.verify_result()
   end
 
-  def set_read_version(transaction, version) do
+  def set_read_version(%Transaction{} = transaction, version) do
     Native.transaction_set_read_version(transaction.resource, version)
     |> Utils.verify_result()
   end
 
-  def atomic_op(transaction, key, value, op) do
+  def atomic_op(%Transaction{} = transaction, key, value, op) do
     Native.transaction_atomic_op(
       transaction.resource,
       Coder.encode_key(transaction.coder, key),
@@ -242,12 +249,12 @@ defmodule FDB.Transaction do
     |> Utils.verify_result()
   end
 
-  def clear(transaction, key) do
+  def clear(%Transaction{} = transaction, key) do
     Native.transaction_clear(transaction.resource, Coder.encode_key(transaction.coder, key))
     |> Utils.verify_result()
   end
 
-  def clear_range(transaction, begin_key, end_key) do
+  def clear_range(%Transaction{} = transaction, begin_key, end_key) do
     begin_key = Coder.encode_range_start(transaction.coder, begin_key)
     end_key = Coder.encode_range_end(transaction.coder, end_key)
 
@@ -255,25 +262,25 @@ defmodule FDB.Transaction do
     |> Utils.verify_result()
   end
 
-  def commit(transaction) do
+  def commit(%Transaction{} = transaction) do
     commit_q(transaction)
     |> Future.resolve()
   end
 
-  def cancel(transaction) do
+  def cancel(%Transaction{} = transaction) do
     Native.transaction_cancel(transaction.resource)
     |> Utils.verify_result()
   end
 
-  def commit_q(transaction) do
+  def commit_q(%Transaction{} = transaction) do
     Native.transaction_commit(transaction.resource)
   end
 
-  def transact(database, callback) do
+  def transact(%Database{} = database, callback) do
     do_transact(create(database), callback)
   end
 
-  defp do_transact(transaction, callback) do
+  defp do_transact(%Transaction{} = transaction, callback) do
     result = callback.(transaction)
     :ok = commit(transaction)
     result
@@ -283,12 +290,12 @@ defmodule FDB.Transaction do
       do_transact(transaction, callback)
   end
 
-  def on_error(transaction, code) when is_integer(code) do
+  def on_error(%Transaction{} = transaction, code) when is_integer(code) do
     Native.transaction_on_error(transaction.resource, code)
     |> Future.resolve()
   end
 
-  def add_conflict_range(transaction, begin_key, end_key, type) do
+  def add_conflict_range(%Transaction{} = transaction, begin_key, end_key, type) do
     begin_key = Coder.encode_range_start(transaction.coder, begin_key)
     end_key = Coder.encode_range_end(transaction.coder, end_key)
 
