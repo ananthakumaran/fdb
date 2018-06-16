@@ -3,17 +3,18 @@ defmodule FDB.Database do
   alias FDB.Future
   alias FDB.Utils
   alias FDB.Database
+  alias FDB.Cluster
   alias FDB.Option
 
   defstruct resource: nil, coder: nil
 
-  def create(cluster, coder \\ %FDB.Transaction.Coder{}) do
+  def create(%Cluster{} = cluster, coder \\ %FDB.Transaction.Coder{}) do
     create_q(cluster, coder)
     |> Future.resolve()
   end
 
-  def create_q(cluster, coder \\ %FDB.Transaction.Coder{}) do
-    Native.cluster_create_database(cluster)
+  def create_q(%Cluster{} = cluster, coder \\ %FDB.Transaction.Coder{}) do
+    Native.cluster_create_database(cluster.resource)
     |> Future.map(&%Database{resource: &1, coder: coder})
   end
 
