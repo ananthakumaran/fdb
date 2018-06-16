@@ -305,7 +305,7 @@ defmodule FDB.Machine do
   end
 
   def do_execute(id, {"GET_VERSIONSTAMP"}, s) do
-    future = Transaction.get_versionstamp(trx(s))
+    future = Transaction.get_versionstamp_q(trx(s))
     %{s | stack: push(s.stack, future, id)}
   end
 

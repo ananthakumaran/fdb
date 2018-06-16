@@ -181,16 +181,22 @@ defmodule FDB.Transaction do
   end
 
   def get_snapshot(%Transaction{} = transaction, key) do
-    v =
-      Native.transaction_get(transaction.resource, Coder.encode_key(transaction.coder, key), 1)
-      |> Future.resolve()
+    get_snapshot_q(transaction, key)
+    |> Future.resolve()
+  end
 
-    Coder.decode_value(transaction.coder, v)
+  def get_snapshot_q(%Transaction{} = transaction, key) do
+    Native.transaction_get(transaction.resource, Coder.encode_key(transaction.coder, key), 1)
+    |> Future.map(&Coder.decode_value(transaction.coder, &1))
   end
 
   def get_read_version(%Transaction{} = transaction) do
-    Native.transaction_get_read_version(transaction.resource)
+    get_read_version_q(transaction)
     |> Future.resolve()
+  end
+
+  def get_read_version_q(%Transaction{} = transaction) do
+    Native.transaction_get_read_version(transaction.resource)
   end
 
   def get_committed_version(%Transaction{} = transaction) do
@@ -198,31 +204,37 @@ defmodule FDB.Transaction do
     |> Utils.verify_result()
   end
 
-  def get_versionstamp(%Transaction{} = transaction) do
+  def get_versionstamp_q(%Transaction{} = transaction) do
     Native.transaction_get_versionstamp(transaction.resource)
   end
 
-  def watch(%Transaction{} = transaction, key) do
+  def watch_q(%Transaction{} = transaction, key) do
     Native.transaction_watch(transaction.resource, Coder.encode_key(transaction.coder, key))
   end
 
   def get_key(%Transaction{} = transaction, key_selector, snapshot \\ 0) do
+    get_key_q(transaction, key_selector, snapshot)
+    |> Future.resolve()
+  end
+
+  def get_key_q(%Transaction{} = transaction, key_selector, snapshot \\ 0) do
     {key, or_equal, offset} = key_selector
     key = Coder.encode_range_start(transaction.coder, key)
 
-    k =
-      Native.transaction_get_key(transaction.resource, key, or_equal, offset, snapshot)
-      |> Future.resolve()
-
-    Coder.decode_key(transaction.coder, k)
+    Native.transaction_get_key(transaction.resource, key, or_equal, offset, snapshot)
+    |> Future.map(&Coder.decode_key(transaction.coder, &1))
   end
 
   def get_addresses_for_key(%Transaction{} = transaction, key) do
+    get_addresses_for_key_q(transaction, key)
+    |> Future.resolve()
+  end
+
+  def get_addresses_for_key_q(%Transaction{} = transaction, key) do
     Native.transaction_get_addresses_for_key(
       transaction.resource,
       Coder.encode_key(transaction.coder, key)
     )
-    |> Future.resolve()
   end
 
   def set(%Transaction{} = transaction, key, value) do
@@ -267,13 +279,13 @@ defmodule FDB.Transaction do
     |> Future.resolve()
   end
 
+  def commit_q(%Transaction{} = transaction) do
+    Native.transaction_commit(transaction.resource)
+  end
+
   def cancel(%Transaction{} = transaction) do
     Native.transaction_cancel(transaction.resource)
     |> Utils.verify_result()
-  end
-
-  def commit_q(%Transaction{} = transaction) do
-    Native.transaction_commit(transaction.resource)
   end
 
   def transact(%Database{} = database, callback) do
@@ -291,8 +303,12 @@ defmodule FDB.Transaction do
   end
 
   def on_error(%Transaction{} = transaction, code) when is_integer(code) do
-    Native.transaction_on_error(transaction.resource, code)
+    on_error_q(transaction, code)
     |> Future.resolve()
+  end
+
+  def on_error_q(%Transaction{} = transaction, code) when is_integer(code) do
+    Native.transaction_on_error(transaction.resource, code)
   end
 
   def add_conflict_range(%Transaction{} = transaction, begin_key, end_key, type) do
