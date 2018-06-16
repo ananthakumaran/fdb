@@ -36,17 +36,22 @@ defmodule FDB.Coder.NestedTuple do
 
   @impl true
   def range(nil, _), do: {<<0x00>>, <<0xFF>>}
+
   def range(values, coders) do
     values = Tuple.to_list(values)
+
     if Enum.empty?(values) do
       {<<0x00>>, <<0xFF>>}
     else
       encoded = @code <> do_encode(values, Enum.take(coders, length(values)))
-      encoded = if length(values) == length(coders) do
-        encoded <> @end_code
-      else
-        encoded
-      end
+
+      encoded =
+        if length(values) == length(coders) do
+          encoded <> @end_code
+        else
+          encoded
+        end
+
       {encoded <> <<0x00>>, encoded <> <<0xFF>>}
     end
   end
@@ -55,11 +60,11 @@ defmodule FDB.Coder.NestedTuple do
     Enum.zip(coders, values)
     |> Enum.map(fn {coder, value} ->
       coder.module.encode(value, coder.opts) <>
-      if is_nil(value) do
-        @null_suffix
-      else
-        <<>>
-      end
+        if is_nil(value) do
+          @null_suffix
+        else
+          <<>>
+        end
     end)
     |> Enum.join(<<>>)
   end

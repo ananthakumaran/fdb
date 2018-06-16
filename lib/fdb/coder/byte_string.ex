@@ -30,6 +30,7 @@ defmodule FDB.Coder.ByteString do
 
   @impl true
   def range(nil, _), do: {<<0x00>>, <<0xFF>>}
+
   def range(value, null_pattern) do
     encoded = encode(value, null_pattern)
     {encoded <> <<0x00>>, encoded <> <<0xFF>>}

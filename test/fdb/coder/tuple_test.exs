@@ -51,7 +51,9 @@ defmodule FDB.Coder.NestedTupleAndTupleTest do
   end
 
   test "example" do
-    coder = NestedTuple.new({ByteString.new(), Nullable.new(ByteString.new()), NestedTuple.new({})})
+    coder =
+      NestedTuple.new({ByteString.new(), Nullable.new(ByteString.new()), NestedTuple.new({})})
+
     encoded = coder.module.encode({<<"foo", 0x00, "bar">>, nil, {}}, coder.opts)
     assert encoded == <<0x05, 0x01, "foo", 0x00, 0xFF, "bar", 0x00, 0x00, 0xFF, 0x05, 0x00, 0x00>>
   end

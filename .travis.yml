@@ -41,6 +41,8 @@ matrix:
 
 script:
   - make
+  - mix format --check-formatted
+  - mix compile --force --warnings-as-errors
   - mix test --trace --include integration
   - |
     if [ "$BINDINGS_TEST" = "true" ]; then

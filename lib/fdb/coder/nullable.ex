@@ -17,6 +17,7 @@ defmodule FDB.Coder.Nullable do
 
   @impl true
   def range(nil, _), do: {<<0x00>>, <<0xFF>>}
+
   def range(value, coder) do
     encoded = encode(value, coder)
     {encoded <> <<0x00>>, encoded <> <<0xFF>>}

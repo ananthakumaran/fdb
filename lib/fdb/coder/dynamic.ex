@@ -17,9 +17,9 @@ defmodule FDB.Coder.Dynamic do
   end
 
   @impl true
-  def encode({:float32, n}, coders) when is_binary(n), do: <<0x20>> <> n
-  def encode({:float64, n}, coders) when is_binary(n), do: <<0x21>> <> n
-  def encode({nil, nil}, coders), do: <<0x00>>
+  def encode({:float32, n}, _coders) when is_binary(n), do: <<0x20>> <> n
+  def encode({:float64, n}, _coders) when is_binary(n), do: <<0x21>> <> n
+  def encode({nil, nil}, _coders), do: <<0x00>>
 
   def encode({tag, value}, coders)
       when tag in [
@@ -67,48 +67,44 @@ defmodule FDB.Coder.Dynamic do
     {encoded <> <<0x00>>, encoded <> <<0xFF>>}
   end
 
-  defp loop(<<>>, coders, acc), do: acc
+  defp loop(<<>>, _coders, acc), do: acc
 
   defp loop(rest, coders, acc) do
     {acc, rest} = do_decode(rest, coders, acc)
     loop(rest, coders, acc)
   end
 
-  defp do_decode(<<0x00>> <> rest = full, coders, acc),
+  defp do_decode(<<0x00>> <> rest, _coders, acc),
     do: {Tuple.append(acc, {nil, nil}), rest}
 
-  defp do_decode(<<0x01>> <> rest = full, coders, acc),
+  defp do_decode(<<0x01>> <> _rest = full, coders, acc),
     do: apply_coder(:byte_string, full, coders, acc)
 
-  defp do_decode(<<0x02>> <> rest = full, coders, acc),
+  defp do_decode(<<0x02>> <> _rest = full, coders, acc),
     do: apply_coder(:unicode_string, full, coders, acc)
 
-  defp do_decode(<<0x20>> <> <<n::binary-size(4), rest::binary>> = full, coders, acc),
+  defp do_decode(<<0x20>> <> _rest = full, coders, acc),
     do: apply_coder(:float32, full, coders, acc)
 
-  # do: {Tuple.append(acc, {:float32, n}), rest}
-
-  defp do_decode(<<0x21>> <> <<n::binary-size(8), rest::binary>> = full, coders, acc),
+  defp do_decode(<<0x21>> <> _rest = full, coders, acc),
     do: apply_coder(:float64, full, coders, acc)
 
-  # do: {Tuple.append(acc, {:float64, n}), rest}
-
-  defp do_decode(<<0x30>> <> rest = full, coders, acc),
+  defp do_decode(<<0x30>> <> _rest = full, coders, acc),
     do: apply_coder(:uuid, full, coders, acc)
 
-  defp do_decode(<<0x05>> <> rest = full, coders, acc) do
+  defp do_decode(<<0x05>> <> rest, coders, acc) do
     {value, rest} = do_decode_nested_tuple(rest, coders, {})
     {Tuple.append(acc, {:nested, value}), rest}
   end
 
-  defp do_decode(<<x::integer-size(8), rest::binary>> = full, coders, acc) when x in 0x0C..0x1C,
+  defp do_decode(<<x::integer-size(8), _rest::binary>> = full, coders, acc) when x in 0x0C..0x1C,
     do: apply_coder(:integer, full, coders, acc)
 
-  defp do_decode(<<x::integer-size(8), rest::binary>> = full, coders, acc)
+  defp do_decode(<<x::integer-size(8), _rest::binary>> = full, coders, acc)
        when x in [0x26, 0x27],
        do: apply_coder(:boolean, full, coders, acc)
 
-  defp do_decode(<<x::integer-size(8), rest::binary>> = full, coders, acc)
+  defp do_decode(<<x::integer-size(8), _rest::binary>> = full, coders, acc)
        when x in [0x1D, 0x0B],
        do: apply_coder(:arbitrary_integer, full, coders, acc)
 
@@ -122,7 +118,7 @@ defmodule FDB.Coder.Dynamic do
     do_decode_nested_tuple(rest, coders, values)
   end
 
-  defp do_decode_nested_tuple(<<0x00>> <> rest, coders, values), do: {values, rest}
+  defp do_decode_nested_tuple(<<0x00>> <> rest, _coders, values), do: {values, rest}
 
   defp do_decode_nested_tuple(rest, coders, values) do
     {values, rest} = do_decode(rest, coders, values)
