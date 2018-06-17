@@ -32,7 +32,7 @@ defmodule FDB.Database do
   def set_option(%Database{} = database, option, value) do
     Option.verify_database_option(option, value)
 
-    Native.database_set_option(database.resource, option, value)
+    Native.database_set_option(database.resource, option, Option.normalize_value(value))
     |> Utils.verify_result()
   end
 end

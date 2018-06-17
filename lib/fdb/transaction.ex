@@ -39,7 +39,7 @@ defmodule FDB.Transaction do
   def set_option(%Transaction{} = transaction, option, value) do
     Option.verify_transaction_option(option, value)
 
-    Native.transaction_set_option(transaction.resource, option, value)
+    Native.transaction_set_option(transaction.resource, option, Option.normalize_value(value))
     |> Utils.verify_result()
   end
 

@@ -29,7 +29,7 @@ defmodule FDB.Network do
   def set_option(option, value) do
     Option.verify_network_option(option, value)
 
-    Native.network_set_option(option, value)
+    Native.network_set_option(option, Option.normalize_value(value))
     |> Utils.verify_result()
   end
 end

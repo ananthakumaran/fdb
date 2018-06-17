@@ -54,45 +54,23 @@ typedef struct {
   int code;
   uint8_t const *value;
   int size;
-  fdb_bool_t free_value;
 } Option;
 
 static ERL_NIF_TERM
 option_inspect(ErlNifEnv *env, int i, int argc, const ERL_NIF_TERM argv[],
-               Option **result) {
+               Option *option) {
   ErlNifBinary binary_value;
-  Option *option = enif_alloc(sizeof(Option));
-  *result = option;
-  option->free_value = 0;
   option->size = 0;
   option->value = NULL;
   VERIFY_ARGV(enif_get_int(env, argv[i], &option->code), "option");
 
   if (argc == i + 2) {
-    if (enif_is_binary(env, argv[i + 1])) {
-      enif_inspect_binary(env, argv[i + 1], &binary_value);
-      option->value = binary_value.data;
-      option->size = binary_value.size;
-    } else {
-      ErlNifSInt64 int_value;
-      int64_t int_le_value;
-      VERIFY_ARGV(enif_get_int64(env, argv[i + 1], &int_value), "value");
-      int_le_value = htole64(int_value);
-      option->value = enif_alloc(sizeof(uint8_t) * 8);
-      memcpy((void *)option->value, &int_le_value, 8);
-      option->free_value = 1;
-      option->size = 8;
-    }
+    VERIFY_ARGV(enif_inspect_binary(env, argv[i + 1], &binary_value), "value");
+    enif_inspect_binary(env, argv[i + 1], &binary_value);
+    option->value = binary_value.data;
+    option->size = binary_value.size;
   }
   return OPTION_SUCCESS;
-}
-
-void
-option_free(Option *option) {
-  if (option->free_value) {
-    enif_free((void *)option->value);
-  }
-  enif_free(option);
 }
 
 static ERL_NIF_TERM
@@ -115,18 +93,16 @@ select_api_version_impl(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
 
 static ERL_NIF_TERM
 network_set_option(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
-  Option *option;
+  Option option;
   ERL_NIF_TERM option_status;
   fdb_error_t error;
 
   option_status = option_inspect(env, 0, argc, argv, &option);
   if (option_status != OPTION_SUCCESS) {
-    option_free(option);
     return option_status;
   }
 
-  error = fdb_network_set_option(option->code, option->value, option->size);
-  option_free(option);
+  error = fdb_network_set_option(option.code, option.value, option.size);
   return enif_make_int(env, error);
 }
 
@@ -570,7 +546,7 @@ create_cluster(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
 static ERL_NIF_TERM
 cluster_set_option(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   Cluster *cluster;
-  Option *option;
+  Option option;
   ERL_NIF_TERM option_status;
   fdb_error_t error;
 
@@ -580,13 +556,11 @@ cluster_set_option(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
 
   option_status = option_inspect(env, 1, argc, argv, &option);
   if (option_status != OPTION_SUCCESS) {
-    option_free(option);
     return option_status;
   }
 
-  error = fdb_cluster_set_option(cluster->handle, option->code, option->value,
-                                 option->size);
-  option_free(option);
+  error = fdb_cluster_set_option(cluster->handle, option.code, option.value,
+                                 option.size);
   return enif_make_int(env, error);
 }
 
@@ -607,7 +581,7 @@ cluster_create_database(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
 static ERL_NIF_TERM
 database_set_option(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   Database *database;
-  Option *option;
+  Option option;
   ERL_NIF_TERM option_status;
   fdb_error_t error;
 
@@ -617,13 +591,11 @@ database_set_option(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
 
   option_status = option_inspect(env, 1, argc, argv, &option);
   if (option_status != OPTION_SUCCESS) {
-    option_free(option);
     return option_status;
   }
 
-  error = fdb_database_set_option(database->handle, option->code, option->value,
-                                  option->size);
-  option_free(option);
+  error = fdb_database_set_option(database->handle, option.code, option.value,
+                                  option.size);
   return enif_make_int(env, error);
 }
 
@@ -651,7 +623,7 @@ database_create_transaction(ErlNifEnv *env, int argc,
 static ERL_NIF_TERM
 transaction_set_option(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   Transaction *transaction;
-  Option *option;
+  Option option;
   ERL_NIF_TERM option_status;
   fdb_error_t error;
 
@@ -661,13 +633,11 @@ transaction_set_option(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
 
   option_status = option_inspect(env, 1, argc, argv, &option);
   if (option_status != OPTION_SUCCESS) {
-    option_free(option);
     return option_status;
   }
 
-  error = fdb_transaction_set_option(transaction->handle, option->code,
-                                     option->value, option->size);
-  option_free(option);
+  error = fdb_transaction_set_option(transaction->handle, option.code,
+                                     option.value, option.size);
   return enif_make_int(env, error);
 }
 
