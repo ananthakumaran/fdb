@@ -23,7 +23,7 @@ LIB_NAME = priv/fdb_nif.so
 
 all: $(LIB_NAME)
 
-$(LIB_NAME): c_src/fdb_nif.c c_src/portable_endian.h
+$(LIB_NAME): c_src/fdb_nif.c
 	$(CC) $(CFLAGS) -shared $(LDFLAGS) -o $@ c_src/fdb_nif.c
 
 clean:

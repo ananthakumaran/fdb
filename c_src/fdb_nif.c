@@ -6,7 +6,6 @@
 
 #include "erl_nif.h"
 #include "foundationdb/fdb_c.h"
-#include "portable_endian.h"
 #include "stdio.h"
 #include "string.h"
 
