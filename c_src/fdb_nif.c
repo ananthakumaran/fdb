@@ -30,11 +30,11 @@
 
 static ERL_NIF_TERM
 string_to_binary(ErlNifEnv *env, const char *string) {
-  ErlNifBinary *binary = enif_alloc(sizeof(ErlNifBinary));
+  ErlNifBinary binary;
 
-  enif_alloc_binary(strlen(string), binary);
-  memcpy(binary->data, string, strlen(string));
-  return enif_make_binary(env, binary);
+  enif_alloc_binary(strlen(string), &binary);
+  memcpy(binary.data, string, strlen(string));
+  return enif_make_binary(env, &binary);
 }
 
 ERL_NIF_TERM
