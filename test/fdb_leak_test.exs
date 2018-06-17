@@ -43,6 +43,29 @@ defmodule FDBLeakTest do
     assert_memory()
   end
 
+  test "resource early garbage collection" do
+    parent = self()
+
+    # A temp process is used to trigger garbage collection of cluster
+    # & database. Transaction should keep a reference to them and
+    # avoid early garbage collection by erts
+    spawn_link(fn ->
+      t =
+        Cluster.create()
+        |> Database.create()
+        |> Transaction.create()
+
+      send(parent, t)
+    end)
+
+    receive do
+      t ->
+        :ok = Transaction.set_option(t, FDB.Option.transaction_option_access_system_keys())
+        assert Transaction.get(t, "\xff\xff/status/json")
+        assert Transaction.get(t, "\xff\xff/cluster_file_path")
+    end
+  end
+
   def assert_memory do
     Enum.each(Process.list(), fn pid -> :erlang.garbage_collect(pid) end)
     total = (:erlang.memory() |> Keyword.fetch!(:total)) / (1024 * 1024)
