@@ -2,8 +2,6 @@ defmodule FDBLeakTest do
   use ExUnit.Case
   import TestUtils
   require Logger
-  alias FDB.Database
-  alias FDB.Cluster
   alias FDB.Transaction
 
   setup do
@@ -14,9 +12,7 @@ defmodule FDBLeakTest do
   test "memory leak" do
     assert_memory()
 
-    db =
-      Cluster.create()
-      |> Database.create()
+    db = new_database()
 
     Task.async_stream(
       1..100_000,
@@ -50,12 +46,7 @@ defmodule FDBLeakTest do
     # & database. Transaction should keep a reference to them and
     # avoid early garbage collection by erts
     spawn_link(fn ->
-      t =
-        Cluster.create()
-        |> Database.create()
-        |> Transaction.create()
-
-      send(parent, t)
+      send(parent, new_transaction())
     end)
 
     receive do
@@ -64,6 +55,27 @@ defmodule FDBLeakTest do
         assert Transaction.get(t, "\xff\xff/status/json")
         assert Transaction.get(t, "\xff\xff/cluster_file_path")
     end
+  end
+
+  @tag timeout: 300_000, integration: true
+  test "transaction multi threading" do
+    t = new_transaction()
+
+    Task.async_stream(
+      1..10000,
+      fn i ->
+        if Integer.mod(i, 2) == 0 do
+          value = random_value()
+          key = random_key()
+          :ok = Transaction.set(t, key, value)
+        else
+          key = random_key()
+          _ = Transaction.get(t, key)
+        end
+      end,
+      max_concurrency: 100
+    )
+    |> Stream.run()
   end
 
   def assert_memory do
