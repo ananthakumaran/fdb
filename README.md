@@ -27,7 +27,7 @@ functions return immediatly and gives the control back to VM
 
 * memory protection
 
-This mostly comes around to careful coding. Currenly I am running the
+This mostly comes down to careful coding. Currenly I am running the
 tests under valgrind locally. With some effort it could be integrated
 in travis. FDB also runs the [bindings
 tester](https://forums.foundationdb.org/t/creating-new-bindings/207)
