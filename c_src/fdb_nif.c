@@ -1020,7 +1020,7 @@ load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info) {
   if (CLUSTER_RESOURCE_TYPE == NULL)
     return -1;
   DATABASE_RESOURCE_TYPE = enif_open_resource_type(
-      env, "fdb", "Transaction", database_destroy, flags, NULL);
+      env, "fdb", "Database", database_destroy, flags, NULL);
   if (DATABASE_RESOURCE_TYPE == NULL)
     return -1;
   TRANSACTION_RESOURCE_TYPE = enif_open_resource_type(
