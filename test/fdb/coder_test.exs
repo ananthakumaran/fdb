@@ -26,11 +26,11 @@ defmodule FDB.CoderTest do
     key = random_key()
     value = random_value()
 
-    Transaction.transact(db, fn t ->
+    Database.transact(db, fn t ->
       Transaction.set(t, key, value)
     end)
 
-    Transaction.transact(db, fn t ->
+    Database.transact(db, fn t ->
       assert Transaction.get(t, key) == value
     end)
 

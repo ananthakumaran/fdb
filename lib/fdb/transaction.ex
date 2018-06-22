@@ -126,7 +126,7 @@ defmodule FDB.Transaction do
           {has_more, list} =
             case database_or_transaction do
               %Database{} ->
-                Transaction.transact(database_or_transaction, fn t ->
+                Database.transact(database_or_transaction, fn t ->
                   get_range(t, state.begin_key_selector, state.end_key_selector, state)
                 end)
 
@@ -286,20 +286,6 @@ defmodule FDB.Transaction do
   def cancel(%Transaction{} = transaction) do
     Native.transaction_cancel(transaction.resource)
     |> Utils.verify_result()
-  end
-
-  def transact(%Database{} = database, callback) do
-    do_transact(create(database), callback)
-  end
-
-  defp do_transact(%Transaction{} = transaction, callback) do
-    result = callback.(transaction)
-    :ok = commit(transaction)
-    result
-  rescue
-    e in FDB.Error ->
-      :ok = on_error(transaction, e.code)
-      do_transact(transaction, callback)
   end
 
   def on_error(%Transaction{} = transaction, code) when is_integer(code) do

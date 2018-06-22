@@ -6,6 +6,7 @@ defmodule FDBTest do
   alias FDB.Cluster
   alias FDB.Transaction
   alias FDB.Future
+  alias FDB.Database
 
   setup do
     flushdb()
@@ -16,17 +17,17 @@ defmodule FDBTest do
     key = random_key()
     db = new_database()
 
-    Transaction.transact(db, fn transaction ->
+    Database.transact(db, fn transaction ->
       Transaction.set(transaction, key, value)
       assert Transaction.get(transaction, key) == value
     end)
 
-    Transaction.transact(db, fn transaction ->
+    Database.transact(db, fn transaction ->
       assert Transaction.get(transaction, key) == value
       assert Transaction.clear(transaction, key) == :ok
     end)
 
-    Transaction.transact(db, fn transaction ->
+    Database.transact(db, fn transaction ->
       assert Transaction.get(transaction, key) == nil
     end)
   end
@@ -60,7 +61,7 @@ defmodule FDBTest do
     d = new_database()
 
     expected =
-      Transaction.transact(d, fn t ->
+      Database.transact(d, fn t ->
         Enum.map(1..100, fn i ->
           key = "fdb:" <> String.pad_leading(Integer.to_string(i), 3, "0")
           value = random_value(100)
@@ -209,26 +210,26 @@ defmodule FDBTest do
     db = new_database()
 
     version =
-      Transaction.transact(db, fn t ->
+      Database.transact(db, fn t ->
         version = Transaction.get_read_version(t)
         assert version > 0
         assert Transaction.get_read_version(t) == version
         version
       end)
 
-    Transaction.transact(db, fn t ->
+    Database.transact(db, fn t ->
       Transaction.set(t, random_key(), random_value())
     end)
 
-    Transaction.transact(db, fn t ->
+    Database.transact(db, fn t ->
       assert Transaction.get_read_version(t) > version
     end)
 
-    Transaction.transact(db, fn t ->
+    Database.transact(db, fn t ->
       assert Transaction.set_read_version(t, version) == :ok
     end)
 
-    Transaction.transact(db, fn t ->
+    Database.transact(db, fn t ->
       assert Transaction.set_read_version(t, version + 1000) == :ok
       assert Transaction.get(t, random_key()) == nil
     end)
@@ -279,7 +280,7 @@ defmodule FDBTest do
   test "addresses" do
     db = new_database()
 
-    Transaction.transact(db, fn t ->
+    Database.transact(db, fn t ->
       Enum.each(1..100, fn i ->
         key = "fdb:" <> String.pad_leading(Integer.to_string(i), 3, "0")
         value = random_value(100)
@@ -288,7 +289,7 @@ defmodule FDBTest do
       end)
     end)
 
-    Transaction.transact(db, fn t ->
+    Database.transact(db, fn t ->
       addresses = Transaction.get_addresses_for_key(t, "fdb:001")
       assert length(addresses) == 1
       assert Transaction.get_addresses_for_key(t, "fdb:100") == addresses
@@ -321,7 +322,7 @@ defmodule FDBTest do
     db = new_database()
 
     future =
-      Transaction.transact(db, fn t ->
+      Database.transact(db, fn t ->
         assert Transaction.set(t, random_key(), random_value()) == :ok
         Transaction.get_versionstamp_q(t)
       end)
@@ -330,7 +331,7 @@ defmodule FDBTest do
     assert byte_size(stamp) == 10
 
     future =
-      Transaction.transact(db, fn t ->
+      Database.transact(db, fn t ->
         Transaction.get(t, random_key())
         Transaction.get_versionstamp_q(t)
       end)
@@ -343,17 +344,17 @@ defmodule FDBTest do
     key = random_key()
     db = new_database()
 
-    Transaction.transact(db, fn t ->
+    Database.transact(db, fn t ->
       assert Transaction.set(t, key, value) == :ok
     end)
 
     w1 =
-      Transaction.transact(db, fn t ->
+      Database.transact(db, fn t ->
         assert Transaction.get(t, key) == value
         Transaction.watch_q(t, key)
       end)
 
-    Transaction.transact(db, fn t ->
+    Database.transact(db, fn t ->
       assert Transaction.set(t, key, random_value()) == :ok
     end)
 
@@ -367,7 +368,7 @@ defmodule FDBTest do
     Task.async_stream(
       1..100,
       fn _i ->
-        Transaction.transact(db, fn transaction ->
+        Database.transact(db, fn transaction ->
           value = random_value()
           _current = Transaction.get(transaction, key)
           Transaction.set(transaction, key, value)
@@ -385,7 +386,7 @@ defmodule FDBTest do
     key = random_key()
     db = new_database()
 
-    Transaction.transact(db, fn transaction ->
+    Database.transact(db, fn transaction ->
       :ok =
         Transaction.add_conflict_range(transaction, "fdb:a", "fdb:z", conflict_range_type_read())
 

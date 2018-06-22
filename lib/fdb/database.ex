@@ -5,6 +5,7 @@ defmodule FDB.Database do
   alias FDB.Database
   alias FDB.Cluster
   alias FDB.Option
+  alias FDB.Transaction
 
   defstruct resource: nil, coder: nil
 
@@ -34,5 +35,19 @@ defmodule FDB.Database do
 
     Native.database_set_option(database.resource, option, Option.normalize_value(value))
     |> Utils.verify_result()
+  end
+
+  def transact(%Database{} = database, callback) do
+    do_transact(Transaction.create(database), callback)
+  end
+
+  defp do_transact(%Transaction{} = transaction, callback) do
+    result = callback.(transaction)
+    :ok = Transaction.commit(transaction)
+    result
+  rescue
+    e in FDB.Error ->
+      :ok = Transaction.on_error(transaction, e.code)
+      do_transact(transaction, callback)
   end
 end

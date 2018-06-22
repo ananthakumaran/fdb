@@ -248,7 +248,7 @@ defmodule FDB.Machine do
     |> Enum.with_index()
     |> Enum.chunk_every(10)
     |> Enum.each(fn chunk ->
-      Transaction.transact(db, fn t ->
+      Database.transact(db, fn t ->
         Enum.each(chunk, fn {{item, id}, i} ->
           item =
             cond do
@@ -420,7 +420,7 @@ defmodule FDB.Machine do
     {{:byte_string, prefix}, stack} = pop(s.stack)
 
     result =
-      Transaction.transact(s.db, fn t ->
+      Database.transact(s.db, fn t ->
         result =
           Transaction.get_range_stream(
             Transaction.set_coder(t, %Transaction.Coder{}),
