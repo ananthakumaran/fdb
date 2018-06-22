@@ -33,8 +33,15 @@ in travis. FDB also runs the [bindings
 tester](https://forums.foundationdb.org/t/creating-new-bindings/207)
 (used to test other language bindings) in travis CI.
 
+* concurrency
+
+The Foundation DB C API functions are thread safe except for the
+network intialization part. NIF implementation tries to avoid
+concurrency problems by not mutating the values once created.
+
 > Program testing can be used to show the presence of bugs, but never
-> to show their absence! - **Edsger W. Dijkstra**
+> to show their absence!
+> - **Edsger W. Dijkstra**
 
 It's still possible that there are a bugs in C API or the NIF
 implementation, which could lead to VM crash.
