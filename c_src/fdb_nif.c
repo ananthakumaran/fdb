@@ -209,8 +209,6 @@ reference_destroy_all(Reference *reference) {
 static ErlNifResourceType *TRANSACTION_RESOURCE_TYPE;
 typedef struct {
   FDBTransaction *handle;
-  ErlNifEnv *env;
-  ErlNifMutex *lock;
   Reference *reference;
 } Transaction;
 
@@ -309,8 +307,6 @@ transaction_destroy(ErlNifEnv *env, void *object) {
   Transaction *transaction = (Transaction *)object;
   fdb_transaction_destroy(transaction->handle);
   reference_destroy_all(transaction->reference);
-  enif_mutex_destroy(transaction->lock);
-  enif_free_env(transaction->env);
 }
 
 static ERL_NIF_TERM
@@ -321,8 +317,6 @@ fdb_transaction_to_transaction(ErlNifEnv *env, FDBTransaction *fdb_transaction,
       enif_alloc_resource(TRANSACTION_RESOURCE_TYPE, sizeof(Transaction));
   transaction->handle = fdb_transaction;
   transaction->reference = reference;
-  transaction->env = enif_alloc_env();
-  transaction->lock = enif_mutex_create("transaction");
   term = enif_make_resource(env, transaction);
   enif_release_resource(transaction);
   return term;
@@ -657,10 +651,7 @@ transaction_get(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   VERIFY_ARGV(enif_is_binary(env, key_term), "key");
   VERIFY_ARGV(enif_get_int(env, argv[2], &snapshot), "snapshot");
 
-  enif_mutex_lock(transaction->lock);
-  enif_inspect_binary(transaction->env,
-                      enif_make_copy(transaction->env, key_term), &key);
-  enif_mutex_unlock(transaction->lock);
+  enif_inspect_binary(env, key_term, &key);
   fdb_future =
       fdb_transaction_get(transaction->handle, key.data, key.size, snapshot);
 
@@ -734,10 +725,7 @@ transaction_get_key(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   VERIFY_ARGV(enif_get_int(env, argv[3], &offset), "offset");
   VERIFY_ARGV(enif_get_int(env, argv[4], &snapshot), "snapshot");
 
-  enif_mutex_lock(transaction->lock);
-  enif_inspect_binary(transaction->env,
-                      enif_make_copy(transaction->env, key_term), &key);
-  enif_mutex_unlock(transaction->lock);
+  enif_inspect_binary(env, key_term, &key);
   fdb_future = fdb_transaction_get_key(transaction->handle, key.data, key.size,
                                        or_equal, offset, snapshot);
   reference = reference_resource_create(transaction, NULL);
@@ -759,10 +747,7 @@ transaction_get_addresses_for_key(ErlNifEnv *env, int argc,
               "transaction");
   VERIFY_ARGV(enif_is_binary(env, key_term), "key");
 
-  enif_mutex_lock(transaction->lock);
-  enif_inspect_binary(transaction->env,
-                      enif_make_copy(transaction->env, key_term), &key);
-  enif_mutex_unlock(transaction->lock);
+  enif_inspect_binary(env, key_term, &key);
   fdb_future = fdb_transaction_get_addresses_for_key(transaction->handle,
                                                      key.data, key.size);
   reference = reference_resource_create(transaction, NULL);
@@ -810,13 +795,8 @@ transaction_get_range(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   VERIFY_ARGV(enif_get_int(env, argv[11], &snapshot), "snapshot");
   VERIFY_ARGV(enif_get_int(env, argv[12], &reverse), "reverse");
 
-  enif_mutex_lock(transaction->lock);
-  enif_inspect_binary(transaction->env,
-                      enif_make_copy(transaction->env, begin_key_term),
-                      &begin_key);
-  enif_inspect_binary(transaction->env,
-                      enif_make_copy(transaction->env, end_key_term), &end_key);
-  enif_mutex_unlock(transaction->lock);
+  enif_inspect_binary(env, begin_key_term, &begin_key);
+  enif_inspect_binary(env, end_key_term, &end_key);
 
   fdb_future = fdb_transaction_get_range(
       transaction->handle, begin_key.data, begin_key.size, begin_or_equal,
@@ -841,12 +821,8 @@ transaction_set(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   VERIFY_ARGV(enif_is_binary(env, key_term), "key");
   VERIFY_ARGV(enif_is_binary(env, key_term), "value");
 
-  enif_mutex_lock(transaction->lock);
-  enif_inspect_binary(transaction->env,
-                      enif_make_copy(transaction->env, key_term), &key);
-  enif_inspect_binary(transaction->env,
-                      enif_make_copy(transaction->env, value_term), &value);
-  enif_mutex_unlock(transaction->lock);
+  enif_inspect_binary(env, key_term, &key);
+  enif_inspect_binary(env, value_term, &value);
 
   fdb_transaction_set(transaction->handle, key.data, key.size, value.data,
                       value.size);
@@ -887,13 +863,8 @@ transaction_add_conflict_range(ErlNifEnv *env, int argc,
   VERIFY_ARGV(enif_get_int(env, argv[3], &conflict_range_type),
               "conflict_range_type");
 
-  enif_mutex_lock(transaction->lock);
-  enif_inspect_binary(transaction->env,
-                      enif_make_copy(transaction->env, begin_key_term),
-                      &begin_key);
-  enif_inspect_binary(transaction->env,
-                      enif_make_copy(transaction->env, end_key_term), &end_key);
-  enif_mutex_unlock(transaction->lock);
+  enif_inspect_binary(env, begin_key_term, &begin_key);
+  enif_inspect_binary(env, end_key_term, &end_key);
 
   error = fdb_transaction_add_conflict_range(
       transaction->handle, begin_key.data, begin_key.size, end_key.data,
@@ -918,12 +889,8 @@ transaction_atomic_op(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   VERIFY_ARGV(enif_is_binary(env, key_term), "param");
   VERIFY_ARGV(enif_get_int(env, argv[3], &operation_type), "operation_type");
 
-  enif_mutex_lock(transaction->lock);
-  enif_inspect_binary(transaction->env,
-                      enif_make_copy(transaction->env, key_term), &key);
-  enif_inspect_binary(transaction->env,
-                      enif_make_copy(transaction->env, param_term), &param);
-  enif_mutex_unlock(transaction->lock);
+  enif_inspect_binary(env, key_term, &key);
+  enif_inspect_binary(env, param_term, &param);
 
   fdb_transaction_atomic_op(transaction->handle, key.data, key.size, param.data,
                             param.size, operation_type);
@@ -940,10 +907,7 @@ transaction_clear(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
               "transaction");
   VERIFY_ARGV(enif_is_binary(env, key_term), "key");
 
-  enif_mutex_lock(transaction->lock);
-  enif_inspect_binary(transaction->env,
-                      enif_make_copy(transaction->env, key_term), &key);
-  enif_mutex_unlock(transaction->lock);
+  enif_inspect_binary(env, key_term, &key);
 
   fdb_transaction_clear(transaction->handle, key.data, key.size);
   return enif_make_int(env, 0);
@@ -962,13 +926,8 @@ transaction_clear_range(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   VERIFY_ARGV(enif_is_binary(env, begin_key_term), "begin_key");
   VERIFY_ARGV(enif_is_binary(env, end_key_term), "end_key");
 
-  enif_mutex_lock(transaction->lock);
-  enif_inspect_binary(transaction->env,
-                      enif_make_copy(transaction->env, begin_key_term),
-                      &begin_key);
-  enif_inspect_binary(transaction->env,
-                      enif_make_copy(transaction->env, end_key_term), &end_key);
-  enif_mutex_unlock(transaction->lock);
+  enif_inspect_binary(env, begin_key_term, &begin_key);
+  enif_inspect_binary(env, end_key_term, &end_key);
 
   fdb_transaction_clear_range(transaction->handle, begin_key.data,
                               begin_key.size, end_key.data, end_key.size);
@@ -1002,10 +961,7 @@ transaction_watch(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
               "transaction");
   VERIFY_ARGV(enif_is_binary(env, key_term), "key");
 
-  enif_mutex_lock(transaction->lock);
-  enif_inspect_binary(transaction->env,
-                      enif_make_copy(transaction->env, key_term), &key);
-  enif_mutex_unlock(transaction->lock);
+  enif_inspect_binary(env, key_term, &key);
 
   fdb_future = fdb_transaction_watch(transaction->handle, key.data, key.size);
   return fdb_future_to_future(env, fdb_future, WATCH, NULL, NULL);

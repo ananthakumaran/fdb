@@ -32,3 +32,6 @@ GTAGS
 foundationdb
 .cquery*
 docker*
+valgrind
+.dockerignore
+result.log
