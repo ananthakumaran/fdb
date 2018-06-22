@@ -41,7 +41,7 @@ concurrency problems by not mutating the values once created.
 
 > Program testing can be used to show the presence of bugs, but never
 > to show their absence!
-> - **Edsger W. Dijkstra**
+> **Edsger W. Dijkstra**
 
 It's still possible that there are a bugs in C API or the NIF
 implementation, which could lead to VM crash.
