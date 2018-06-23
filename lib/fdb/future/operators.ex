@@ -8,4 +8,3 @@ defmodule FDB.Future.Operators do
     end
   end
 end
-
