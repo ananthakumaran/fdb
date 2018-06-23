@@ -7,6 +7,7 @@ defmodule FDB.CoderTest do
   alias FDB.Coder.Subspace
   alias FDB.Coder.ByteString
   alias FDB.KeySelector
+  alias FDB.KeyRange
 
   setup do
     flushdb()
@@ -37,8 +38,10 @@ defmodule FDB.CoderTest do
     [{stored_key, stored_value}] =
       Transaction.get_range_stream(
         db_raw,
-        KeySelector.first_greater_or_equal(<<0x00>>),
-        KeySelector.first_greater_or_equal(<<0xFF>>)
+        KeyRange.range(
+          KeySelector.first_greater_or_equal(<<0x00>>),
+          KeySelector.first_greater_or_equal(<<0xFF>>)
+        )
       )
       |> Enum.to_list()
 
@@ -48,8 +51,10 @@ defmodule FDB.CoderTest do
     all =
       Transaction.get_range_stream(
         db,
-        KeySelector.first_greater_or_equal(nil),
-        KeySelector.first_greater_or_equal(nil)
+        KeyRange.range(
+          KeySelector.first_greater_or_equal(nil, %{prefix: :first}),
+          KeySelector.first_greater_or_equal(nil, %{prefix: :last})
+        )
       )
       |> Enum.to_list()
 

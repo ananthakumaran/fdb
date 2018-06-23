@@ -57,7 +57,7 @@ defmodule FDB.Transaction do
     |> Future.map(&Coder.decode_value(transaction.coder, &1))
   end
 
-  defp get_range(%Transaction{} = transaction, begin_key_selector, end_key_selector, options) do
+  defp do_get_range(%Transaction{} = transaction, begin_key_selector, end_key_selector, options) do
     Native.transaction_get_range(
       transaction.resource,
       begin_key_selector.key,
@@ -86,20 +86,29 @@ defmodule FDB.Transaction do
 
   def get_range_stream(
         database_or_transaction,
-        begin_key_selector,
-        end_key_selector,
+        key_range,
         options \\ %{}
       ) do
     has_limit = Map.has_key?(options, :limit) && options.limit > 0
 
     begin_key_selector = %{
-      begin_key_selector
-      | key: Coder.encode_range_start(database_or_transaction.coder, begin_key_selector.key)
+      key_range.begin
+      | key:
+          Coder.encode_range(
+            database_or_transaction.coder,
+            key_range.begin.key,
+            key_range.begin.prefix
+          )
     }
 
     end_key_selector = %{
-      end_key_selector
-      | key: Coder.encode_range_end(database_or_transaction.coder, end_key_selector.key)
+      key_range.end
+      | key:
+          Coder.encode_range(
+            database_or_transaction.coder,
+            key_range.end.key,
+            key_range.end.prefix
+          )
     }
 
     state =
@@ -127,11 +136,11 @@ defmodule FDB.Transaction do
             case database_or_transaction do
               %Database{} ->
                 Database.transact(database_or_transaction, fn t ->
-                  get_range(t, state.begin_key_selector, state.end_key_selector, state)
+                  do_get_range(t, state.begin_key_selector, state.end_key_selector, state)
                 end)
 
               %Transaction{} ->
-                get_range(
+                do_get_range(
                   database_or_transaction,
                   state.begin_key_selector,
                   state.end_key_selector,
@@ -218,7 +227,7 @@ defmodule FDB.Transaction do
   end
 
   def get_key_q(%Transaction{} = transaction, key_selector, snapshot \\ 0) do
-    key = Coder.encode_range_start(transaction.coder, key_selector.key)
+    key = Coder.encode_range(transaction.coder, key_selector.key, key_selector.prefix)
 
     Native.transaction_get_key(
       transaction.resource,
@@ -271,9 +280,9 @@ defmodule FDB.Transaction do
     |> Utils.verify_result()
   end
 
-  def clear_range(%Transaction{} = transaction, begin_key, end_key) do
-    begin_key = Coder.encode_range_start(transaction.coder, begin_key)
-    end_key = Coder.encode_range_end(transaction.coder, end_key)
+  def clear_range(%Transaction{} = transaction, key_range) do
+    begin_key = Coder.encode_range(transaction.coder, key_range.begin.key, key_range.begin.prefix)
+    end_key = Coder.encode_range(transaction.coder, key_range.end.key, key_range.end.prefix)
 
     Native.transaction_clear_range(transaction.resource, begin_key, end_key)
     |> Utils.verify_result()
@@ -302,9 +311,10 @@ defmodule FDB.Transaction do
     Native.transaction_on_error(transaction.resource, code)
   end
 
-  def add_conflict_range(%Transaction{} = transaction, begin_key, end_key, type) do
-    begin_key = Coder.encode_range_start(transaction.coder, begin_key)
-    end_key = Coder.encode_range_end(transaction.coder, end_key)
+  def add_conflict_range(%Transaction{} = transaction, key_range, type) do
+    begin_key = Coder.encode_range(transaction.coder, key_range.begin.key, key_range.begin.prefix)
+
+    end_key = Coder.encode_range(transaction.coder, key_range.end.key, key_range.end.prefix)
 
     Native.transaction_add_conflict_range(transaction.resource, begin_key, end_key, type)
     |> Utils.verify_result()

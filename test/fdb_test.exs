@@ -3,6 +3,7 @@ defmodule FDBTest do
   import FDB.Option
   import TestUtils
   alias FDB.KeySelector
+  alias FDB.KeyRange
   alias FDB.Cluster
   alias FDB.Transaction
   alias FDB.Future
@@ -73,8 +74,10 @@ defmodule FDBTest do
     actual =
       Transaction.get_range_stream(
         d,
-        KeySelector.first_greater_than("fdb"),
-        KeySelector.first_greater_than("fdc")
+        KeyRange.range(
+          KeySelector.first_greater_than("fdb"),
+          KeySelector.first_greater_than("fdc")
+        )
       )
       |> Enum.to_list()
 
@@ -83,8 +86,10 @@ defmodule FDBTest do
     actual =
       Transaction.get_range_stream(
         d,
-        KeySelector.first_greater_than("fdb"),
-        KeySelector.first_greater_than("fdc"),
+        KeyRange.range(
+          KeySelector.first_greater_than("fdb"),
+          KeySelector.first_greater_than("fdc")
+        ),
         %{reverse: 1}
       )
       |> Enum.to_list()
@@ -94,8 +99,10 @@ defmodule FDBTest do
     actual =
       Transaction.get_range_stream(
         d,
-        KeySelector.first_greater_than("fdb"),
-        KeySelector.first_greater_than("fdc"),
+        KeyRange.range(
+          KeySelector.first_greater_than("fdb"),
+          KeySelector.first_greater_than("fdc")
+        ),
         %{limit: 10}
       )
       |> Enum.to_list()
@@ -105,8 +112,10 @@ defmodule FDBTest do
     actual =
       Transaction.get_range_stream(
         d,
-        KeySelector.first_greater_than("fdb"),
-        KeySelector.first_greater_than("fdc"),
+        KeyRange.range(
+          KeySelector.first_greater_than("fdb"),
+          KeySelector.first_greater_than("fdc")
+        ),
         %{limit: 10, reverse: 1}
       )
       |> Enum.to_list()
@@ -116,8 +125,10 @@ defmodule FDBTest do
     actual =
       Transaction.get_range_stream(
         d,
-        KeySelector.first_greater_than("fdb"),
-        KeySelector.first_greater_than("fdc"),
+        KeyRange.range(
+          KeySelector.first_greater_than("fdb"),
+          KeySelector.first_greater_than("fdc")
+        ),
         %{limit: 1000}
       )
       |> Enum.to_list()
@@ -127,8 +138,10 @@ defmodule FDBTest do
     actual =
       Transaction.get_range_stream(
         d,
-        KeySelector.first_greater_or_equal("fdb:011"),
-        KeySelector.first_greater_than("fdc"),
+        KeyRange.range(
+          KeySelector.first_greater_or_equal("fdb:011"),
+          KeySelector.first_greater_than("fdc")
+        ),
         %{limit: 1000}
       )
       |> Enum.to_list()
@@ -138,8 +151,10 @@ defmodule FDBTest do
     actual =
       Transaction.get_range_stream(
         d,
-        KeySelector.first_greater_than("fdb:010"),
-        KeySelector.first_greater_than("fdc"),
+        KeyRange.range(
+          KeySelector.first_greater_than("fdb:010"),
+          KeySelector.first_greater_than("fdc")
+        ),
         %{limit: 1000}
       )
       |> Enum.to_list()
@@ -149,8 +164,10 @@ defmodule FDBTest do
     actual =
       Transaction.get_range_stream(
         d,
-        KeySelector.first_greater_or_equal("fdb:000"),
-        KeySelector.first_greater_or_equal("fdb:011")
+        KeyRange.range(
+          KeySelector.first_greater_or_equal("fdb:000"),
+          KeySelector.first_greater_or_equal("fdb:011")
+        )
       )
       |> Enum.to_list()
 
@@ -159,8 +176,10 @@ defmodule FDBTest do
     actual =
       Transaction.get_range_stream(
         d,
-        KeySelector.first_greater_or_equal("fdb:000"),
-        KeySelector.first_greater_or_equal("fdb:011"),
+        KeyRange.range(
+          KeySelector.first_greater_or_equal("fdb:000"),
+          KeySelector.first_greater_or_equal("fdb:011")
+        ),
         %{reverse: 1}
       )
       |> Enum.to_list()
@@ -420,11 +439,9 @@ defmodule FDBTest do
     db = new_database()
 
     Database.transact(db, fn transaction ->
-      :ok =
-        Transaction.add_conflict_range(transaction, "fdb:a", "fdb:z", conflict_range_type_read())
-
-      :ok =
-        Transaction.add_conflict_range(transaction, "fdb:a", "fdb:z", conflict_range_type_write())
+      range = KeyRange.starts_with("fdb:")
+      :ok = Transaction.add_conflict_range(transaction, range, conflict_range_type_read())
+      :ok = Transaction.add_conflict_range(transaction, range, conflict_range_type_write())
 
       Transaction.set(transaction, key, value)
       assert Transaction.get(transaction, key) == value

@@ -39,6 +39,7 @@ defmodule FDB.Machine do
   alias FDB.Coder.Dynamic
   alias FDB.Coder
   alias FDB.KeySelector
+  alias FDB.KeyRange
   alias FDB.Option
   alias FDB.Future
   import Stack
@@ -345,8 +346,10 @@ defmodule FDB.Machine do
       rescue_error(fn ->
         Transaction.get_range_stream(
           trx(s, %Transaction.Coder{}),
-          %KeySelector{key: begin_key, or_equal: begin_or_equal, offset: begin_offset},
-          %KeySelector{key: end_key, or_equal: end_or_equal, offset: end_offset},
+          KeyRange.range(
+            %KeySelector{key: begin_key, or_equal: begin_or_equal, offset: begin_offset},
+            %KeySelector{key: end_key, or_equal: end_or_equal, offset: end_offset}
+          ),
           %{
             limit: limit,
             reverse: reverse,
@@ -372,8 +375,10 @@ defmodule FDB.Machine do
       rescue_error(fn ->
         Transaction.get_range_stream(
           trx(s, %Transaction.Coder{}),
-          KeySelector.first_greater_or_equal(begin_key),
-          KeySelector.first_greater_or_equal(end_key),
+          KeyRange.range(
+            KeySelector.first_greater_or_equal(begin_key),
+            KeySelector.first_greater_or_equal(end_key)
+          ),
           %{
             limit: limit,
             reverse: reverse,
@@ -398,8 +403,10 @@ defmodule FDB.Machine do
       rescue_error(fn ->
         Transaction.get_range_stream(
           trx(s, %Transaction.Coder{}),
-          KeySelector.first_greater_or_equal(prefix),
-          KeySelector.first_greater_or_equal(strinc(prefix)),
+          KeyRange.range(
+            KeySelector.first_greater_or_equal(prefix),
+            KeySelector.first_greater_or_equal(strinc(prefix))
+          ),
           %{
             limit: limit,
             reverse: reverse,
@@ -424,8 +431,10 @@ defmodule FDB.Machine do
         result =
           Transaction.get_range_stream(
             Transaction.set_coder(t, %Transaction.Coder{}),
-            KeySelector.first_greater_or_equal(prefix),
-            KeySelector.first_greater_or_equal(strinc(prefix))
+            KeyRange.range(
+              KeySelector.first_greater_or_equal(prefix),
+              KeySelector.first_greater_or_equal(strinc(prefix))
+            )
           )
           |> Enum.to_list()
 
@@ -501,8 +510,7 @@ defmodule FDB.Machine do
       rescue_error(fn ->
         Transaction.add_conflict_range(
           trx(s, %Transaction.Coder{}),
-          begin_key,
-          end_key,
+          KeyRange.range(KeySelector.static(begin_key), KeySelector.static(end_key)),
           case op do
             "READ_CONFLICT_RANGE" -> Option.conflict_range_type_read()
             "WRITE_CONFLICT_RANGE" -> Option.conflict_range_type_write()
@@ -522,8 +530,7 @@ defmodule FDB.Machine do
       rescue_error(fn ->
         Transaction.add_conflict_range(
           trx(s, %Transaction.Coder{}),
-          key,
-          key <> <<0x00>>,
+          KeyRange.range(KeySelector.static(key), KeySelector.static(key <> <<0x00>>)),
           case op do
             "READ_CONFLICT_KEY" -> Option.conflict_range_type_read()
             "WRITE_CONFLICT_KEY" -> Option.conflict_range_type_write()
@@ -544,13 +551,25 @@ defmodule FDB.Machine do
 
   def do_execute(_id, {"CLEAR_RANGE"}, s) do
     {{:byte_string, start_key}, {:byte_string, end_key}, stack} = pop(s.stack, 2)
-    :ok = Transaction.clear_range(trx(s, %Transaction.Coder{}), start_key, end_key)
+
+    :ok =
+      Transaction.clear_range(
+        trx(s, %Transaction.Coder{}),
+        KeyRange.range(KeySelector.static(start_key), KeySelector.static(end_key))
+      )
+
     %{s | stack: stack}
   end
 
   def do_execute(_id, {"CLEAR_RANGE_STARTS_WITH"}, s) do
     {{:byte_string, key}, stack} = pop(s.stack)
-    :ok = Transaction.clear_range(trx(s, %Transaction.Coder{}), key, strinc(key))
+
+    :ok =
+      Transaction.clear_range(
+        trx(s, %Transaction.Coder{}),
+        KeyRange.range(KeySelector.static(key), KeySelector.static(strinc(key)))
+      )
+
     %{s | stack: stack}
   end
 
@@ -675,7 +694,7 @@ end
 defmodule FDB.Runner do
   alias FDB.Transaction
   alias FDB.Coder.{Subspace, Dynamic}
-  alias FDB.KeySelector
+  alias FDB.KeyRange
 
   def run(db, prefix) do
     coder = %Transaction.Coder{
@@ -688,8 +707,7 @@ defmodule FDB.Runner do
     state =
       Transaction.get_range_stream(
         db,
-        KeySelector.first_greater_than(nil),
-        KeySelector.last_less_than(nil)
+        KeyRange.starts_with(nil)
       )
       |> Enum.reduce(
         FDB.Machine.init(db, prefix, System.get_env("DEBUG")),

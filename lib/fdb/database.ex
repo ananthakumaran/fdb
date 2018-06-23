@@ -6,6 +6,7 @@ defmodule FDB.Database do
   alias FDB.Cluster
   alias FDB.Option
   alias FDB.Transaction
+  alias FDB.KeyRange
 
   defstruct resource: nil, coder: nil
 
@@ -39,14 +40,12 @@ defmodule FDB.Database do
 
   def get_range_stream(
         %Database{} = database,
-        begin_key_selector,
-        end_key_selector,
+        %KeyRange{} = key_range,
         options \\ %{}
       ) do
     Transaction.get_range_stream(
       database,
-      begin_key_selector,
-      end_key_selector,
+      key_range,
       options
     )
   end
