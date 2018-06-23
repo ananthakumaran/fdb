@@ -1,5 +1,5 @@
 defmodule FDB.Coder.ArbitraryInteger do
-  @behaviour FDB.Coder.Behaviour
+  use FDB.Coder.Behaviour
   use Bitwise
 
   def new do
@@ -45,13 +45,5 @@ defmodule FDB.Coder.ArbitraryInteger do
 
   defp complement(<<n::integer-size(8), rest::binary>>) do
     <<(~~~n)::integer-8, complement(rest)::binary>>
-  end
-
-  @impl true
-  def range(nil, _), do: {<<0x00>>, <<0xFF>>}
-
-  def range(n, opts) do
-    encoded = encode(n, opts)
-    {encoded <> <<0x00>>, encoded <> <<0xFF>>}
   end
 end

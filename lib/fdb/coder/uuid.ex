@@ -1,5 +1,5 @@
 defmodule FDB.Coder.UUID do
-  @behaviour FDB.Coder.Behaviour
+  use FDB.Coder.Behaviour
 
   def new do
     %FDB.Coder{
@@ -18,13 +18,5 @@ defmodule FDB.Coder.UUID do
   def decode(@code <> value, _) do
     <<uuid::binary-size(16), rest::binary>> = value
     {uuid, rest}
-  end
-
-  @impl true
-  def range(nil, _), do: {<<0x00>>, <<0xFF>>}
-
-  def range(value, opts) do
-    encoded = encode(value, opts)
-    {encoded <> <<0x00>>, encoded <> <<0xFF>>}
   end
 end

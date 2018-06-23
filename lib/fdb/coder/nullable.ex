@@ -1,5 +1,5 @@
 defmodule FDB.Coder.Nullable do
-  @behaviour FDB.Coder.Behaviour
+  use FDB.Coder.Behaviour
 
   def new(coder) do
     %FDB.Coder{module: __MODULE__, opts: coder}
@@ -16,10 +16,6 @@ defmodule FDB.Coder.Nullable do
   def decode(value, coder), do: coder.module.decode(value, coder.opts)
 
   @impl true
-  def range(nil, _), do: {<<0x00>>, <<0xFF>>}
-
-  def range(value, coder) do
-    encoded = encode(value, coder)
-    {encoded <> <<0x00>>, encoded <> <<0xFF>>}
-  end
+  def range(nil, _), do: {@code, :complete}
+  def range(value, coder), do: coder.module.range(value, coder.opts)
 end

@@ -1,6 +1,6 @@
 defmodule FDB.Coder.Subspace do
   alias FDB.Utils
-  @behaviour FDB.Coder.Behaviour
+  use FDB.Coder.Behaviour
 
   defmodule Opts do
     defstruct [:prefix, :coder]
@@ -30,10 +30,10 @@ defmodule FDB.Coder.Subspace do
   end
 
   @impl true
-  def range(nil, opts), do: {opts.prefix <> <<0x00>>, opts.prefix <> <<0xFF>>}
+  def range(nil, opts), do: {opts.prefix, :partial}
 
   def range(value, opts) do
-    {s, e} = opts.coder.module.range(value, opts.coder.opts)
-    {opts.prefix <> s, opts.prefix <> e}
+    {prefix, state} = opts.coder.module.range(value, opts.coder.opts)
+    {opts.prefix <> prefix, state}
   end
 end

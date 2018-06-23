@@ -1,5 +1,5 @@
 defmodule FDB.Coder.Dynamic do
-  @behaviour FDB.Coder.Behaviour
+  use FDB.Coder.Behaviour
 
   def new do
     coders = %{
@@ -57,14 +57,6 @@ defmodule FDB.Coder.Dynamic do
   @impl true
   def decode(rest, coders) do
     {loop(rest, coders, {}), <<>>}
-  end
-
-  @impl true
-  def range(nil, _), do: {<<0x00>>, <<0xFF>>}
-
-  def range(n, opts) do
-    encoded = encode(n, opts)
-    {encoded <> <<0x00>>, encoded <> <<0xFF>>}
   end
 
   defp loop(<<>>, _coders, acc), do: acc

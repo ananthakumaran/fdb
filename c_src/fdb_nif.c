@@ -819,7 +819,7 @@ transaction_set(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
                                 (void **)&transaction),
               "transaction");
   VERIFY_ARGV(enif_is_binary(env, key_term), "key");
-  VERIFY_ARGV(enif_is_binary(env, key_term), "value");
+  VERIFY_ARGV(enif_is_binary(env, value_term), "value");
 
   enif_inspect_binary(env, key_term, &key);
   enif_inspect_binary(env, value_term, &value);
@@ -886,7 +886,7 @@ transaction_atomic_op(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
                                 (void **)&transaction),
               "transaction");
   VERIFY_ARGV(enif_is_binary(env, key_term), "key");
-  VERIFY_ARGV(enif_is_binary(env, key_term), "param");
+  VERIFY_ARGV(enif_is_binary(env, param_term), "param");
   VERIFY_ARGV(enif_get_int(env, argv[3], &operation_type), "operation_type");
 
   enif_inspect_binary(env, key_term, &key);

@@ -1,5 +1,5 @@
 defmodule FDB.Coder.NestedTuple do
-  @behaviour FDB.Coder.Behaviour
+  use FDB.Coder.Behaviour
 
   def new(coders) do
     %FDB.Coder{module: __MODULE__, opts: Tuple.to_list(coders)}
@@ -35,25 +35,31 @@ defmodule FDB.Coder.NestedTuple do
   end
 
   @impl true
-  def range(nil, _), do: {<<0x00>>, <<0xFF>>}
+  def range(nil, _), do: {<<>>, :partial}
 
   def range(values, coders) do
     values = Tuple.to_list(values)
 
-    if Enum.empty?(values) do
-      {<<0x00>>, <<0xFF>>}
+    {encoded, state} = do_range(Enum.take(coders, length(values)), values)
+
+    if length(values) == length(coders) && state == :complete do
+      {@code <> encoded <> @end_code, state}
     else
-      encoded = @code <> do_encode(values, Enum.take(coders, length(values)))
-
-      encoded =
-        if length(values) == length(coders) do
-          encoded <> @end_code
-        else
-          encoded
-        end
-
-      {encoded <> <<0x00>>, encoded <> <<0xFF>>}
+      {@code <> encoded, :partial}
     end
+  end
+
+  defp do_range(coders, values) do
+    Enum.zip(coders, values)
+    |> Enum.reduce({<<>>, :partial}, fn {coder, value}, {encoded, _state} ->
+      {e, state} = coder.module.range(value, coder.opts)
+
+      if is_nil(value) do
+        {encoded <> e <> @null_suffix, state}
+      else
+        {encoded <> e, state}
+      end
+    end)
   end
 
   defp do_encode(coders, values) do

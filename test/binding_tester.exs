@@ -644,8 +644,11 @@ defmodule FDB.Machine do
   end
 
   defp tuple_range(items) do
-    coder = Dynamic.new()
-    coder.module.range(List.to_tuple(items), coder.opts)
+    coder = %Transaction.Coder{key: Dynamic.new()}
+    key = List.to_tuple(items)
+
+    {Transaction.Coder.encode_range(coder, key, :first),
+     Transaction.Coder.encode_range(coder, key, :last)}
   end
 
   defp strinc(text) do

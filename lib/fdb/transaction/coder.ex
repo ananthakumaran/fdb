@@ -24,12 +24,12 @@ defmodule FDB.Transaction.Coder do
   end
 
   def encode_range(coder, key, :first) do
-    {range_start, _} = coder.key.module.range(key, coder.key.opts)
-    range_start
+    {value, _} = coder.key.module.range(key, coder.key.opts)
+    value <> <<0x00>>
   end
 
   def encode_range(coder, key, :last) do
-    {_, range_end} = coder.key.module.range(key, coder.key.opts)
-    range_end
+    {value, _} = coder.key.module.range(key, coder.key.opts)
+    value <> <<0xFF>>
   end
 end
