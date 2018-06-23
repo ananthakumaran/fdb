@@ -33,7 +33,7 @@ defmodule FDB.Coder.Subspace do
   def range(nil, opts), do: {opts.prefix <> <<0x00>>, opts.prefix <> <<0xFF>>}
 
   def range(value, opts) do
-    {s, e} = opts.coder.range(value, opts)
+    {s, e} = opts.coder.module.range(value, opts.coder.opts)
     {opts.prefix <> s, opts.prefix <> e}
   end
 end

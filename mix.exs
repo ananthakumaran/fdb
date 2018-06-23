@@ -26,6 +26,7 @@ defmodule FDB.MixProject do
     [
       {:sweet_xml, "~> 0.6"},
       {:stream_data, "~> 0.4", only: :test},
+      {:timex, "~> 3.3.0", only: :test},
       {:ex_doc, "~> 0.18", only: :dev},
       {:dialyxir, "~> 0.5", only: [:dev], runtime: false}
     ]

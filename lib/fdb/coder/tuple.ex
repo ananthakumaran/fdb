@@ -30,7 +30,7 @@ defmodule FDB.Coder.Tuple do
     if Enum.empty?(values) do
       {<<0x00>>, <<0xFF>>}
     else
-      encoded = do_encode(values, Enum.take(coders, length(values)))
+      encoded = do_encode(Enum.take(coders, length(values)), values)
       {encoded <> <<0x00>>, encoded <> <<0xFF>>}
     end
   end
