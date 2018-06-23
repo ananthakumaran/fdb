@@ -58,17 +58,14 @@ defmodule FDB.Transaction do
   end
 
   defp get_range(%Transaction{} = transaction, begin_key_selector, end_key_selector, options) do
-    {begin_key, begin_or_equal, begin_offset} = begin_key_selector
-    {end_key, end_or_equal, end_offset} = end_key_selector
-
     Native.transaction_get_range(
       transaction.resource,
-      begin_key,
-      begin_or_equal,
-      begin_offset,
-      end_key,
-      end_or_equal,
-      end_offset,
+      begin_key_selector.key,
+      begin_key_selector.or_equal,
+      begin_key_selector.offset,
+      end_key_selector.key,
+      end_key_selector.or_equal,
+      end_key_selector.offset,
       Map.get(options, :limit, 0),
       Map.get(options, :target_bytes, 0),
       Map.get(options, :mode, FDB.Option.streaming_mode_iterator()),
@@ -95,12 +92,15 @@ defmodule FDB.Transaction do
       ) do
     has_limit = Map.has_key?(options, :limit) && options.limit > 0
 
-    {begin_key, begin_or_equal, begin_offset} = begin_key_selector
-    {end_key, end_or_equal, end_offset} = end_key_selector
-    begin_key = Coder.encode_range_start(database_or_transaction.coder, begin_key)
-    end_key = Coder.encode_range_end(database_or_transaction.coder, end_key)
-    begin_key_selector = {begin_key, begin_or_equal, begin_offset}
-    end_key_selector = {end_key, end_or_equal, end_offset}
+    begin_key_selector = %{
+      begin_key_selector
+      | key: Coder.encode_range_start(database_or_transaction.coder, begin_key_selector.key)
+    }
+
+    end_key_selector = %{
+      end_key_selector
+      | key: Coder.encode_range_end(database_or_transaction.coder, end_key_selector.key)
+    }
 
     state =
       Map.merge(
@@ -111,8 +111,8 @@ defmodule FDB.Transaction do
           has_more: 1,
           iteration: 1,
           mode: Map.get(options, :mode, FDB.Option.streaming_mode_iterator()),
-          begin_key_selector: {begin_key, begin_or_equal, begin_offset},
-          end_key_selector: {end_key, end_or_equal, end_offset}
+          begin_key_selector: begin_key_selector,
+          end_key_selector: end_key_selector
         }
       )
 
@@ -218,10 +218,15 @@ defmodule FDB.Transaction do
   end
 
   def get_key_q(%Transaction{} = transaction, key_selector, snapshot \\ 0) do
-    {key, or_equal, offset} = key_selector
-    key = Coder.encode_range_start(transaction.coder, key)
+    key = Coder.encode_range_start(transaction.coder, key_selector.key)
 
-    Native.transaction_get_key(transaction.resource, key, or_equal, offset, snapshot)
+    Native.transaction_get_key(
+      transaction.resource,
+      key,
+      key_selector.or_equal,
+      key_selector.offset,
+      snapshot
+    )
     |> Future.map(&Coder.decode_key(transaction.coder, &1))
   end
 

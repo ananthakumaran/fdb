@@ -318,7 +318,7 @@ defmodule FDB.Machine do
         result =
           Transaction.get_key(
             trx(s, %Transaction.Coder{}),
-            {key, or_equal, offset},
+            %KeySelector{key: key, or_equal: or_equal, offset: offset},
             s.snapshot
           )
 
@@ -345,8 +345,8 @@ defmodule FDB.Machine do
       rescue_error(fn ->
         Transaction.get_range_stream(
           trx(s, %Transaction.Coder{}),
-          {begin_key, begin_or_equal, begin_offset},
-          {end_key, end_or_equal, end_offset},
+          %KeySelector{key: begin_key, or_equal: begin_or_equal, offset: begin_offset},
+          %KeySelector{key: end_key, or_equal: end_or_equal, offset: end_offset},
           %{
             limit: limit,
             reverse: reverse,

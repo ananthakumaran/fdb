@@ -254,27 +254,60 @@ defmodule FDBTest do
     t = new_transaction()
     assert Transaction.get_key(t, KeySelector.first_greater_or_equal("fdb:000")) == "fdb:001"
     assert Transaction.get_key(t, KeySelector.first_greater_or_equal("fdb:001")) == "fdb:001"
-    assert Transaction.get_key(t, KeySelector.first_greater_or_equal("fdb:001", 0)) == "fdb:001"
-    assert Transaction.get_key(t, KeySelector.first_greater_or_equal("fdb:001", 1)) == "fdb:002"
-    assert Transaction.get_key(t, KeySelector.first_greater_or_equal("fdb:001", 10)) == "fdb:011"
-    assert Transaction.get_key(t, KeySelector.first_greater_or_equal("fdb:010", -1)) == "fdb:009"
-    assert Transaction.get_key(t, KeySelector.first_greater_or_equal("fdb:010", -9)) == "fdb:001"
-    assert Transaction.get_key(t, KeySelector.first_greater_or_equal("fdb:010", -10)) == ""
+
+    assert Transaction.get_key(t, KeySelector.first_greater_or_equal("fdb:001", %{offset: 0})) ==
+             "fdb:001"
+
+    assert Transaction.get_key(t, KeySelector.first_greater_or_equal("fdb:001", %{offset: 1})) ==
+             "fdb:002"
+
+    assert Transaction.get_key(t, KeySelector.first_greater_or_equal("fdb:001", %{offset: 10})) ==
+             "fdb:011"
+
+    assert Transaction.get_key(t, KeySelector.first_greater_or_equal("fdb:010", %{offset: -1})) ==
+             "fdb:009"
+
+    assert Transaction.get_key(t, KeySelector.first_greater_or_equal("fdb:010", %{offset: -9})) ==
+             "fdb:001"
+
+    assert Transaction.get_key(t, KeySelector.first_greater_or_equal("fdb:010", %{offset: -10})) ==
+             ""
+
     assert Transaction.get_key(t, KeySelector.first_greater_than("fdb:001")) == "fdb:002"
-    assert Transaction.get_key(t, KeySelector.first_greater_than("fdb:001", 1)) == "fdb:003"
-    assert Transaction.get_key(t, KeySelector.first_greater_than("fdb:002", 5)) == "fdb:008"
-    assert Transaction.get_key(t, KeySelector.first_greater_than("fdb:005", -1)) == "fdb:005"
-    assert Transaction.get_key(t, KeySelector.first_greater_than("fdb:005", -2)) == "fdb:004"
-    assert Transaction.get_key(t, KeySelector.first_greater_than("fdb:005", -5)) == "fdb:001"
-    assert Transaction.get_key(t, KeySelector.first_greater_than("fdb:005", -6)) == ""
-    assert Transaction.get_key(t, KeySelector.first_greater_than("fdb:005", -10)) == ""
+
+    assert Transaction.get_key(t, KeySelector.first_greater_than("fdb:001", %{offset: 1})) ==
+             "fdb:003"
+
+    assert Transaction.get_key(t, KeySelector.first_greater_than("fdb:002", %{offset: 5})) ==
+             "fdb:008"
+
+    assert Transaction.get_key(t, KeySelector.first_greater_than("fdb:005", %{offset: -1})) ==
+             "fdb:005"
+
+    assert Transaction.get_key(t, KeySelector.first_greater_than("fdb:005", %{offset: -2})) ==
+             "fdb:004"
+
+    assert Transaction.get_key(t, KeySelector.first_greater_than("fdb:005", %{offset: -5})) ==
+             "fdb:001"
+
+    assert Transaction.get_key(t, KeySelector.first_greater_than("fdb:005", %{offset: -6})) == ""
+    assert Transaction.get_key(t, KeySelector.first_greater_than("fdb:005", %{offset: -10})) == ""
 
     assert Transaction.get_key(t, KeySelector.last_less_than("fdb:050")) == "fdb:049"
-    assert Transaction.get_key(t, KeySelector.last_less_than("fdb:050", 5)) == "fdb:054"
-    assert Transaction.get_key(t, KeySelector.last_less_than("fdb:050", -5)) == "fdb:044"
+
+    assert Transaction.get_key(t, KeySelector.last_less_than("fdb:050", %{offset: 5})) ==
+             "fdb:054"
+
+    assert Transaction.get_key(t, KeySelector.last_less_than("fdb:050", %{offset: -5})) ==
+             "fdb:044"
+
     assert Transaction.get_key(t, KeySelector.last_less_or_equal("fdb:050")) == "fdb:050"
-    assert Transaction.get_key(t, KeySelector.last_less_or_equal("fdb:050", 5)) == "fdb:055"
-    assert Transaction.get_key(t, KeySelector.last_less_or_equal("fdb:050", -5)) == "fdb:045"
+
+    assert Transaction.get_key(t, KeySelector.last_less_or_equal("fdb:050", %{offset: 5})) ==
+             "fdb:055"
+
+    assert Transaction.get_key(t, KeySelector.last_less_or_equal("fdb:050", %{offset: -5})) ==
+             "fdb:045"
   end
 
   test "addresses" do
