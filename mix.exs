@@ -1,14 +1,19 @@
 defmodule FDB.MixProject do
   use Mix.Project
 
+  @version "5.1.7-0"
+
   def project do
     [
       app: :fdb,
       compilers: [:nif] ++ Mix.compilers(),
-      version: "0.1.0",
+      version: @version,
       elixir: "~> 1.3",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
+      description: "FoundationDB client",
+      package: package(),
+      docs: docs(),
       dialyzer: [
         plt_add_deps: :transitive,
         flags: [:unmatched_returns, :race_conditions, :error_handling, :underspecs]
@@ -29,6 +34,23 @@ defmodule FDB.MixProject do
       {:timex, "~> 3.3.0", only: :test},
       {:ex_doc, "~> 0.18", only: :dev},
       {:dialyxir, "~> 0.5", only: [:dev], runtime: false}
+    ]
+  end
+
+  defp package do
+    %{
+      licenses: ["MIT"],
+      links: %{"Github" => "https://github.com/ananthakumaran/fdb"},
+      maintainers: ["ananthakumaran@gmail.com"]
+    }
+  end
+
+  defp docs do
+    [
+      source_url: "https://github.com/ananthakumaran/fdb",
+      source_ref: "v#{@version}",
+      main: FDB,
+      extras: ["README.md"]
     ]
   end
 end
