@@ -109,10 +109,12 @@ defmodule FDB.OptionBuilder do
       |> String.to_atom()
 
     quote do
+      @doc false
       def unquote(name)(option) do
         FDB.OptionBuilder.validate_option(unquote(spec), option, :none)
       end
 
+      @doc false
       def unquote(name)(option, value) do
         FDB.OptionBuilder.validate_option(unquote(spec), option, value)
       end

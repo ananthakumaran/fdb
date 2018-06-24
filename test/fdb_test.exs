@@ -90,7 +90,7 @@ defmodule FDBTest do
           KeySelector.first_greater_than("fdb"),
           KeySelector.first_greater_than("fdc")
         ),
-        %{reverse: 1}
+        %{reverse: true}
       )
       |> Enum.to_list()
 
@@ -116,7 +116,7 @@ defmodule FDBTest do
           KeySelector.first_greater_than("fdb"),
           KeySelector.first_greater_than("fdc")
         ),
-        %{limit: 10, reverse: 1}
+        %{limit: 10, reverse: true, snapshot: true}
       )
       |> Enum.to_list()
 
@@ -180,7 +180,7 @@ defmodule FDBTest do
           KeySelector.first_greater_or_equal("fdb:000"),
           KeySelector.first_greater_or_equal("fdb:011")
         ),
-        %{reverse: 1}
+        %{reverse: true}
       )
       |> Enum.to_list()
 

@@ -70,7 +70,7 @@ defmodule TestUtils do
     assert sort_order(values) == sort_order(encoded)
   end
 
-  defmacro fuzz(module, method, arity, generator) do
+  defmacro fuzz(module, method, arity, generator, options \\ Macro.escape(%{})) do
     module = Macro.expand(module, __CALLER__)
     name = "#{module}.#{method}/#{arity}"
 
@@ -78,7 +78,11 @@ defmodule TestUtils do
       property unquote(name) do
         check all arguments <- unquote(generator) do
           try do
-            apply(unquote(module), unquote(method), arguments)
+            result = apply(unquote(module), unquote(method), arguments)
+
+            if Map.get(unquote(options), :stream) do
+              Stream.run(result)
+            end
           rescue
             e in [FDB.Error, ArgumentError, FunctionClauseError] ->
               :ok

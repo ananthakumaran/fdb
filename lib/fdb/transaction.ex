@@ -3,6 +3,7 @@ defmodule FDB.Transaction do
   alias FDB.Future
   alias FDB.Utils
   alias FDB.KeySelector
+  alias FDB.KeyRange
   alias FDB.Transaction
   alias FDB.Database
   alias FDB.Transaction.Coder
@@ -85,10 +86,19 @@ defmodule FDB.Transaction do
   end
 
   def get_range(
-        database_or_transaction,
-        key_range,
+        %{__struct__: struct} = transaction,
+        %KeyRange{} = key_range,
         options \\ %{}
-      ) do
+      )
+      when is_map(options) and struct in [Transaction, Database] do
+    database_or_transaction = transaction
+
+    options =
+      Utils.normalize_bool_values(options, [:reverse, :snapshot])
+      |> Utils.verify_value(:limit, :positive_integer)
+      |> Utils.verify_value(:target_bytes, :positive_integer)
+      |> Utils.verify_value(:mode, &Option.verify_streaming_mode/1)
+
     has_limit = Map.has_key?(options, :limit) && options.limit > 0
 
     begin_key_selector = %{
