@@ -596,7 +596,7 @@ defmodule FDB.Machine do
     stack =
       Enum.map(Enum.take(s.stack, size), fn {f, id} ->
         if is_reference(f) do
-          result = rescue_error(fn -> Future.resolve(f) end)
+          result = rescue_error(fn -> Future.await(f) end)
 
           cond do
             result in [:ok, nil] -> {{:byte_string, "RESULT_NOT_PRESENT"}, id}

@@ -46,7 +46,7 @@ defmodule FDB.Transaction do
 
   def get(%Transaction{} = transaction, key, snapshot \\ 0) do
     get_q(transaction, key, snapshot)
-    |> Future.resolve()
+    |> Future.await()
   end
 
   def get_q(%Transaction{} = transaction, key, snapshot \\ 0) do
@@ -74,7 +74,7 @@ defmodule FDB.Transaction do
       Map.get(options, :snapshot, 0),
       Map.get(options, :reverse, 0)
     )
-    |> Future.resolve()
+    |> Future.await()
   end
 
   defp decode_range_items(coder, items) do
@@ -201,7 +201,7 @@ defmodule FDB.Transaction do
 
   def get_snapshot(%Transaction{} = transaction, key) do
     get_snapshot_q(transaction, key)
-    |> Future.resolve()
+    |> Future.await()
   end
 
   def get_snapshot_q(%Transaction{} = transaction, key) do
@@ -211,7 +211,7 @@ defmodule FDB.Transaction do
 
   def get_read_version(%Transaction{} = transaction) do
     get_read_version_q(transaction)
-    |> Future.resolve()
+    |> Future.await()
   end
 
   def get_read_version_q(%Transaction{} = transaction) do
@@ -233,7 +233,7 @@ defmodule FDB.Transaction do
 
   def get_key(%Transaction{} = transaction, key_selector, snapshot \\ 0) do
     get_key_q(transaction, key_selector, snapshot)
-    |> Future.resolve()
+    |> Future.await()
   end
 
   def get_key_q(%Transaction{} = transaction, key_selector, snapshot \\ 0) do
@@ -251,7 +251,7 @@ defmodule FDB.Transaction do
 
   def get_addresses_for_key(%Transaction{} = transaction, key) do
     get_addresses_for_key_q(transaction, key)
-    |> Future.resolve()
+    |> Future.await()
   end
 
   def get_addresses_for_key_q(%Transaction{} = transaction, key) do
@@ -300,7 +300,7 @@ defmodule FDB.Transaction do
 
   def commit(%Transaction{} = transaction) do
     commit_q(transaction)
-    |> Future.resolve()
+    |> Future.await()
   end
 
   def commit_q(%Transaction{} = transaction) do
@@ -314,7 +314,7 @@ defmodule FDB.Transaction do
 
   def on_error(%Transaction{} = transaction, code) when is_integer(code) do
     on_error_q(transaction, code)
-    |> Future.resolve()
+    |> Future.await()
   end
 
   def on_error_q(%Transaction{} = transaction, code) when is_integer(code) do

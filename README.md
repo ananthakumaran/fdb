@@ -65,7 +65,7 @@ kinds of api
   done. In case of failure an exception will be raised.
 
 * an async api that will return `FDB.Future` immediatly. The caller can
-  later use `FDB.Future.resolve/1` to resolve the value, which will
+  later use `FDB.Future.await/1` to resolve the value, which will
   block till the operation is done or will raise an exception in case
   of failure.
 

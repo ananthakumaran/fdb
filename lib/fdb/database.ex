@@ -12,7 +12,7 @@ defmodule FDB.Database do
 
   def create(%Cluster{} = cluster, coder \\ %FDB.Transaction.Coder{}) do
     create_q(cluster, coder)
-    |> Future.resolve()
+    |> Future.await()
   end
 
   def create_q(%Cluster{} = cluster, coder \\ %FDB.Transaction.Coder{}) do

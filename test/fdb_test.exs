@@ -379,7 +379,7 @@ defmodule FDBTest do
         Transaction.get_versionstamp_q(t)
       end)
 
-    stamp = Future.resolve(future)
+    stamp = Future.await(future)
     assert byte_size(stamp) == 10
 
     future =
@@ -388,7 +388,7 @@ defmodule FDBTest do
         Transaction.get_versionstamp_q(t)
       end)
 
-    assert_raise FDB.Error, ~r/read-only/, fn -> Future.resolve(future) end
+    assert_raise FDB.Error, ~r/read-only/, fn -> Future.await(future) end
   end
 
   test "watch" do
@@ -410,7 +410,7 @@ defmodule FDBTest do
       assert Transaction.set(t, key, random_value()) == :ok
     end)
 
-    assert Future.resolve(w1) == :ok
+    assert Future.await(w1) == :ok
   end
 
   test "transact" do

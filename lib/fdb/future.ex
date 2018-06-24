@@ -2,11 +2,11 @@ defmodule FDB.Future do
   alias FDB.Native
   alias FDB.Utils
 
-  def resolve(future) when is_function(future) do
+  def await(future) when is_function(future) do
     future.()
   end
 
-  def resolve(future) do
+  def await(future) when is_reference(future) do
     ref = make_ref()
 
     Native.future_resolve(future, ref)
@@ -23,7 +23,7 @@ defmodule FDB.Future do
 
   def map(future, cb) do
     fn ->
-      cb.(resolve(future))
+      cb.(await(future))
     end
   end
 end

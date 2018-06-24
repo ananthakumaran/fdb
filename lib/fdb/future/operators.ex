@@ -1,5 +1,5 @@
 defmodule FDB.Future.Operators do
-  def @future, do: FDB.Future.resolve(future)
+  def @future, do: FDB.Future.await(future)
 
   defmacro __using__(_opts) do
     quote do

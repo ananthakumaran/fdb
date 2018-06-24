@@ -8,7 +8,7 @@ defmodule FDB.Cluster do
 
   def create(file_path \\ nil) do
     create_q(file_path)
-    |> Future.resolve()
+    |> Future.await()
   end
 
   def create_q(file_path \\ nil) do
