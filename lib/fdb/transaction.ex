@@ -203,17 +203,6 @@ defmodule FDB.Transaction do
     |> Stream.flat_map(& &1)
   end
 
-  def get_snapshot(%Transaction{} = transaction, key) do
-    get_snapshot_q(transaction, key)
-    |> Future.await()
-  end
-
-  def get_snapshot_q(%Transaction{} = transaction, key) do
-    Native.transaction_get(transaction.resource, Coder.encode_key(transaction.coder, key), 1)
-    |> Future.create()
-    |> Future.map(&Coder.decode_value(transaction.coder, &1))
-  end
-
   def get_read_version(%Transaction{} = transaction) do
     get_read_version_q(transaction)
     |> Future.await()
