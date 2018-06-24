@@ -51,7 +51,7 @@ defmodule FDB.Machine do
               transaction_name: nil,
               last_version: nil,
               debug: nil,
-              snapshot: 0,
+              snapshot: false,
               processes: []
   end
 
@@ -76,9 +76,9 @@ defmodule FDB.Machine do
 
     {op, snapshot} =
       if String.contains?(op, "_SNAPSHOT") do
-        {String.replace(op, "_SNAPSHOT", ""), 1}
+        {String.replace(op, "_SNAPSHOT", ""), true}
       else
-        {op, 0}
+        {op, false}
       end
 
     s = %{s | snapshot: snapshot}
@@ -320,7 +320,7 @@ defmodule FDB.Machine do
           Transaction.get_key(
             trx(s, %Transaction.Coder{}),
             %KeySelector{key: key, or_equal: or_equal, offset: offset},
-            s.snapshot
+            %{snapshot: s.snapshot}
           )
 
         result =
@@ -465,7 +465,7 @@ defmodule FDB.Machine do
 
     result =
       rescue_error(fn ->
-        value = Transaction.get(trx(s, %Transaction.Coder{}), key, s.snapshot)
+        value = Transaction.get(trx(s, %Transaction.Coder{}), key, %{snapshot: s.snapshot})
         {:byte_string, value || "RESULT_NOT_PRESENT"}
       end)
 

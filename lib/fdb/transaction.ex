@@ -44,16 +44,18 @@ defmodule FDB.Transaction do
     |> Utils.verify_result()
   end
 
-  def get(%Transaction{} = transaction, key, snapshot \\ 0) do
-    get_q(transaction, key, snapshot)
+  def get(%Transaction{} = transaction, key, options \\ %{}) when is_map(options) do
+    get_q(transaction, key, options)
     |> Future.await()
   end
 
-  def get_q(%Transaction{} = transaction, key, snapshot \\ 0) do
+  def get_q(%Transaction{} = transaction, key, options \\ %{}) when is_map(options) do
+    options = Utils.normalize_bool_values(options, [:snapshot])
+
     Native.transaction_get(
       transaction.resource,
       Coder.encode_key(transaction.coder, key),
-      snapshot
+      Map.get(options, :snapshot, 0)
     )
     |> Future.create()
     |> Future.map(&Coder.decode_value(transaction.coder, &1))
@@ -237,12 +239,15 @@ defmodule FDB.Transaction do
     |> Future.create()
   end
 
-  def get_key(%Transaction{} = transaction, key_selector, snapshot \\ 0) do
-    get_key_q(transaction, key_selector, snapshot)
+  def get_key(%Transaction{} = transaction, %KeySelector{} = key_selector, options \\ %{})
+      when is_map(options) do
+    get_key_q(transaction, key_selector, options)
     |> Future.await()
   end
 
-  def get_key_q(%Transaction{} = transaction, key_selector, snapshot \\ 0) do
+  def get_key_q(%Transaction{} = transaction, %KeySelector{} = key_selector, options \\ %{})
+      when is_map(options) do
+    options = Utils.normalize_bool_values(options, [:snapshot])
     key = Coder.encode_range(transaction.coder, key_selector.key, key_selector.prefix)
 
     Native.transaction_get_key(
@@ -250,7 +255,7 @@ defmodule FDB.Transaction do
       key,
       key_selector.or_equal,
       key_selector.offset,
-      snapshot
+      Map.get(options, :snapshot, 0)
     )
     |> Future.create()
     |> Future.map(&Coder.decode_key(transaction.coder, &1))

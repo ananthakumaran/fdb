@@ -12,6 +12,7 @@ defmodule TestUtils do
   alias FDB.KeySelector
   alias FDB.KeyRange
   alias FDB.Transaction.Coder
+  alias FDB.Future
 
   require ExUnit.Assertions
   import ExUnit.Assertions
@@ -80,8 +81,10 @@ defmodule TestUtils do
           try do
             result = apply(unquote(module), unquote(method), arguments)
 
-            if Map.get(unquote(options), :stream) do
-              Stream.run(result)
+            cond do
+              Map.get(unquote(options), :stream) -> Stream.run(result)
+              Map.get(unquote(options), :future) -> Future.await(result)
+              true -> :ok
             end
           rescue
             e in [FDB.Error, ArgumentError, FunctionClauseError] ->

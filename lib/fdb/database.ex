@@ -51,7 +51,7 @@ defmodule FDB.Database do
     )
   end
 
-  def transact(%Database{} = database, callback) do
+  def transact(%Database{} = database, callback) when is_function(callback) do
     do_transact(Transaction.create(database), callback)
   end
 

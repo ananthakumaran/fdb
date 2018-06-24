@@ -164,6 +164,16 @@ defmodule FDBSegfaultTest do
   )
 
   fuzz(
+    FDB.Database,
+    :transact,
+    2,
+    fixed_list([
+      one_of([term(), constant(database())]),
+      one_of([term(), constant(fn _ -> nil end)])
+    ])
+  )
+
+  fuzz(
     FDB.Transaction,
     :create,
     1,
@@ -212,6 +222,50 @@ defmodule FDBSegfaultTest do
 
   fuzz(
     FDB.Transaction,
+    :get,
+    2,
+    fixed_list([
+      one_of([term(), constant(transaction())]),
+      one_of([term(), binary()])
+    ])
+  )
+
+  fuzz(
+    FDB.Transaction,
+    :get,
+    3,
+    fixed_list([
+      one_of([term(), constant(transaction())]),
+      one_of([term(), binary()]),
+      one_of([nil, term(), optional_map(%{snapshot: one_of([term(), boolean()])})])
+    ])
+  )
+
+  fuzz(
+    FDB.Transaction,
+    :get_q,
+    2,
+    fixed_list([
+      one_of([term(), constant(transaction())]),
+      one_of([term(), binary()])
+    ]),
+    %{future: true}
+  )
+
+  fuzz(
+    FDB.Transaction,
+    :get_q,
+    3,
+    fixed_list([
+      one_of([term(), constant(transaction())]),
+      one_of([term(), binary()]),
+      one_of([nil, term(), optional_map(%{snapshot: one_of([term(), boolean()])})])
+    ]),
+    %{future: true}
+  )
+
+  fuzz(
+    FDB.Transaction,
     :get_range,
     2,
     fixed_list([
@@ -250,6 +304,70 @@ defmodule FDBSegfaultTest do
       ])
     ]),
     %{stream: true}
+  )
+
+  fuzz(
+    FDB.Transaction,
+    :get_key,
+    2,
+    fixed_list([
+      one_of([term(), constant(transaction())]),
+      one_of([
+        term(),
+        constant(
+          KeyRange.range(KeySelector.first_greater_than("a"), KeySelector.first_greater_than("d"))
+        )
+      ])
+    ])
+  )
+
+  fuzz(
+    FDB.Transaction,
+    :get_key,
+    3,
+    fixed_list([
+      one_of([term(), constant(transaction())]),
+      one_of([
+        term(),
+        constant(
+          KeyRange.range(KeySelector.first_greater_than("a"), KeySelector.first_greater_than("d"))
+        )
+      ]),
+      one_of([nil, term(), optional_map(%{snapshot: one_of([term(), boolean()])})])
+    ])
+  )
+
+  fuzz(
+    FDB.Transaction,
+    :get_key_q,
+    2,
+    fixed_list([
+      one_of([term(), constant(transaction())]),
+      one_of([
+        term(),
+        constant(
+          KeyRange.range(KeySelector.first_greater_than("a"), KeySelector.first_greater_than("d"))
+        )
+      ])
+    ]),
+    %{future: true}
+  )
+
+  fuzz(
+    FDB.Transaction,
+    :get_key_q,
+    3,
+    fixed_list([
+      one_of([term(), constant(transaction())]),
+      one_of([
+        term(),
+        constant(
+          KeyRange.range(KeySelector.first_greater_than("a"), KeySelector.first_greater_than("d"))
+        )
+      ]),
+      one_of([nil, term(), optional_map(%{snapshot: one_of([term(), boolean()])})])
+    ]),
+    %{future: true}
   )
 
   def cluster() do
