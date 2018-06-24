@@ -370,6 +370,74 @@ defmodule FDBSegfaultTest do
     %{future: true}
   )
 
+  fuzz(
+    FDB.Transaction,
+    :get_read_version,
+    1,
+    fixed_list([
+      one_of([term(), constant(transaction())])
+    ])
+  )
+
+  fuzz(
+    FDB.Transaction,
+    :get_read_version_q,
+    1,
+    fixed_list([
+      one_of([term(), constant(transaction())])
+    ]),
+    %{future: true}
+  )
+
+  fuzz(
+    FDB.Transaction,
+    :get_committed_version,
+    1,
+    fixed_list([
+      one_of([term(), constant(transaction())])
+    ])
+  )
+
+  fuzz(
+    FDB.Transaction,
+    :get_versionstamp_q,
+    1,
+    fixed_list([
+      one_of([term(), constant(transaction())])
+    ])
+  )
+
+  fuzz(
+    FDB.Transaction,
+    :watch_q,
+    2,
+    fixed_list([
+      one_of([term(), constant(transaction())]),
+      one_of([term(), binary()])
+    ])
+  )
+
+  fuzz(
+    FDB.Transaction,
+    :get_addresses_for_key,
+    2,
+    fixed_list([
+      one_of([term(), constant(transaction())]),
+      one_of([term(), binary()])
+    ])
+  )
+
+  fuzz(
+    FDB.Transaction,
+    :get_addresses_for_key_q,
+    2,
+    fixed_list([
+      one_of([term(), constant(transaction())]),
+      one_of([term(), binary()])
+    ]),
+    %{future: true}
+  )
+
   def cluster() do
     FDB.Cluster.create()
   end
