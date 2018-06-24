@@ -38,12 +38,12 @@ defmodule FDB.Database do
     |> Utils.verify_result()
   end
 
-  def get_range_stream(
+  def get_range(
         %Database{} = database,
         %KeyRange{} = key_range,
         options \\ %{}
       ) do
-    Transaction.get_range_stream(
+    Transaction.get_range(
       database,
       key_range,
       options

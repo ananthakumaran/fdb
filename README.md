@@ -44,7 +44,7 @@ concurrency problems by not mutating the values once created.
 >
 > **Edsger W. Dijkstra**
 
-It's still possible that there are a bugs in C API or the NIF
+It's still possible that there are bugs in C API or the NIF
 implementation, which could lead to VM crash.
 
 ## API Design
@@ -66,7 +66,7 @@ kinds of api
 
 * an async api that will return `FDB.Future` immediatly. The caller can
   later use `FDB.Future.resolve/1` to resolve the value, which will
-  block till the operation is done or will raise a exception in case
+  block till the operation is done or will raise an exception in case
   of failure.
 
 The async api ends with `_q`, for example `FDB.Transaction.get/2` is

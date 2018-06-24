@@ -84,7 +84,7 @@ defmodule FDB.Transaction do
     end)
   end
 
-  def get_range_stream(
+  def get_range(
         database_or_transaction,
         key_range,
         options \\ %{}
