@@ -521,6 +521,21 @@ future_resolve(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
 }
 
 static ERL_NIF_TERM
+future_is_ready(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+  Future *future;
+  fdb_bool_t ready;
+  VERIFY_ARGV(
+      enif_get_resource(env, argv[0], FUTURE_RESOURCE_TYPE, (void **)&future),
+      "future");
+  ready = fdb_future_is_ready(future->handle);
+  if (ready) {
+    return make_atom(env, "true");
+  } else {
+    return make_atom(env, "false");
+  }
+}
+
+static ERL_NIF_TERM
 create_cluster(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   char *path = NULL;
   ErlNifBinary path_binary;
@@ -1033,6 +1048,7 @@ static ErlNifFunc nif_funcs[] = {
     {"get_error", 1, get_error, 0},
     {"get_error_predicate", 2, get_error_predicate, 0},
     {"future_resolve", 2, future_resolve, 0},
+    {"future_is_ready", 1, future_is_ready, 0},
     {"cluster_create_database", 1, cluster_create_database, 0},
     {"database_create_transaction", 1, database_create_transaction, 0},
     {"transaction_get", 3, transaction_get, 0},

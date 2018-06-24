@@ -99,4 +99,5 @@ defmodule FDB.Native do
   def get_error(_code), do: :erlang.nif_error(:nif_library_not_loaded)
   def get_error_predicate(_predicate_test, _code), do: :erlang.nif_error(:nif_library_not_loaded)
   def future_resolve(_future, _reference), do: :erlang.nif_error(:nif_library_not_loaded)
+  def future_is_ready(_future), do: :erlang.nif_error(:nif_library_not_loaded)
 end
