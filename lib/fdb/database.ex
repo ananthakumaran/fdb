@@ -17,6 +17,7 @@ defmodule FDB.Database do
 
   def create_q(%Cluster{} = cluster, coder \\ %FDB.Transaction.Coder{}) do
     Native.cluster_create_database(cluster.resource)
+    |> Future.create()
     |> Future.map(&%Database{resource: &1, coder: coder})
   end
 

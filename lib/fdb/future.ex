@@ -1,15 +1,22 @@
 defmodule FDB.Future do
   alias FDB.Native
   alias FDB.Utils
+  alias FDB.Future
 
-  def await(future) when is_function(future) do
-    future.()
+  defstruct resource: nil
+
+  def create(resource) do
+    %Future{resource: resource}
   end
 
-  def await(future) when is_reference(future) do
+  def await(%Future{resource: resource}) when is_function(resource) do
+    resource.()
+  end
+
+  def await(%Future{resource: resource}) do
     ref = make_ref()
 
-    Native.future_resolve(future, ref)
+    Native.future_resolve(resource, ref)
     |> Utils.verify_result()
 
     receive do
@@ -21,9 +28,9 @@ defmodule FDB.Future do
     end
   end
 
-  def map(future, cb) do
-    fn ->
+  def map(%Future{} = future, cb) do
+    create(fn ->
       cb.(await(future))
-    end
+    end)
   end
 end

@@ -595,16 +595,18 @@ defmodule FDB.Machine do
 
     stack =
       Enum.map(Enum.take(s.stack, size), fn {f, id} ->
-        if is_reference(f) do
-          result = rescue_error(fn -> Future.await(f) end)
+        case f do
+          %Future{} ->
+            result = rescue_error(fn -> Future.await(f) end)
 
-          cond do
-            result in [:ok, nil] -> {{:byte_string, "RESULT_NOT_PRESENT"}, id}
-            is_binary(result) -> {{:byte_string, result}, id}
-            true -> {result, id}
-          end
-        else
-          {f, id}
+            cond do
+              result in [:ok, nil] -> {{:byte_string, "RESULT_NOT_PRESENT"}, id}
+              is_binary(result) -> {{:byte_string, result}, id}
+              true -> {result, id}
+            end
+
+          _ ->
+            {f, id}
         end
       end) ++ Enum.drop(s.stack, size)
 

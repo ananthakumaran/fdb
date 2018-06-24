@@ -55,6 +55,7 @@ defmodule FDB.Transaction do
       Coder.encode_key(transaction.coder, key),
       snapshot
     )
+    |> Future.create()
     |> Future.map(&Coder.decode_value(transaction.coder, &1))
   end
 
@@ -74,6 +75,7 @@ defmodule FDB.Transaction do
       Map.get(options, :snapshot, 0),
       Map.get(options, :reverse, 0)
     )
+    |> Future.create()
     |> Future.await()
   end
 
@@ -206,6 +208,7 @@ defmodule FDB.Transaction do
 
   def get_snapshot_q(%Transaction{} = transaction, key) do
     Native.transaction_get(transaction.resource, Coder.encode_key(transaction.coder, key), 1)
+    |> Future.create()
     |> Future.map(&Coder.decode_value(transaction.coder, &1))
   end
 
@@ -216,6 +219,7 @@ defmodule FDB.Transaction do
 
   def get_read_version_q(%Transaction{} = transaction) do
     Native.transaction_get_read_version(transaction.resource)
+    |> Future.create()
   end
 
   def get_committed_version(%Transaction{} = transaction) do
@@ -225,10 +229,12 @@ defmodule FDB.Transaction do
 
   def get_versionstamp_q(%Transaction{} = transaction) do
     Native.transaction_get_versionstamp(transaction.resource)
+    |> Future.create()
   end
 
   def watch_q(%Transaction{} = transaction, key) do
     Native.transaction_watch(transaction.resource, Coder.encode_key(transaction.coder, key))
+    |> Future.create()
   end
 
   def get_key(%Transaction{} = transaction, key_selector, snapshot \\ 0) do
@@ -246,6 +252,7 @@ defmodule FDB.Transaction do
       key_selector.offset,
       snapshot
     )
+    |> Future.create()
     |> Future.map(&Coder.decode_key(transaction.coder, &1))
   end
 
@@ -259,6 +266,7 @@ defmodule FDB.Transaction do
       transaction.resource,
       Coder.encode_key(transaction.coder, key)
     )
+    |> Future.create()
   end
 
   def set(%Transaction{} = transaction, key, value) do
@@ -305,6 +313,7 @@ defmodule FDB.Transaction do
 
   def commit_q(%Transaction{} = transaction) do
     Native.transaction_commit(transaction.resource)
+    |> Future.create()
   end
 
   def cancel(%Transaction{} = transaction) do
@@ -319,6 +328,7 @@ defmodule FDB.Transaction do
 
   def on_error_q(%Transaction{} = transaction, code) when is_integer(code) do
     Native.transaction_on_error(transaction.resource, code)
+    |> Future.create()
   end
 
   def add_conflict_range(%Transaction{} = transaction, key_range, type) do

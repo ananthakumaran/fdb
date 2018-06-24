@@ -21,7 +21,7 @@ defmodule FDB.NativeTest do
   end
 
   test "can be resolved multiple times" do
-    cluster_future = create_cluster(nil)
+    cluster_future = create_cluster(nil) |> FDB.Future.create()
     cluster_a = FDB.Future.await(cluster_future)
     assert cluster_a
     cluster_b = FDB.Future.await(cluster_future)

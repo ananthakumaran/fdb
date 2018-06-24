@@ -13,6 +13,7 @@ defmodule FDB.Cluster do
 
   def create_q(file_path \\ nil) do
     Native.create_cluster(file_path)
+    |> Future.create()
     |> Future.map(&%Cluster{resource: &1})
   end
 
