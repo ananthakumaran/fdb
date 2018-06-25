@@ -49,6 +49,10 @@ matrix:
       elixir: 1.6
       os: linux
       env: BINDINGS_TEST=true
+    - language: elixir
+      otp_release: 21.0
+      elixir: 1.6
+      os: linux
     - os: osx
 
 script:
