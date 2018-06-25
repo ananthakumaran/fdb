@@ -272,16 +272,18 @@ defmodule FDB.Transaction do
     |> Utils.verify_result()
   end
 
-  def set_read_version(%Transaction{} = transaction, version) do
+  def set_read_version(%Transaction{} = transaction, version) when is_integer(version) do
     Native.transaction_set_read_version(transaction.resource, version)
     |> Utils.verify_result()
   end
 
-  def atomic_op(%Transaction{} = transaction, key, value, op) do
+  def atomic_op(%Transaction{} = transaction, key, param, op) do
+    Option.verify_mutation_type(op, param)
+
     Native.transaction_atomic_op(
       transaction.resource,
       Coder.encode_key(transaction.coder, key),
-      value,
+      param,
       op
     )
     |> Utils.verify_result()
@@ -292,7 +294,7 @@ defmodule FDB.Transaction do
     |> Utils.verify_result()
   end
 
-  def clear_range(%Transaction{} = transaction, key_range) do
+  def clear_range(%Transaction{} = transaction, %KeyRange{} = key_range) do
     begin_key = Coder.encode_range(transaction.coder, key_range.begin.key, key_range.begin.prefix)
     end_key = Coder.encode_range(transaction.coder, key_range.end.key, key_range.end.prefix)
 
@@ -325,9 +327,10 @@ defmodule FDB.Transaction do
     |> Future.create()
   end
 
-  def add_conflict_range(%Transaction{} = transaction, key_range, type) do
-    begin_key = Coder.encode_range(transaction.coder, key_range.begin.key, key_range.begin.prefix)
+  def add_conflict_range(%Transaction{} = transaction, %KeyRange{} = key_range, type) do
+    Option.verify_conflict_range_type(type)
 
+    begin_key = Coder.encode_range(transaction.coder, key_range.begin.key, key_range.begin.prefix)
     end_key = Coder.encode_range(transaction.coder, key_range.end.key, key_range.end.prefix)
 
     Native.transaction_add_conflict_range(transaction.resource, begin_key, end_key, type)

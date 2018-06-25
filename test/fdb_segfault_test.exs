@@ -438,6 +438,129 @@ defmodule FDBSegfaultTest do
     %{future: true}
   )
 
+  fuzz(
+    FDB.Transaction,
+    :set,
+    3,
+    fixed_list([
+      one_of([term(), constant(transaction())]),
+      one_of([term(), binary()]),
+      one_of([term(), binary()])
+    ])
+  )
+
+  fuzz(
+    FDB.Transaction,
+    :set_read_version,
+    2,
+    fixed_list([
+      one_of([term(), constant(transaction())]),
+      one_of([term(), integer()])
+    ])
+  )
+
+  fuzz(
+    FDB.Transaction,
+    :atomic_op,
+    4,
+    fixed_list([
+      one_of([term(), constant(transaction())]),
+      one_of([term(), binary()]),
+      one_of([term(), binary()]),
+      one_of([term(), integer()])
+    ])
+  )
+
+  fuzz(
+    FDB.Transaction,
+    :clear,
+    2,
+    fixed_list([
+      one_of([term(), constant(transaction())]),
+      one_of([term(), binary()])
+    ])
+  )
+
+  fuzz(
+    FDB.Transaction,
+    :clear_range,
+    2,
+    fixed_list([
+      one_of([term(), constant(transaction())]),
+      one_of([
+        term(),
+        constant(
+          KeyRange.range(KeySelector.first_greater_than("a"), KeySelector.first_greater_than("d"))
+        )
+      ])
+    ])
+  )
+
+  fuzz(
+    FDB.Transaction,
+    :commit,
+    1,
+    fixed_list([
+      one_of([term(), constant(transaction())])
+    ])
+  )
+
+  fuzz(
+    FDB.Transaction,
+    :commit_q,
+    1,
+    fixed_list([
+      one_of([term(), constant(transaction())])
+    ]),
+    %{future: true}
+  )
+
+  fuzz(
+    FDB.Transaction,
+    :cancel,
+    1,
+    fixed_list([
+      one_of([term(), constant(transaction())])
+    ])
+  )
+
+  fuzz(
+    FDB.Transaction,
+    :on_error,
+    1,
+    fixed_list([
+      one_of([term(), constant(transaction())]),
+      one_of([term(), integer()])
+    ])
+  )
+
+  fuzz(
+    FDB.Transaction,
+    :on_error_q,
+    1,
+    fixed_list([
+      one_of([term(), constant(transaction())]),
+      one_of([term(), integer()])
+    ]),
+    %{future: true}
+  )
+
+  fuzz(
+    FDB.Transaction,
+    :add_conflict_range,
+    3,
+    fixed_list([
+      one_of([term(), constant(transaction())]),
+      one_of([
+        term(),
+        constant(
+          KeyRange.range(KeySelector.first_greater_than("a"), KeySelector.first_greater_than("d"))
+        )
+      ]),
+      one_of([term(), integer()])
+    ])
+  )
+
   def cluster() do
     FDB.Cluster.create()
   end
