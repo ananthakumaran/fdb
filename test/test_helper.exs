@@ -1,4 +1,4 @@
-:ok = FDB.Network.start()
+:ok = FDB.start()
 ExUnit.start(exclude: [:integration])
 
 System.at_exit(fn _exit_code ->

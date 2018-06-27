@@ -4,6 +4,10 @@ defmodule FDB.Option do
   FDB.OptionBuilder.defoptions()
   FDB.OptionBuilder.defvalidators()
 
+  @type key :: integer
+  @type value :: integer | binary
+
+  @doc false
   def normalize_value(value) when is_binary(value) do
     value
   end

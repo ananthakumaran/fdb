@@ -731,7 +731,7 @@ end
 
 defmodule FDB.BindingTester do
   def run(prefix, version, cluster) do
-    :ok = FDB.Network.start(version)
+    :ok = FDB.start(version)
     {:ok, _pid} = FDB.TransactionMap.start_link()
 
     db =

@@ -10,7 +10,9 @@ defmodule FDB.Transaction do
   alias FDB.Option
 
   defstruct resource: nil, coder: nil
+  @type t :: %__MODULE__{resource: identifier, coder: Transaction.Coder.t() | nil}
 
+  @spec create(Database.t(), Transaction.Coder.t() | nil) :: t
   def create(%Database{} = database, coder \\ nil) do
     resource =
       Native.database_create_transaction(database.resource)
@@ -26,10 +28,12 @@ defmodule FDB.Transaction do
     %Transaction{resource: resource, coder: coder}
   end
 
+  @spec set_coder(t, Transaction.Coder.t()) :: t
   def set_coder(%Transaction{} = transaction, coder) do
     %{transaction | coder: coder}
   end
 
+  @spec set_option(t, Option.key()) :: :ok
   def set_option(%Transaction{} = transaction, option) do
     Option.verify_transaction_option(option)
 
@@ -37,6 +41,7 @@ defmodule FDB.Transaction do
     |> Utils.verify_result()
   end
 
+  @spec set_option(t, Option.key(), Option.value()) :: :ok
   def set_option(%Transaction{} = transaction, option, value) do
     Option.verify_transaction_option(option, value)
 
@@ -44,11 +49,13 @@ defmodule FDB.Transaction do
     |> Utils.verify_result()
   end
 
+  @spec get(t, any, map) :: any
   def get(%Transaction{} = transaction, key, options \\ %{}) when is_map(options) do
     get_q(transaction, key, options)
     |> Future.await()
   end
 
+  @spec get_q(t, any, map) :: Future.t()
   def get_q(%Transaction{} = transaction, key, options \\ %{}) when is_map(options) do
     options = Utils.normalize_bool_values(options, [:snapshot])
 
@@ -89,6 +96,7 @@ defmodule FDB.Transaction do
     end)
   end
 
+  @spec get_range(t | Database.t(), KeyRange.t(), map) :: Enumerable.t()
   def get_range(
         %{__struct__: struct} = transaction,
         %KeyRange{} = key_range,
@@ -203,37 +211,44 @@ defmodule FDB.Transaction do
     |> Stream.flat_map(& &1)
   end
 
+  @spec get_read_version(t) :: integer()
   def get_read_version(%Transaction{} = transaction) do
     get_read_version_q(transaction)
     |> Future.await()
   end
 
+  @spec get_read_version_q(t) :: Future.t()
   def get_read_version_q(%Transaction{} = transaction) do
     Native.transaction_get_read_version(transaction.resource)
     |> Future.create()
   end
 
+  @spec get_committed_version(t) :: integer()
   def get_committed_version(%Transaction{} = transaction) do
     Native.transaction_get_committed_version(transaction.resource)
     |> Utils.verify_result()
   end
 
+  @spec get_versionstamp_q(t) :: Future.t()
   def get_versionstamp_q(%Transaction{} = transaction) do
     Native.transaction_get_versionstamp(transaction.resource)
     |> Future.create()
   end
 
+  @spec watch_q(t, any) :: Future.t()
   def watch_q(%Transaction{} = transaction, key) do
     Native.transaction_watch(transaction.resource, Coder.encode_key(transaction.coder, key))
     |> Future.create()
   end
 
+  @spec get_key(t, KeySelector.t()) :: any
   def get_key(%Transaction{} = transaction, %KeySelector{} = key_selector, options \\ %{})
       when is_map(options) do
     get_key_q(transaction, key_selector, options)
     |> Future.await()
   end
 
+  @spec get_key_q(t, KeySelector.t()) :: Future.t()
   def get_key_q(%Transaction{} = transaction, %KeySelector{} = key_selector, options \\ %{})
       when is_map(options) do
     options = Utils.normalize_bool_values(options, [:snapshot])
@@ -250,11 +265,13 @@ defmodule FDB.Transaction do
     |> Future.map(&Coder.decode_key(transaction.coder, &1))
   end
 
+  @spec get_addresses_for_key(t, any) :: any
   def get_addresses_for_key(%Transaction{} = transaction, key) do
     get_addresses_for_key_q(transaction, key)
     |> Future.await()
   end
 
+  @spec get_addresses_for_key_q(t, any) :: Future.t()
   def get_addresses_for_key_q(%Transaction{} = transaction, key) do
     Native.transaction_get_addresses_for_key(
       transaction.resource,
@@ -263,6 +280,7 @@ defmodule FDB.Transaction do
     |> Future.create()
   end
 
+  @spec set(t, any, any) :: :ok
   def set(%Transaction{} = transaction, key, value) do
     Native.transaction_set(
       transaction.resource,
@@ -272,11 +290,13 @@ defmodule FDB.Transaction do
     |> Utils.verify_result()
   end
 
+  @spec set_read_version(t, integer) :: :ok
   def set_read_version(%Transaction{} = transaction, version) when is_integer(version) do
     Native.transaction_set_read_version(transaction.resource, version)
     |> Utils.verify_result()
   end
 
+  @spec atomic_op(t, any, Option.key(), Option.value()) :: any
   def atomic_op(%Transaction{} = transaction, key, param, op) do
     Option.verify_mutation_type(op, param)
 
@@ -289,11 +309,13 @@ defmodule FDB.Transaction do
     |> Utils.verify_result()
   end
 
+  @spec clear(t, any) :: :ok
   def clear(%Transaction{} = transaction, key) do
     Native.transaction_clear(transaction.resource, Coder.encode_key(transaction.coder, key))
     |> Utils.verify_result()
   end
 
+  @spec clear_range(t, KeyRange.t()) :: :ok
   def clear_range(%Transaction{} = transaction, %KeyRange{} = key_range) do
     begin_key = Coder.encode_range(transaction.coder, key_range.begin.key, key_range.begin.prefix)
     end_key = Coder.encode_range(transaction.coder, key_range.end.key, key_range.end.prefix)
@@ -302,31 +324,37 @@ defmodule FDB.Transaction do
     |> Utils.verify_result()
   end
 
+  @spec commit(t) :: :ok
   def commit(%Transaction{} = transaction) do
     commit_q(transaction)
     |> Future.await()
   end
 
+  @spec commit_q(t) :: Future.t()
   def commit_q(%Transaction{} = transaction) do
     Native.transaction_commit(transaction.resource)
     |> Future.create()
   end
 
+  @spec cancel(t) :: :ok
   def cancel(%Transaction{} = transaction) do
     Native.transaction_cancel(transaction.resource)
     |> Utils.verify_result()
   end
 
+  @spec on_error(t, integer) :: :ok
   def on_error(%Transaction{} = transaction, code) when is_integer(code) do
     on_error_q(transaction, code)
     |> Future.await()
   end
 
+  @spec on_error_q(t, integer) :: Future.t()
   def on_error_q(%Transaction{} = transaction, code) when is_integer(code) do
     Native.transaction_on_error(transaction.resource, code)
     |> Future.create()
   end
 
+  @spec add_conflict_range(t, KeyRange.t(), Option.key()) :: :ok
   def add_conflict_range(%Transaction{} = transaction, %KeyRange{} = key_range, type) do
     Option.verify_conflict_range_type(type)
 

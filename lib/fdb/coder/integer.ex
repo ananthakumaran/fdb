@@ -2,6 +2,7 @@ defmodule FDB.Coder.Integer do
   use FDB.Coder.Behaviour
   use Bitwise
 
+  @spec new() :: FDB.Coder.t()
   def new do
     %FDB.Coder{module: __MODULE__}
   end

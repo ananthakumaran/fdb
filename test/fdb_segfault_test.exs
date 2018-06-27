@@ -7,8 +7,17 @@ defmodule FDBSegfaultTest do
   alias FDB.{KeySelector, KeyRange}
 
   fuzz(
-    FDB.Network,
+    FDB,
     :start,
+    1,
+    fixed_list([
+      one_of([term(), integer()])
+    ])
+  )
+
+  fuzz(
+    FDB,
+    :select_api_version,
     1,
     fixed_list([
       one_of([term(), integer()])

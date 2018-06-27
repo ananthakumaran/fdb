@@ -3,6 +3,7 @@ defmodule FDB.Utils do
 
   alias FDB.Native
 
+  @spec verify_result(integer | {integer, any}) :: any
   def verify_result(0), do: :ok
   def verify_result({0, result}), do: result
 

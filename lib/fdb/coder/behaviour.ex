@@ -1,12 +1,13 @@
 defmodule FDB.Coder.Behaviour do
-  @callback encode(any, opts :: term) :: binary
-  @callback decode(binary, opts :: term) :: {any, binary}
-  @callback range(any, opts :: term) :: {binary, atom}
+  @callback encode(any, opts :: any) :: binary
+  @callback decode(binary, opts :: any) :: {any, binary}
+  @callback range(any, opts :: any) :: {binary, :complete | :partial}
 
   defmacro __using__(_opts) do
     quote do
       @behaviour FDB.Coder.Behaviour
 
+      @impl true
       def range(nil, _), do: {<<>>, :partial}
       def range(value, opts), do: {encode(value, opts), :complete}
 

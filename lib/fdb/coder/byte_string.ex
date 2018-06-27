@@ -1,6 +1,7 @@
 defmodule FDB.Coder.ByteString do
   use FDB.Coder.Behaviour
 
+  @spec new() :: FDB.Coder.t()
   def new do
     %FDB.Coder{
       module: __MODULE__,

@@ -1,6 +1,7 @@
 defmodule FDB.Coder.Dynamic do
   use FDB.Coder.Behaviour
 
+  @spec new() :: FDB.Coder.t()
   def new do
     coders = %{
       byte_string: FDB.Coder.ByteString.new(),

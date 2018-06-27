@@ -45,6 +45,7 @@ defmodule FDB.OptionBuilder do
 
       quote do
         @doc unquote(doc)
+        @spec unquote(name)() :: key()
         def unquote(name)() do
           unquote(option.code)
         end

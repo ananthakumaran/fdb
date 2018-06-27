@@ -3,22 +3,25 @@ defmodule FDB.Network do
   alias FDB.Utils
   alias FDB.Option
 
-  def start(version \\ 510) do
-    Native.select_api_version_impl(version, 510)
-    |> Utils.verify_result()
-
+  @spec setup() :: :ok
+  def setup() do
     Native.setup_network()
     |> Utils.verify_result()
+  end
 
+  @spec run() :: :ok
+  def run() do
     Native.run_network()
     |> Utils.verify_result()
   end
 
+  @spec stop() :: :ok
   def stop do
     Native.stop_network()
     |> Utils.verify_result()
   end
 
+  @spec set_option(Option.key()) :: :ok
   def set_option(option) do
     Option.verify_network_option(option)
 
@@ -26,6 +29,7 @@ defmodule FDB.Network do
     |> Utils.verify_result()
   end
 
+  @spec set_option(Option.key(), Option.value()) :: :ok
   def set_option(option, value) do
     Option.verify_network_option(option, value)
 

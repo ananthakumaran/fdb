@@ -1,15 +1,18 @@
 defmodule FDB.Future do
   alias FDB.Native
   alias FDB.Utils
-  alias FDB.Future
 
   defstruct resource: nil, on_resolve: []
+  @type t :: %__MODULE__{resource: identifier, on_resolve: [(any -> any)]}
 
+  @doc false
+  @spec create(identifier) :: t
   def create(resource) do
-    %Future{resource: resource}
+    %__MODULE__{resource: resource}
   end
 
-  def await(%Future{resource: resource, on_resolve: on_resolve}) do
+  @spec await(t) :: any()
+  def await(%__MODULE__{resource: resource, on_resolve: on_resolve}) do
     ref = make_ref()
 
     Native.future_resolve(resource, ref)
@@ -25,11 +28,13 @@ defmodule FDB.Future do
     end
   end
 
-  def ready?(%Future{resource: resource}) do
+  @spec ready?(t) :: boolean
+  def ready?(%__MODULE__{resource: resource}) do
     Native.future_is_ready(resource)
   end
 
-  def map(%Future{} = future, cb) do
+  @spec map(t, (any -> any)) :: t
+  def map(%__MODULE__{} = future, cb) do
     %{future | on_resolve: [cb | future.on_resolve]}
   end
 end

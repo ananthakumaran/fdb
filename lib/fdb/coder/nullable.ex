@@ -1,6 +1,7 @@
 defmodule FDB.Coder.Nullable do
   use FDB.Coder.Behaviour
 
+  @spec new(FDB.Coder.t()) :: FDB.Coder.t()
   def new(coder) do
     %FDB.Coder{module: __MODULE__, opts: coder}
   end

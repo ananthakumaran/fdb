@@ -2,6 +2,7 @@ defmodule FDB.Coder.Float do
   use FDB.Coder.Behaviour
   use Bitwise
 
+  @spec new(32 | 64) :: FDB.Coder.t()
   def new(bits \\ 32) do
     %FDB.Coder{module: __MODULE__, opts: bits}
   end

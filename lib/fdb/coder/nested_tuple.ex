@@ -1,6 +1,7 @@
 defmodule FDB.Coder.NestedTuple do
   use FDB.Coder.Behaviour
 
+  @spec new(tuple) :: FDB.Coder.t()
   def new(coders) do
     %FDB.Coder{module: __MODULE__, opts: Tuple.to_list(coders)}
   end

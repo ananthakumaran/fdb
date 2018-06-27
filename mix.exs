@@ -16,7 +16,7 @@ defmodule FDB.MixProject do
       docs: docs(),
       dialyzer: [
         plt_add_deps: :transitive,
-        flags: [:unmatched_returns, :race_conditions, :error_handling, :underspecs]
+        flags: [:unmatched_returns, :race_conditions, :error_handling]
       ]
     ]
   end

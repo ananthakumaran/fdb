@@ -1,24 +1,36 @@
 defmodule FDB.Transaction.Coder do
   defstruct key: FDB.Coder.Identity.new(), value: FDB.Coder.Identity.new()
 
+  @type t :: %__MODULE__{key: FDB.Coder.t(), value: FDB.Coder.t()}
+
+  @doc false
+  @spec encode_key(t, any) :: any
   def encode_key(coder, key) do
     coder.key.module.encode(key, coder.key.opts)
   end
 
+  @doc false
+  @spec decode_key(t, any) :: any
   def decode_key(coder, key) do
     {value, <<>>} = coder.key.module.decode(key, coder.key.opts)
     value
   end
 
+  @doc false
+  @spec encode_value(t, any) :: any
   def encode_value(coder, key) do
     coder.value.module.encode(key, coder.value.opts)
   end
 
+  @doc false
+  @spec decode_value(t, any) :: any
   def decode_value(coder, key) do
     {value, <<>>} = coder.value.module.decode(key, coder.value.opts)
     value
   end
 
+  @doc false
+  @spec encode_range(t, any, :none | :first | :last) :: any
   def encode_range(coder, key, :none) do
     encode_key(coder, key)
   end

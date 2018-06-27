@@ -3,9 +3,12 @@ defmodule FDB.Coder.Subspace do
   use FDB.Coder.Behaviour
 
   defmodule Opts do
+    @moduledoc false
+
     defstruct [:prefix, :coder]
   end
 
+  @spec new(binary, FDB.Coder.t()) :: FDB.Coder.t()
   def new(prefix, coder) do
     opts = %Opts{prefix: prefix, coder: coder}
 

@@ -2,6 +2,7 @@ defmodule FDB.Coder.ArbitraryInteger do
   use FDB.Coder.Behaviour
   use Bitwise
 
+  @spec new() :: FDB.Coder.t()
   def new do
     %FDB.Coder{module: __MODULE__}
   end
@@ -37,9 +38,9 @@ defmodule FDB.Coder.ArbitraryInteger do
     {n, rest}
   end
 
-  def unsigned_to_bin(i) when is_integer(i) and i >= 0, do: unsigned_to_bin(i, [])
-  def unsigned_to_bin(0, acc), do: IO.iodata_to_binary(acc)
-  def unsigned_to_bin(n, acc), do: unsigned_to_bin(bsr(n, 8), [band(n, 0xFF) | acc])
+  defp unsigned_to_bin(i) when is_integer(i) and i >= 0, do: unsigned_to_bin(i, [])
+  defp unsigned_to_bin(0, acc), do: IO.iodata_to_binary(acc)
+  defp unsigned_to_bin(n, acc), do: unsigned_to_bin(bsr(n, 8), [band(n, 0xFF) | acc])
 
   defp complement(<<>>), do: <<>>
 
