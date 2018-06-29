@@ -40,6 +40,7 @@ defmodule FDB.Machine do
   alias FDB.Coder
   alias FDB.KeySelector
   alias FDB.KeyRange
+  alias FDB.KeySelectorRange
   alias FDB.Option
   alias FDB.Future
   import Stack
@@ -346,7 +347,7 @@ defmodule FDB.Machine do
       rescue_error(fn ->
         Transaction.get_range(
           trx(s, %Transaction.Coder{}),
-          KeyRange.range(
+          KeySelectorRange.range(
             %KeySelector{key: begin_key, or_equal: begin_or_equal, offset: begin_offset},
             %KeySelector{key: end_key, or_equal: end_or_equal, offset: end_offset}
           ),
@@ -375,7 +376,7 @@ defmodule FDB.Machine do
       rescue_error(fn ->
         Transaction.get_range(
           trx(s, %Transaction.Coder{}),
-          KeyRange.range(
+          KeySelectorRange.range(
             KeySelector.first_greater_or_equal(begin_key),
             KeySelector.first_greater_or_equal(end_key)
           ),
@@ -403,7 +404,7 @@ defmodule FDB.Machine do
       rescue_error(fn ->
         Transaction.get_range(
           trx(s, %Transaction.Coder{}),
-          KeyRange.range(
+          KeySelectorRange.range(
             KeySelector.first_greater_or_equal(prefix),
             KeySelector.first_greater_or_equal(strinc(prefix))
           ),
@@ -431,7 +432,7 @@ defmodule FDB.Machine do
         result =
           Transaction.get_range(
             Transaction.set_coder(t, %Transaction.Coder{}),
-            KeyRange.range(
+            KeySelectorRange.range(
               KeySelector.first_greater_or_equal(prefix),
               KeySelector.first_greater_or_equal(strinc(prefix))
             )
@@ -510,7 +511,7 @@ defmodule FDB.Machine do
       rescue_error(fn ->
         Transaction.add_conflict_range(
           trx(s, %Transaction.Coder{}),
-          KeyRange.range(KeySelector.static(begin_key), KeySelector.static(end_key)),
+          KeyRange.range(begin_key, end_key),
           case op do
             "READ_CONFLICT_RANGE" -> Option.conflict_range_type_read()
             "WRITE_CONFLICT_RANGE" -> Option.conflict_range_type_write()
@@ -530,7 +531,7 @@ defmodule FDB.Machine do
       rescue_error(fn ->
         Transaction.add_conflict_range(
           trx(s, %Transaction.Coder{}),
-          KeyRange.range(KeySelector.static(key), KeySelector.static(key <> <<0x00>>)),
+          KeyRange.range(key, key <> <<0x00>>),
           case op do
             "READ_CONFLICT_KEY" -> Option.conflict_range_type_read()
             "WRITE_CONFLICT_KEY" -> Option.conflict_range_type_write()
@@ -555,7 +556,7 @@ defmodule FDB.Machine do
     :ok =
       Transaction.clear_range(
         trx(s, %Transaction.Coder{}),
-        KeyRange.range(KeySelector.static(start_key), KeySelector.static(end_key))
+        KeyRange.range(start_key, end_key)
       )
 
     %{s | stack: stack}
@@ -567,7 +568,7 @@ defmodule FDB.Machine do
     :ok =
       Transaction.clear_range(
         trx(s, %Transaction.Coder{}),
-        KeyRange.range(KeySelector.static(key), KeySelector.static(strinc(key)))
+        KeyRange.range(key, strinc(key))
       )
 
     %{s | stack: stack}
@@ -699,7 +700,7 @@ end
 defmodule FDB.Runner do
   alias FDB.Transaction
   alias FDB.Coder.{Subspace, Dynamic}
-  alias FDB.KeyRange
+  alias FDB.KeySelectorRange
 
   def run(db, prefix) do
     coder = %Transaction.Coder{
@@ -712,7 +713,7 @@ defmodule FDB.Runner do
     state =
       Transaction.get_range(
         db,
-        KeyRange.starts_with(nil)
+        KeySelectorRange.starts_with(nil)
       )
       |> Enum.reduce(
         FDB.Machine.init(db, prefix, System.get_env("DEBUG")),

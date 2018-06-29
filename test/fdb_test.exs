@@ -4,6 +4,7 @@ defmodule FDBTest do
   import TestUtils
   alias FDB.KeySelector
   alias FDB.KeyRange
+  alias FDB.KeySelectorRange
   alias FDB.Cluster
   alias FDB.Transaction
   alias FDB.Future
@@ -74,7 +75,7 @@ defmodule FDBTest do
     actual =
       Transaction.get_range(
         d,
-        KeyRange.range(
+        KeySelectorRange.range(
           KeySelector.first_greater_than("fdb"),
           KeySelector.first_greater_than("fdc")
         )
@@ -86,7 +87,7 @@ defmodule FDBTest do
     actual =
       Transaction.get_range(
         d,
-        KeyRange.range(
+        KeySelectorRange.range(
           KeySelector.first_greater_than("fdb"),
           KeySelector.first_greater_than("fdc")
         ),
@@ -99,7 +100,7 @@ defmodule FDBTest do
     actual =
       Transaction.get_range(
         d,
-        KeyRange.range(
+        KeySelectorRange.range(
           KeySelector.first_greater_than("fdb"),
           KeySelector.first_greater_than("fdc")
         ),
@@ -112,7 +113,7 @@ defmodule FDBTest do
     actual =
       Transaction.get_range(
         d,
-        KeyRange.range(
+        KeySelectorRange.range(
           KeySelector.first_greater_than("fdb"),
           KeySelector.first_greater_than("fdc")
         ),
@@ -125,7 +126,7 @@ defmodule FDBTest do
     actual =
       Transaction.get_range(
         d,
-        KeyRange.range(
+        KeySelectorRange.range(
           KeySelector.first_greater_than("fdb"),
           KeySelector.first_greater_than("fdc")
         ),
@@ -138,7 +139,7 @@ defmodule FDBTest do
     actual =
       Transaction.get_range(
         d,
-        KeyRange.range(
+        KeySelectorRange.range(
           KeySelector.first_greater_or_equal("fdb:011"),
           KeySelector.first_greater_than("fdc")
         ),
@@ -151,7 +152,7 @@ defmodule FDBTest do
     actual =
       Transaction.get_range(
         d,
-        KeyRange.range(
+        KeySelectorRange.range(
           KeySelector.first_greater_than("fdb:010"),
           KeySelector.first_greater_than("fdc")
         ),
@@ -164,7 +165,7 @@ defmodule FDBTest do
     actual =
       Transaction.get_range(
         d,
-        KeyRange.range(
+        KeySelectorRange.range(
           KeySelector.first_greater_or_equal("fdb:000"),
           KeySelector.first_greater_or_equal("fdb:011")
         )
@@ -176,7 +177,7 @@ defmodule FDBTest do
     actual =
       Transaction.get_range(
         d,
-        KeyRange.range(
+        KeySelectorRange.range(
           KeySelector.first_greater_or_equal("fdb:000"),
           KeySelector.first_greater_or_equal("fdb:011")
         ),

@@ -9,7 +9,6 @@ defmodule TestUtils do
   alias FDB.Database
   alias FDB.Cluster
   alias FDB.Transaction
-  alias FDB.KeySelector
   alias FDB.KeyRange
   alias FDB.Transaction.Coder
   alias FDB.Future
@@ -23,7 +22,7 @@ defmodule TestUtils do
     :ok =
       Transaction.clear_range(
         t,
-        KeyRange.range(KeySelector.static(""), KeySelector.static(<<0xFF>>))
+        KeyRange.range("", <<0xFF>>)
       )
 
     Transaction.commit(t)

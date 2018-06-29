@@ -4,6 +4,7 @@ defmodule FDB.Transaction do
   alias FDB.Utils
   alias FDB.KeySelector
   alias FDB.KeyRange
+  alias FDB.KeySelectorRange
   alias FDB.Transaction
   alias FDB.Database
   alias FDB.Transaction.Coder
@@ -96,10 +97,10 @@ defmodule FDB.Transaction do
     end)
   end
 
-  @spec get_range(t | Database.t(), KeyRange.t(), map) :: Enumerable.t()
+  @spec get_range(t | Database.t(), KeySelectorRange.t(), map) :: Enumerable.t()
   def get_range(
         %{__struct__: struct} = transaction,
-        %KeyRange{} = key_range,
+        %KeySelectorRange{} = key_selector_range,
         options \\ %{}
       )
       when is_map(options) and struct in [Transaction, Database] do
@@ -114,22 +115,22 @@ defmodule FDB.Transaction do
     has_limit = Map.has_key?(options, :limit) && options.limit > 0
 
     begin_key_selector = %{
-      key_range.begin
+      key_selector_range.begin
       | key:
           Coder.encode_range(
             database_or_transaction.coder,
-            key_range.begin.key,
-            key_range.begin.prefix
+            key_selector_range.begin.key,
+            key_selector_range.begin.prefix
           )
     }
 
     end_key_selector = %{
-      key_range.end
+      key_selector_range.end
       | key:
           Coder.encode_range(
             database_or_transaction.coder,
-            key_range.end.key,
-            key_range.end.prefix
+            key_selector_range.end.key,
+            key_selector_range.end.prefix
           )
     }
 

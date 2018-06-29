@@ -4,7 +4,7 @@ defmodule FDBSegfaultTest do
 
   require TestUtils
   import TestUtils
-  alias FDB.{KeySelector, KeyRange}
+  alias FDB.{KeySelector, KeySelectorRange, KeyRange}
 
   fuzz(
     FDB,
@@ -139,7 +139,10 @@ defmodule FDBSegfaultTest do
       one_of([
         term(),
         constant(
-          KeyRange.range(KeySelector.first_greater_than("a"), KeySelector.first_greater_than("d"))
+          KeySelectorRange.range(
+            KeySelector.first_greater_than("a"),
+            KeySelector.first_greater_than("d")
+          )
         )
       ])
     ]),
@@ -155,7 +158,10 @@ defmodule FDBSegfaultTest do
       one_of([
         term(),
         constant(
-          KeyRange.range(KeySelector.first_greater_than("a"), KeySelector.first_greater_than("d"))
+          KeySelectorRange.range(
+            KeySelector.first_greater_than("a"),
+            KeySelector.first_greater_than("d")
+          )
         )
       ]),
       one_of([
@@ -282,7 +288,10 @@ defmodule FDBSegfaultTest do
       one_of([
         term(),
         constant(
-          KeyRange.range(KeySelector.first_greater_than("a"), KeySelector.first_greater_than("d"))
+          KeySelectorRange.range(
+            KeySelector.first_greater_than("a"),
+            KeySelector.first_greater_than("d")
+          )
         )
       ])
     ]),
@@ -298,7 +307,10 @@ defmodule FDBSegfaultTest do
       one_of([
         term(),
         constant(
-          KeyRange.range(KeySelector.first_greater_than("a"), KeySelector.first_greater_than("d"))
+          KeySelectorRange.range(
+            KeySelector.first_greater_than("a"),
+            KeySelector.first_greater_than("d")
+          )
         )
       ]),
       one_of([
@@ -324,7 +336,10 @@ defmodule FDBSegfaultTest do
       one_of([
         term(),
         constant(
-          KeyRange.range(KeySelector.first_greater_than("a"), KeySelector.first_greater_than("d"))
+          KeySelectorRange.range(
+            KeySelector.first_greater_than("a"),
+            KeySelector.first_greater_than("d")
+          )
         )
       ])
     ])
@@ -339,7 +354,10 @@ defmodule FDBSegfaultTest do
       one_of([
         term(),
         constant(
-          KeyRange.range(KeySelector.first_greater_than("a"), KeySelector.first_greater_than("d"))
+          KeySelectorRange.range(
+            KeySelector.first_greater_than("a"),
+            KeySelector.first_greater_than("d")
+          )
         )
       ]),
       one_of([nil, term(), optional_map(%{snapshot: one_of([term(), boolean()])})])
@@ -355,7 +373,10 @@ defmodule FDBSegfaultTest do
       one_of([
         term(),
         constant(
-          KeyRange.range(KeySelector.first_greater_than("a"), KeySelector.first_greater_than("d"))
+          KeySelectorRange.range(
+            KeySelector.first_greater_than("a"),
+            KeySelector.first_greater_than("d")
+          )
         )
       ])
     ]),
@@ -371,7 +392,10 @@ defmodule FDBSegfaultTest do
       one_of([
         term(),
         constant(
-          KeyRange.range(KeySelector.first_greater_than("a"), KeySelector.first_greater_than("d"))
+          KeySelectorRange.range(
+            KeySelector.first_greater_than("a"),
+            KeySelector.first_greater_than("d")
+          )
         )
       ]),
       one_of([nil, term(), optional_map(%{snapshot: one_of([term(), boolean()])})])
@@ -499,7 +523,10 @@ defmodule FDBSegfaultTest do
       one_of([
         term(),
         constant(
-          KeyRange.range(KeySelector.first_greater_than("a"), KeySelector.first_greater_than("d"))
+          KeyRange.range(
+            "a",
+            "d"
+          )
         )
       ])
     ])
@@ -563,7 +590,10 @@ defmodule FDBSegfaultTest do
       one_of([
         term(),
         constant(
-          KeyRange.range(KeySelector.first_greater_than("a"), KeySelector.first_greater_than("d"))
+          KeyRange.range(
+            "a",
+            "d"
+          )
         )
       ]),
       one_of([term(), integer()])

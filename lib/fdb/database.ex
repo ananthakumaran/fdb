@@ -5,7 +5,7 @@ defmodule FDB.Database do
   alias FDB.Cluster
   alias FDB.Option
   alias FDB.Transaction
-  alias FDB.KeyRange
+  alias FDB.KeySelectorRange
 
   defstruct resource: nil, coder: nil
 
@@ -46,10 +46,10 @@ defmodule FDB.Database do
     |> Utils.verify_result()
   end
 
-  @spec get_range(t, KeyRange.t(), map) :: Enumerable.t()
+  @spec get_range(t, KeySelectorRange.t(), map) :: Enumerable.t()
   def get_range(
         %__MODULE__{} = database,
-        %KeyRange{} = key_range,
+        %KeySelectorRange{} = key_range,
         options \\ %{}
       ) do
     Transaction.get_range(

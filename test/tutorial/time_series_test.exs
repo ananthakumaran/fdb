@@ -1,6 +1,6 @@
 defmodule FDB.Tutorial.TimeSeriesTest do
   use ExUnit.Case, async: false
-  alias FDB.{Transaction, Database, Cluster, KeySelector, KeyRange}
+  alias FDB.{Transaction, Database, Cluster, KeySelector, KeySelectorRange}
   alias FDB.Coder.{Integer, Tuple, NestedTuple, ByteString, Subspace}
   use Timex
   import TestUtils
@@ -46,7 +46,7 @@ defmodule FDB.Tutorial.TimeSeriesTest do
 
     assert_range_size(
       db,
-      KeyRange.range(
+      KeySelectorRange.range(
         KeySelector.first_greater_than({{{2018, 03, 01}, {0, 0, 0}}}, %{prefix: :first}),
         KeySelector.first_greater_or_equal({{{2018, 03, 31}, {23, 0, 0}}}, %{prefix: :last})
       ),
@@ -55,7 +55,7 @@ defmodule FDB.Tutorial.TimeSeriesTest do
 
     assert_range_size(
       db,
-      KeyRange.range(
+      KeySelectorRange.range(
         KeySelector.first_greater_than({{{2018, 03, 01}, {0, 0, 0}}}, %{prefix: :first}),
         KeySelector.first_greater_or_equal({{{2018, 04, 01}, {0, 0, 0}}}, %{prefix: :first})
       ),
@@ -64,67 +64,67 @@ defmodule FDB.Tutorial.TimeSeriesTest do
 
     assert_range_size(
       db,
-      KeyRange.starts_with({{{2018, 03, 01}, {0, 0, 0}}}),
+      KeySelectorRange.starts_with({{{2018, 03, 01}, {0, 0, 0}}}),
       4
     )
 
     assert_range_size(
       db,
-      KeyRange.starts_with({{{2018, 03, 01}, {0, 0}}}),
+      KeySelectorRange.starts_with({{{2018, 03, 01}, {0, 0}}}),
       4
     )
 
     assert_range_size(
       db,
-      KeyRange.starts_with({{{2018, 03, 01}, {0}}}),
+      KeySelectorRange.starts_with({{{2018, 03, 01}, {0}}}),
       4
     )
 
     assert_range_size(
       db,
-      KeyRange.starts_with({{{2018, 03, 01}, {}}}),
+      KeySelectorRange.starts_with({{{2018, 03, 01}, {}}}),
       24 * 4
     )
 
     assert_range_size(
       db,
-      KeyRange.starts_with({{{2018, 03, 01}}}),
+      KeySelectorRange.starts_with({{{2018, 03, 01}}}),
       1 * 24 * 4
     )
 
     assert_range_size(
       db,
-      KeyRange.starts_with({{{2018, 03}}}),
+      KeySelectorRange.starts_with({{{2018, 03}}}),
       31 * 24 * 4
     )
 
     assert_range_size(
       db,
-      KeyRange.starts_with({{{2018}}}),
+      KeySelectorRange.starts_with({{{2018}}}),
       61 * 24 * 4
     )
 
     assert_range_size(
       db,
-      KeyRange.starts_with({{{}}}),
+      KeySelectorRange.starts_with({{{}}}),
       61 * 24 * 4
     )
 
     assert_range_size(
       db,
-      KeyRange.starts_with({{}}),
+      KeySelectorRange.starts_with({{}}),
       61 * 24 * 4
     )
 
     assert_range_size(
       db,
-      KeyRange.starts_with({}),
+      KeySelectorRange.starts_with({}),
       61 * 24 * 4
     )
 
     assert_range_size(
       db,
-      KeyRange.starts_with(nil),
+      KeySelectorRange.starts_with(nil),
       61 * 24 * 4
     )
   end

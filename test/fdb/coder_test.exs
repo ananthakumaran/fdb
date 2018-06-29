@@ -7,7 +7,7 @@ defmodule FDB.CoderTest do
   alias FDB.Coder.Subspace
   alias FDB.Coder.ByteString
   alias FDB.KeySelector
-  alias FDB.KeyRange
+  alias FDB.KeySelectorRange
   alias FDB.Coder
   use ExUnitProperties
 
@@ -40,7 +40,7 @@ defmodule FDB.CoderTest do
     [{stored_key, stored_value}] =
       Transaction.get_range(
         db_raw,
-        KeyRange.range(
+        KeySelectorRange.range(
           KeySelector.first_greater_or_equal(<<0x00>>),
           KeySelector.first_greater_or_equal(<<0xFF>>)
         )
@@ -53,7 +53,7 @@ defmodule FDB.CoderTest do
     all =
       Transaction.get_range(
         db,
-        KeyRange.range(
+        KeySelectorRange.range(
           KeySelector.first_greater_or_equal(nil, %{prefix: :first}),
           KeySelector.first_greater_or_equal(nil, %{prefix: :last})
         )
