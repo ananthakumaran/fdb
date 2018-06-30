@@ -7,7 +7,8 @@ FoundationDB client for Elixir
 
 ## Status
 
-Under development.
+API is in alpha state and backward incompatible changes may be
+introduced in subsequent versions.
 
 ## Implementation Details
 
