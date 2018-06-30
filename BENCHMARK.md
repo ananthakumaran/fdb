@@ -8,8 +8,9 @@ bytes is used for value.
 `read/write 10 op` -  a transaction with 10 read/write operation.
 
 The benchmark is run at multiple concurrency level and only the top
-result(ops/s) for each type of operation is shown here. The main intention is
-show that FDB client could saturate the server by enough generating load.
+result(based on operation per second) for each type is shown here. The
+main intention is show that FDB client could saturate the server by
+generating enough load.
 
 ```
            name    concurrency     ops/s   average ms    max ms    min ms   deviation
