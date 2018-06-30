@@ -1,6 +1,7 @@
 # FDB
 
 [![Build Status](https://secure.travis-ci.org/ananthakumaran/fdb.svg?branch=master)](http://travis-ci.org/ananthakumaran/fdb)
+[![Hex.pm](https://img.shields.io/hexpm/v/fdb.svg)](https://hex.pm/packages/memcachexfdb)
 
 FoundationDB client for Elixir
 
