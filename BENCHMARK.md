@@ -1,6 +1,6 @@
 ## FDB client benchmark result
 
-The script used to run the benchmark is available at bench.exs. Random
+The script used to run the benchmark is available at [bench.exs](bench.exs). Random
 string of size 16 bytes is used for key and of size from 8 to 100
 bytes is used for value.
 
