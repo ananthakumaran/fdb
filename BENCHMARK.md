@@ -9,7 +9,7 @@ bytes is used for value.
 
 The benchmark is run at multiple concurrency level and only the top
 result(based on operation per second) for each type is shown here. The
-main intention is show that FDB client could saturate the server by
+main intention is to show that FDB client could saturate the server by
 generating enough load.
 
 ```
