@@ -64,7 +64,7 @@ kinds of api
 * a sync api that will block the calling process till the operation is
   done. In case of failure an exception will be raised.
 
-* an async api that will return `FDB.Future` immediatly. The caller can
+* an async api that will return `t:FDB.Future.t/0` immediatly. The caller can
   later use `FDB.Future.await/1` to resolve the value, which will
   block till the operation is done or will raise an exception in case
   of failure.
@@ -81,3 +81,70 @@ till it succeeds. `FDB.Database.transact/2` function automatically
 rescues and retries if the error is retriable. For this reason, the
 api is designed to raise exception instead of returning `{:error,
 error}`
+
+## Installation
+
+FDB depends on FoundationDB [client
+binary](https://apple.github.io/foundationdb/api-general.html#installing-foundationdb-client-binaries)
+to be installed. The version of the client binary should be `>=` FDB
+library version — patch and build part in the version can be
+ignored. For example, if you want to use
+
+```elixir
+{:fdb, "5.1.7-0"}
+```
+
+then you must have client binary `>= 5.1`. If you use `~>` in the
+version requirement, make sure the version includes the patch
+number. Only patch versions are guaranteed to be protocol compatible.
+
+## Getting Started
+
+Before doing anything with the library, the API version has to be set
+and the network thread has to be started. `FDB.start/1` is a helper function
+which does all of these.
+
+```elixir
+FDB.start(510)
+```
+
+This must be called only once. Calling it second time will result in
+exception. Once started, a `t:FDB.Cluster.t/0` and
+`t:FDB.Database.t/0` instance have to be created.
+
+```elixir
+db = FDB.Cluster.create(cluster_file_path)
+    |> FDB.Database.create()
+```
+
+It's recommended to use a single db instance everywhere unless
+multiple db with different set of options are required. There are no
+performance implications with using a single db instance as none of
+the method calls are serialized either via locks or GenServer et al.
+
+Any kind of interaction with Database requires the usage
+`t:FDB.Transaction.t/0`. There are two ways of using transaction
+
+```elixir
+FDB.Database.transact(fn transaction ->
+  value = FDB.Transaction.get(transaction, key)
+  :ok = FDB.Transaction.set(transaction, key, value <> "hello")
+end)
+```
+
+```elixir
+transaction = FDB.Transaction.create(db)
+value = FDB.Transaction.get(transaction, key)
+:ok = FDB.Transaction.set(transaction, key, value <> "hello")
+:ok = Transaction.commit(transaction)
+```
+
+The first version is the preferred one. The transaction is
+automatically committed after the callback returns. In case any
+exception is raised inside the callback or in the commit function
+call, the transaction will be retried if the error is retriable. Various
+options like `max_retry_delay`, `timeout`, `retry_limit` etc can be
+configured using `FDB.Transaction.set_option/3`
+
+See the [documenation](https://hexdocs.pm/fdb) for more
+information.
