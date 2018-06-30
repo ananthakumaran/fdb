@@ -128,7 +128,7 @@ Any kind of interaction with Database requires the usage of
 `t:FDB.Transaction.t/0`. There are two ways of using transaction
 
 ```elixir
-FDB.Database.transact(fn transaction ->
+FDB.Database.transact(db, fn transaction ->
   value = FDB.Transaction.get(transaction, key)
   :ok = FDB.Transaction.set(transaction, key, value <> "hello")
 end)
