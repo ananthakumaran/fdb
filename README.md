@@ -124,7 +124,7 @@ multiple db with different set of options are required. There are no
 performance implications with using a single db instance as none of
 the method calls are serialized either via locks or GenServer et al.
 
-Any kind of interaction with Database requires the usage
+Any kind of interaction with Database requires the usage of
 `t:FDB.Transaction.t/0`. There are two ways of using transaction
 
 ```elixir
