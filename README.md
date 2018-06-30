@@ -150,3 +150,7 @@ configured using `FDB.Transaction.set_option/3`
 
 See the [documenation](https://hexdocs.pm/fdb) for more
 information.
+
+## Benchmark
+
+A simple, unreliable and non-scientific benchmark can be found [here](BENCHMARK.md)

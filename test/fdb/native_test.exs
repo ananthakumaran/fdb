@@ -3,7 +3,7 @@ defmodule FDB.NativeTest do
   import FDB.Native
 
   test "get_max_api_version" do
-    assert get_max_api_version() == 510
+    assert get_max_api_version() >= 510
   end
 
   test "select_api_version_impl" do

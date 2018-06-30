@@ -33,7 +33,10 @@ defmodule FDB.MixProject do
       {:stream_data, "~> 0.4", only: :test},
       {:timex, "~> 3.3.0", only: :test},
       {:ex_doc, "~> 0.18", only: :dev},
-      {:dialyxir, "~> 1.0.0-rc.2", only: [:dev], runtime: false}
+      {:dialyxir, "~> 1.0.0-rc.2", only: [:dev], runtime: false},
+      {:benchee, "~> 0.13", only: :dev},
+      {:exprof, "~> 0.2.3", only: :dev},
+      {:jason, "~> 1.0", only: :dev}
     ]
   end
 

@@ -20,8 +20,7 @@ defmodule FDB.Future do
 
     receive do
       {0, ^ref, value} ->
-        Enum.reverse(on_resolve)
-        |> Enum.reduce(value, fn cb, acc -> cb.(acc) end)
+        apply_on_resolve(value, on_resolve)
 
       {error_code, ^ref, nil} ->
         raise FDB.Error, code: error_code, message: Native.get_error(error_code)
@@ -36,5 +35,13 @@ defmodule FDB.Future do
   @spec map(t, (any -> any)) :: t
   def map(%__MODULE__{} = future, cb) do
     %{future | on_resolve: [cb | future.on_resolve]}
+  end
+
+  defp apply_on_resolve(value, []), do: value
+  defp apply_on_resolve(value, [cb]), do: cb.(value)
+
+  defp apply_on_resolve(value, on_resolve) do
+    Enum.reverse(on_resolve)
+    |> Enum.reduce(value, fn cb, acc -> cb.(acc) end)
   end
 end

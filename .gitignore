@@ -35,3 +35,5 @@ docker*
 valgrind
 .dockerignore
 result.log
+result.ndjson
+test.sh

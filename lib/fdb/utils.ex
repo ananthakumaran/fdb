@@ -27,6 +27,8 @@ defmodule FDB.Utils do
   def normalize_bool(other),
     do: raise(ArgumentError, "Expected boolean value, got: #{inspect(other)}")
 
+  def normalize_bool_values(map, _) when map == %{}, do: %{}
+
   def normalize_bool_values(map, keys) do
     Enum.reduce(keys, map, fn key, map ->
       if Map.has_key?(map, key) do
