@@ -15,8 +15,9 @@ defmodule FDB.Future do
   def await(%__MODULE__{resource: resource, on_resolve: on_resolve}) do
     ref = make_ref()
 
-    Native.future_resolve(resource, ref)
-    |> Utils.verify_result()
+    :ok =
+      Native.future_resolve(resource, ref)
+      |> Utils.verify_ok()
 
     receive do
       {0, ^ref, value} ->

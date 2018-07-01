@@ -24,12 +24,12 @@ defmodule FDB.Cluster do
   @spec set_option(t, Option.key()) :: :ok
   def set_option(%__MODULE__{} = cluster, option) do
     Native.cluster_set_option(cluster.resource, option)
-    |> Utils.verify_result()
+    |> Utils.verify_ok()
   end
 
   @spec set_option(t, Option.key(), Option.value()) :: :ok
   def set_option(%__MODULE__{} = cluster, option, value) do
     Native.cluster_set_option(cluster.resource, option, value)
-    |> Utils.verify_result()
+    |> Utils.verify_ok()
   end
 end

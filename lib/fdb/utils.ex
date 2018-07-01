@@ -3,14 +3,16 @@ defmodule FDB.Utils do
 
   alias FDB.Native
 
-  @spec verify_result(integer | {integer, any}) :: any
-  def verify_result(0), do: :ok
+  @spec verify_result({integer, result}) :: result when result: var
   def verify_result({0, result}), do: result
 
-  def verify_result(code) when is_integer(code),
+  def verify_result({code, _}) when is_integer(code),
     do: raise(FDB.Error, code: code, message: Native.get_error(code))
 
-  def verify_result({code, _}) when is_integer(code),
+  @spec verify_ok(integer) :: :ok
+  def verify_ok(0), do: :ok
+
+  def verify_ok(code) when is_integer(code),
     do: raise(FDB.Error, code: code, message: Native.get_error(code))
 
   def binary_cut(binary, at) do

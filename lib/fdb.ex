@@ -27,6 +27,6 @@ defmodule FDB do
   @spec select_api_version(integer) :: :ok
   def select_api_version(version \\ 510) do
     Native.select_api_version_impl(version, 510)
-    |> Utils.verify_result()
+    |> Utils.verify_ok()
   end
 end

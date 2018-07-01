@@ -39,7 +39,7 @@ defmodule FDB.Transaction do
     Option.verify_transaction_option(option)
 
     Native.transaction_set_option(transaction.resource, option)
-    |> Utils.verify_result()
+    |> Utils.verify_ok()
   end
 
   @spec set_option(t, Option.key(), Option.value()) :: :ok
@@ -47,7 +47,7 @@ defmodule FDB.Transaction do
     Option.verify_transaction_option(option, value)
 
     Native.transaction_set_option(transaction.resource, option, Option.normalize_value(value))
-    |> Utils.verify_result()
+    |> Utils.verify_ok()
   end
 
   @spec get(t, any, map) :: any
@@ -288,16 +288,16 @@ defmodule FDB.Transaction do
       Coder.encode_key(transaction.coder, key),
       Coder.encode_value(transaction.coder, value)
     )
-    |> Utils.verify_result()
+    |> Utils.verify_ok()
   end
 
   @spec set_read_version(t, integer) :: :ok
   def set_read_version(%Transaction{} = transaction, version) when is_integer(version) do
     Native.transaction_set_read_version(transaction.resource, version)
-    |> Utils.verify_result()
+    |> Utils.verify_ok()
   end
 
-  @spec atomic_op(t, any, Option.key(), Option.value()) :: any
+  @spec atomic_op(t, any, Option.key(), Option.value()) :: :ok
   def atomic_op(%Transaction{} = transaction, key, param, op) do
     Option.verify_mutation_type(op, param)
 
@@ -307,13 +307,13 @@ defmodule FDB.Transaction do
       param,
       op
     )
-    |> Utils.verify_result()
+    |> Utils.verify_ok()
   end
 
   @spec clear(t, any) :: :ok
   def clear(%Transaction{} = transaction, key) do
     Native.transaction_clear(transaction.resource, Coder.encode_key(transaction.coder, key))
-    |> Utils.verify_result()
+    |> Utils.verify_ok()
   end
 
   @spec clear_range(t, KeyRange.t()) :: :ok
@@ -322,7 +322,7 @@ defmodule FDB.Transaction do
     end_key = Coder.encode_range(transaction.coder, key_range.end.key, key_range.end.prefix)
 
     Native.transaction_clear_range(transaction.resource, begin_key, end_key)
-    |> Utils.verify_result()
+    |> Utils.verify_ok()
   end
 
   @spec commit(t) :: :ok
@@ -340,7 +340,7 @@ defmodule FDB.Transaction do
   @spec cancel(t) :: :ok
   def cancel(%Transaction{} = transaction) do
     Native.transaction_cancel(transaction.resource)
-    |> Utils.verify_result()
+    |> Utils.verify_ok()
   end
 
   @spec on_error(t, integer) :: :ok
@@ -363,6 +363,6 @@ defmodule FDB.Transaction do
     end_key = Coder.encode_range(transaction.coder, key_range.end.key, key_range.end.prefix)
 
     Native.transaction_add_conflict_range(transaction.resource, begin_key, end_key, type)
-    |> Utils.verify_result()
+    |> Utils.verify_ok()
   end
 end

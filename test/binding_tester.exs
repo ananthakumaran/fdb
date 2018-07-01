@@ -441,7 +441,7 @@ defmodule FDB.Machine do
 
         unless Enum.empty?(result) do
           # raise error with code 1020
-          FDB.Utils.verify_result(1020)
+          FDB.Utils.verify_ok(1020)
         end
 
         {:byte_string, "WAITED_FOR_EMPTY"}

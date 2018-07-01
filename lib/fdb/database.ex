@@ -35,7 +35,7 @@ defmodule FDB.Database do
     Option.verify_database_option(option)
 
     Native.database_set_option(database.resource, option)
-    |> Utils.verify_result()
+    |> Utils.verify_ok()
   end
 
   @spec set_option(t, Option.key(), Option.value()) :: :ok
@@ -43,7 +43,7 @@ defmodule FDB.Database do
     Option.verify_database_option(option, value)
 
     Native.database_set_option(database.resource, option, Option.normalize_value(value))
-    |> Utils.verify_result()
+    |> Utils.verify_ok()
   end
 
   @spec get_range(t, KeySelectorRange.t(), map) :: Enumerable.t()
