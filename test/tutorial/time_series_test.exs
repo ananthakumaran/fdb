@@ -27,7 +27,8 @@ defmodule FDB.Tutorial.TimeSeriesTest do
             ByteString.new(),
             # browser
             ByteString.new()
-          })
+          }),
+          ByteString.new()
         ),
       value: Integer.new()
     }

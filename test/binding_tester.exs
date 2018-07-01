@@ -704,7 +704,7 @@ defmodule FDB.Runner do
 
   def run(db, prefix) do
     coder = %Transaction.Coder{
-      key: Subspace.new(<<0x01>> <> prefix <> <<0x00>>, FDB.Coder.Integer.new()),
+      key: Subspace.new(prefix, FDB.Coder.Integer.new(), FDB.Coder.ByteString.new()),
       value: Dynamic.new()
     }
 

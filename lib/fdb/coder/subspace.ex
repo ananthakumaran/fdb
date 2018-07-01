@@ -8,8 +8,9 @@ defmodule FDB.Coder.Subspace do
     defstruct [:prefix, :coder]
   end
 
-  @spec new(binary, FDB.Coder.t()) :: FDB.Coder.t()
-  def new(prefix, coder) do
+  @spec new(any, FDB.Coder.t(), FDB.Coder.t()) :: FDB.Coder.t()
+  def new(prefix, coder, prefix_coder \\ FDB.Coder.Identity.new()) do
+    prefix = prefix_coder.module.encode(prefix, prefix_coder.opts)
     opts = %Opts{prefix: prefix, coder: coder}
 
     %FDB.Coder{
