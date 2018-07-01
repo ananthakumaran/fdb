@@ -319,7 +319,7 @@ defmodule FDB.Machine do
       rescue_error(fn ->
         result =
           Transaction.get_key(
-            trx(s, %Transaction.Coder{}),
+            trx(s),
             %KeySelector{key: key, or_equal: or_equal, offset: offset},
             %{snapshot: s.snapshot}
           )
@@ -346,7 +346,7 @@ defmodule FDB.Machine do
     result =
       rescue_error(fn ->
         Transaction.get_range(
-          trx(s, %Transaction.Coder{}),
+          trx(s),
           KeySelectorRange.range(
             %KeySelector{key: begin_key, or_equal: begin_or_equal, offset: begin_offset},
             %KeySelector{key: end_key, or_equal: end_or_equal, offset: end_offset}
@@ -375,7 +375,7 @@ defmodule FDB.Machine do
     result =
       rescue_error(fn ->
         Transaction.get_range(
-          trx(s, %Transaction.Coder{}),
+          trx(s),
           KeySelectorRange.range(
             KeySelector.first_greater_or_equal(begin_key),
             KeySelector.first_greater_or_equal(end_key)
@@ -403,7 +403,7 @@ defmodule FDB.Machine do
     result =
       rescue_error(fn ->
         Transaction.get_range(
-          trx(s, %Transaction.Coder{}),
+          trx(s),
           KeySelectorRange.range(
             KeySelector.first_greater_or_equal(prefix),
             KeySelector.first_greater_or_equal(strinc(prefix))
@@ -452,7 +452,7 @@ defmodule FDB.Machine do
 
   def do_execute(_id, {"SET"}, s) do
     {{:byte_string, key}, {:byte_string, value}, stack} = pop(s.stack, 2)
-    :ok = Transaction.set(trx(s, %Transaction.Coder{}), key, value)
+    :ok = Transaction.set(trx(s), key, value)
     %{s | stack: stack}
   end
 
@@ -466,7 +466,7 @@ defmodule FDB.Machine do
 
     result =
       rescue_error(fn ->
-        value = Transaction.get(trx(s, %Transaction.Coder{}), key, %{snapshot: s.snapshot})
+        value = Transaction.get(trx(s), key, %{snapshot: s.snapshot})
         {:byte_string, value || "RESULT_NOT_PRESENT"}
       end)
 
@@ -478,7 +478,7 @@ defmodule FDB.Machine do
       pop(s.stack, 3)
 
     op = apply(Option, String.to_atom("mutation_type_" <> String.downcase(op_name)), [])
-    :ok = Transaction.atomic_op(trx(s, %Transaction.Coder{}), key, value, op)
+    :ok = Transaction.atomic_op(trx(s), key, value, op)
     %{s | stack: stack}
   end
 
@@ -510,7 +510,7 @@ defmodule FDB.Machine do
     result =
       rescue_error(fn ->
         Transaction.add_conflict_range(
-          trx(s, %Transaction.Coder{}),
+          trx(s),
           KeyRange.range(begin_key, end_key),
           case op do
             "READ_CONFLICT_RANGE" -> Option.conflict_range_type_read()
@@ -530,7 +530,7 @@ defmodule FDB.Machine do
     result =
       rescue_error(fn ->
         Transaction.add_conflict_range(
-          trx(s, %Transaction.Coder{}),
+          trx(s),
           KeyRange.range(key, key <> <<0x00>>),
           case op do
             "READ_CONFLICT_KEY" -> Option.conflict_range_type_read()
@@ -546,7 +546,7 @@ defmodule FDB.Machine do
 
   def do_execute(_id, {"CLEAR"}, s) do
     {{:byte_string, key}, stack} = pop(s.stack)
-    :ok = Transaction.clear(trx(s, %Transaction.Coder{}), key)
+    :ok = Transaction.clear(trx(s), key)
     %{s | stack: stack}
   end
 
@@ -555,7 +555,7 @@ defmodule FDB.Machine do
 
     :ok =
       Transaction.clear_range(
-        trx(s, %Transaction.Coder{}),
+        trx(s),
         KeyRange.range(start_key, end_key)
       )
 
@@ -567,7 +567,7 @@ defmodule FDB.Machine do
 
     :ok =
       Transaction.clear_range(
-        trx(s, %Transaction.Coder{}),
+        trx(s),
         KeyRange.range(key, strinc(key))
       )
 
@@ -673,7 +673,7 @@ defmodule FDB.Machine do
     {first, rest}
   end
 
-  defp trx(s, coder \\ nil) do
+  defp trx(s, coder \\ %Transaction.Coder{}) do
     t = FDB.TransactionMap.get(s.transaction_name)
 
     if coder do
