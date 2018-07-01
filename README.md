@@ -123,7 +123,7 @@ It's recommended to use a single db instance everywhere unless
 multiple db with different set of options are required. There are no
 performance implications with using a single db instance as none of
 the method calls are serialized either via locks or GenServer et
-al. Refer `FDB.Database.set_coder/2` if you want to use multiple coders.
+al.
 
 Any kind of interaction with Database requires the usage of
 `t:FDB.Transaction.t/0`. There are two ways of using transaction
@@ -148,6 +148,65 @@ exception is raised inside the callback or in the commit function
 call, the transaction will be retried if the error is retriable. Various
 options like `max_retry_delay`, `timeout`, `retry_limit` etc can be
 configured using `FDB.Transaction.set_option/3`
+
+### Coder
+
+Most of the language bindings implement the [tuple
+layer](https://github.com/apple/foundationdb/blob/master/design/tuple.md). It
+specifies how native types like integer, unicode string, bytes etc
+should be encoded. The main advantage of the encoding over others is
+that it preserves the natural ordering of the values, so the range
+function would work as expected.
+
+```elixir
+alias FDB.{Transaction, Database, Cluster, KeySelectorRange}
+alias FDB.Coder.{Integer, Tuple, NestedTuple, ByteString, Subspace}
+
+coder =
+  Transaction.Coder.new(
+    Subspace.new(
+      "ts",
+      Tuple.new({
+        # date
+        NestedTuple.new({
+          # year, month, date
+          NestedTuple.new({Integer.new(), Integer.new(), Integer.new()}),
+          # hour, minute, second
+          NestedTuple.new({Integer.new(), Integer.new(), Integer.new()})
+        }),
+        # website
+        ByteString.new(),
+        # page
+        ByteString.new(),
+        # browser
+        ByteString.new()
+      }),
+      ByteString.new()
+    ),
+    Integer.new()
+  )
+db =
+  Cluster.create()
+  |> Database.create(coder)
+
+Database.transact(db, fn t ->
+  m = Transaction.get(t, {{{2018, 03, 01}, {1, 0, 0}}, "www.github.com", "/fdb", "mozilla"})
+  c = Transaction.get(t, {{{2018, 03, 01}, {1, 0, 0}}, "www.github.com", "/fdb", "chrome"})
+end)
+
+range = KeySelectorRange.starts_with({{{2018, 03, 01}}})
+result =
+  Database.get_range(db, range)
+  |> Enum.to_list()
+
+```
+
+A `t:FDB.Transaction.Coder.t/0` specifies how the key and value should
+be encoded. The coder could be set at database or transaction
+level. The transaction automatically inherits the coder from database
+if not set explicitly. Under the hood all the functions uses the coder
+transparently to encode and decode the values. Refer
+`FDB.Database.set_coder/2` if you want to use multiple coders.
 
 See the [documenation](https://hexdocs.pm/fdb) for more
 information.

@@ -1,4 +1,8 @@
 defmodule FDB.Coder.Tuple do
+  @moduledoc """
+  This should be only used at the top level. For nested tuple
+  `FDB.Coder.NestedTuple` should be used
+  """
   use FDB.Coder.Behaviour
 
   @spec new(tuple) :: FDB.Coder.t()

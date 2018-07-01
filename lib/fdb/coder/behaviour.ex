@@ -1,4 +1,7 @@
 defmodule FDB.Coder.Behaviour do
+  @moduledoc """
+  Refer modules named FDB.Coder.* for sample implementation.
+  """
   @callback encode(any, opts :: any) :: binary
   @callback decode(binary, opts :: any) :: {any, binary}
   @callback range(any, opts :: any) :: {binary, :complete | :partial}

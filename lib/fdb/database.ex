@@ -112,7 +112,7 @@ defmodule FDB.Database do
   Various options like
   `FDB.Option.transaction_option_max_retry_delay/0`,
   `FDB.Option.transaction_option_timeout/0`,
-  `FDB.Option.transaction_option_retry_limit/0` etc which controls the
+  `FDB.Option.transaction_option_retry_limit/0` etc which control the
   retry behaviour can be configured using
   `FDB.Transaction.set_option/3`
   """

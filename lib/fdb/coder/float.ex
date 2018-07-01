@@ -1,9 +1,17 @@
 defmodule FDB.Coder.Float do
+  @moduledoc """
+  Note that implementation of Float is not fully compatible with the
+  [spec](https://github.com/apple/foundationdb/blob/master/design/tuple.md#ieee-binary-floating-point). It
+  uses the erlang floating point implementation which is not fully
+  compatible with the IEEE Binary Floating Point spec. It doesn't
+  supports values like NaN, Infinity etc. As long as these values are
+  not used by other language bindings this coder would work
+  """
   use FDB.Coder.Behaviour
   use Bitwise
 
   @spec new(32 | 64) :: FDB.Coder.t()
-  def new(bits \\ 32) do
+  def new(bits \\ 32) when bits == 32 or bits == 64 do
     %FDB.Coder{module: __MODULE__, opts: bits}
   end
 

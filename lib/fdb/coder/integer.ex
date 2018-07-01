@@ -1,4 +1,9 @@
 defmodule FDB.Coder.Integer do
+  @moduledoc """
+  Supports integer in the range
+  `-0xFFFFFFFFFFFFFFFF..0xFFFFFFFFFFFFFFFF` (8 bytes). Consider using
+  `FDB.Coder.ArbitraryInteger` for arbitrary precision numbers.
+  """
   use FDB.Coder.Behaviour
   use Bitwise
 

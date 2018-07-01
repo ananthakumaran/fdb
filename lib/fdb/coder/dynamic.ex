@@ -18,8 +18,6 @@ defmodule FDB.Coder.Dynamic do
   end
 
   @impl true
-  def encode({:float32, n}, _coders) when is_binary(n), do: <<0x20>> <> n
-  def encode({:float64, n}, _coders) when is_binary(n), do: <<0x21>> <> n
   def encode({nil, nil}, _coders), do: <<0x00>>
 
   def encode({tag, value}, coders)

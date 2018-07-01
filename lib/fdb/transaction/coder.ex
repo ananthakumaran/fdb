@@ -1,4 +1,8 @@
 defmodule FDB.Transaction.Coder do
+  @moduledoc """
+  A `t:FDB.Transaction.Coder.t/0` specifies how the key and value should be encoded.
+  """
+
   alias FDB.Coder
   alias FDB.Coder.Identity
 
@@ -6,6 +10,9 @@ defmodule FDB.Transaction.Coder do
 
   @type t :: %__MODULE__{key: Coder.t(), value: Coder.t()}
 
+  @doc """
+  Creates a new `t:FDB.Transaction.Coder.t/0`
+  """
   @spec new(Coder.t(), Coder.t()) :: t
   def new(key_coder \\ Identity.new(), value_coder \\ Identity.new()) do
     %__MODULE__{key: key_coder, value: value_coder}
