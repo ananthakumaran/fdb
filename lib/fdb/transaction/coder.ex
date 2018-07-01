@@ -1,9 +1,15 @@
 defmodule FDB.Transaction.Coder do
   alias FDB.Coder
+  alias FDB.Coder.Identity
 
-  defstruct key: FDB.Coder.Identity.new(), value: FDB.Coder.Identity.new()
+  defstruct key: Identity.new(), value: Identity.new()
 
-  @type t :: %__MODULE__{key: FDB.Coder.t(), value: FDB.Coder.t()}
+  @type t :: %__MODULE__{key: Coder.t(), value: Coder.t()}
+
+  @spec new(Coder.t(), Coder.t()) :: t
+  def new(key_coder \\ Identity.new(), value_coder \\ Identity.new()) do
+    %__MODULE__{key: key_coder, value: value_coder}
+  end
 
   @doc false
   @spec encode_key(t, any) :: any

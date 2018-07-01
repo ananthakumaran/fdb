@@ -10,7 +10,8 @@ defmodule FDB do
   @doc """
   Sets the [API
   version](https://apple.github.io/foundationdb/api-general.html#api-versions)
-  and starts the network thread.
+  and starts the network thread. One should use `FDB.Network` directly
+  if any of the network options need to be customized.
   """
   @spec start(integer) :: :ok
   def start(version \\ 510) do

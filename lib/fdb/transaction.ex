@@ -56,6 +56,9 @@ defmodule FDB.Transaction do
     |> Future.await()
   end
 
+  @doc """
+  Async version of `get/3`
+  """
   @spec get_q(t, any, map) :: Future.t()
   def get_q(%Transaction{} = transaction, key, options \\ %{}) when is_map(options) do
     options = Utils.normalize_bool_values(options, [:snapshot])
@@ -218,6 +221,9 @@ defmodule FDB.Transaction do
     |> Future.await()
   end
 
+  @doc """
+  Async version of `get_read_version/1`
+  """
   @spec get_read_version_q(t) :: Future.t()
   def get_read_version_q(%Transaction{} = transaction) do
     Native.transaction_get_read_version(transaction.resource)
@@ -230,6 +236,9 @@ defmodule FDB.Transaction do
     |> Utils.verify_result()
   end
 
+  @doc """
+
+  """
   @spec get_versionstamp_q(t) :: Future.t()
   def get_versionstamp_q(%Transaction{} = transaction) do
     Native.transaction_get_versionstamp(transaction.resource)
@@ -249,6 +258,9 @@ defmodule FDB.Transaction do
     |> Future.await()
   end
 
+  @doc """
+  Async version of `get_key/2`
+  """
   @spec get_key_q(t, KeySelector.t()) :: Future.t()
   def get_key_q(%Transaction{} = transaction, %KeySelector{} = key_selector, options \\ %{})
       when is_map(options) do
@@ -272,6 +284,9 @@ defmodule FDB.Transaction do
     |> Future.await()
   end
 
+  @doc """
+  Async version of `get_addresses_for_key/2`
+  """
   @spec get_addresses_for_key_q(t, any) :: Future.t()
   def get_addresses_for_key_q(%Transaction{} = transaction, key) do
     Native.transaction_get_addresses_for_key(
@@ -331,6 +346,9 @@ defmodule FDB.Transaction do
     |> Future.await()
   end
 
+  @doc """
+  Async version of `commit/1`
+  """
   @spec commit_q(t) :: Future.t()
   def commit_q(%Transaction{} = transaction) do
     Native.transaction_commit(transaction.resource)
@@ -349,6 +367,9 @@ defmodule FDB.Transaction do
     |> Future.await()
   end
 
+  @doc """
+  Async version of `on_error/2`
+  """
   @spec on_error_q(t, integer) :: Future.t()
   def on_error_q(%Transaction{} = transaction, code) when is_integer(code) do
     Native.transaction_on_error(transaction.resource, code)

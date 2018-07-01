@@ -122,7 +122,8 @@ db = FDB.Cluster.create(cluster_file_path)
 It's recommended to use a single db instance everywhere unless
 multiple db with different set of options are required. There are no
 performance implications with using a single db instance as none of
-the method calls are serialized either via locks or GenServer et al.
+the method calls are serialized either via locks or GenServer et
+al. Refer `FDB.Database.set_coder/2` if you want to use multiple coders.
 
 Any kind of interaction with Database requires the usage of
 `t:FDB.Transaction.t/0`. There are two ways of using transaction

@@ -232,7 +232,7 @@ defmodule FDB.Machine do
   end
 
   def do_execute(_id, {op}, s) when op in ["NEW_TRANSACTION", "RESET"] do
-    db = Database.set_coder(s.db, %Transaction.Coder{})
+    db = Database.set_coder(s.db, Transaction.Coder.new())
     :ok = TransactionMap.put(s.transaction_name, Transaction.create(db))
     s
   end
@@ -241,10 +241,13 @@ defmodule FDB.Machine do
     {{:byte_string, prefix}, stack} = pop(s.stack)
 
     db =
-      Database.set_coder(s.db, %Transaction.Coder{
-        key: Coder.Tuple.new({Coder.Identity.new(), Coder.Integer.new(), Coder.Integer.new()}),
-        value: Coder.Identity.new()
-      })
+      Database.set_coder(
+        s.db,
+        Transaction.Coder.new(
+          Coder.Tuple.new({Coder.Identity.new(), Coder.Integer.new(), Coder.Integer.new()}),
+          Coder.Identity.new()
+        )
+      )
 
     Enum.reverse(stack)
     |> Enum.with_index()
@@ -431,7 +434,7 @@ defmodule FDB.Machine do
       Database.transact(s.db, fn t ->
         result =
           Transaction.get_range(
-            Transaction.set_coder(t, %Transaction.Coder{}),
+            Transaction.set_coder(t, Transaction.Coder.new()),
             KeySelectorRange.range(
               KeySelector.first_greater_or_equal(prefix),
               KeySelector.first_greater_or_equal(strinc(prefix))
@@ -647,7 +650,7 @@ defmodule FDB.Machine do
   end
 
   defp tuple_range(items) do
-    coder = %Transaction.Coder{key: Dynamic.new()}
+    coder = Transaction.Coder.new(Dynamic.new())
     key = List.to_tuple(items)
 
     {Transaction.Coder.encode_range(coder, key, :first),
@@ -673,7 +676,7 @@ defmodule FDB.Machine do
     {first, rest}
   end
 
-  defp trx(s, coder \\ %Transaction.Coder{}) do
+  defp trx(s, coder \\ Transaction.Coder.new()) do
     t = FDB.TransactionMap.get(s.transaction_name)
 
     if coder do
@@ -703,10 +706,11 @@ defmodule FDB.Runner do
   alias FDB.KeySelectorRange
 
   def run(db, prefix) do
-    coder = %Transaction.Coder{
-      key: Subspace.new(prefix, FDB.Coder.Integer.new(), FDB.Coder.ByteString.new()),
-      value: Dynamic.new()
-    }
+    coder =
+      Transaction.Coder.new(
+        Subspace.new(prefix, FDB.Coder.Integer.new(), FDB.Coder.ByteString.new()),
+        Dynamic.new()
+      )
 
     db = FDB.Database.set_coder(db, coder)
 

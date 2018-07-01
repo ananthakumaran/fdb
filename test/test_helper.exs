@@ -54,7 +54,7 @@ defmodule TestUtils do
   end
 
   def assert_coder_order_symmetry(coder, values) do
-    coder = %Transaction.Coder{key: coder}
+    coder = Transaction.Coder.new(coder)
 
     encoded =
       Enum.map(values, fn binary ->

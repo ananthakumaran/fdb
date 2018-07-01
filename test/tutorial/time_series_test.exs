@@ -11,8 +11,8 @@ defmodule FDB.Tutorial.TimeSeriesTest do
   end
 
   test "timeseries" do
-    coder = %Transaction.Coder{
-      key:
+    coder =
+      Transaction.Coder.new(
         Subspace.new(
           "ts",
           Tuple.new({
@@ -30,8 +30,8 @@ defmodule FDB.Tutorial.TimeSeriesTest do
           }),
           ByteString.new()
         ),
-      value: Integer.new()
-    }
+        Integer.new()
+      )
 
     db =
       Cluster.create()

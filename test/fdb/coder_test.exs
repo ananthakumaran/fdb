@@ -16,7 +16,7 @@ defmodule FDB.CoderTest do
   end
 
   test "subspace" do
-    coder = %Transaction.Coder{key: Subspace.new("fdb", ByteString.new())}
+    coder = Transaction.Coder.new(Subspace.new("fdb", ByteString.new()))
 
     db =
       Cluster.create()
@@ -72,7 +72,7 @@ defmodule FDB.CoderTest do
   property "range" do
     check all {coder, values} <- range_generator() do
       Enum.each(values, fn value ->
-        Transaction.Coder.encode_range(%Transaction.Coder{key: coder}, value, :first)
+        Transaction.Coder.encode_range(Transaction.Coder.new(coder), value, :first)
       end)
     end
   end
