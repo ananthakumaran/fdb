@@ -13,6 +13,11 @@ defmodule FDB.Transaction do
   defstruct resource: nil, coder: nil
   @type t :: %__MODULE__{resource: identifier, coder: Transaction.Coder.t() | nil}
 
+  @doc """
+  Creates a new transaction.
+
+  if `coder` is not set then `database`'s coder is used.
+  """
   @spec create(Database.t(), Transaction.Coder.t() | nil) :: t
   def create(%Database{} = database, coder \\ nil) do
     resource =
@@ -29,11 +34,17 @@ defmodule FDB.Transaction do
     %Transaction{resource: resource, coder: coder}
   end
 
+  @doc """
+  Changes the `t:FDB.Transaction.Coder.t/0` associated with the transaction.
+  """
   @spec set_coder(t, Transaction.Coder.t()) :: t
   def set_coder(%Transaction{} = transaction, coder) do
     %{transaction | coder: coder}
   end
 
+  @doc """
+  Refer `FDB.Option` for the list of options. Any option that starts with `transaction_option_` is allowed.
+  """
   @spec set_option(t, Option.key()) :: :ok
   def set_option(%Transaction{} = transaction, option) do
     Option.verify_transaction_option(option)
@@ -42,6 +53,9 @@ defmodule FDB.Transaction do
     |> Utils.verify_ok()
   end
 
+  @doc """
+  Refer `FDB.Option` for the list of options. Any option that starts with `transaction_option_` is allowed.
+  """
   @spec set_option(t, Option.key(), Option.value()) :: :ok
   def set_option(%Transaction{} = transaction, option, value) do
     Option.verify_transaction_option(option, value)
@@ -50,6 +64,13 @@ defmodule FDB.Transaction do
     |> Utils.verify_ok()
   end
 
+  @doc """
+  Reads a value from database.
+
+  ## Options
+
+  * `:snapshot` - (boolean) Defaults to `false`.
+  """
   @spec get(t, any, map) :: any
   def get(%Transaction{} = transaction, key, options \\ %{}) when is_map(options) do
     get_q(transaction, key, options)
@@ -100,6 +121,30 @@ defmodule FDB.Transaction do
     end)
   end
 
+  @doc """
+  Reads key value pairs that falls within the given range.
+
+  Begin key is inclusive and end key is exclusive. Multiple calls may
+  be made to server to fetch the data. The amount of data returned on
+  each call is determined by the options like `target_bytes` and
+  `mode`.
+
+  A `Stream` is returned which fetches the data lazily. This is
+  suitable for iterating over large list of key value pair.
+
+  ## Options
+
+  * `:snapshot` - (boolean) Defaults to `false`.
+  * `:reverse` - (boolean) Defaults to `false`.
+  * `:target_bytes` - (boolean) If non-zero, indicates a (soft) cap on
+    the combined number of bytes of keys and values to return per
+    call. Defaults to `0`.
+  * `:mode` - (`t:FDB.Option.key/0`) Refer `FDB.Option` for the list
+    of options. Any option that starts with `streaming_mode_` is
+    allowed. Defaults to `FDB.Option.streaming_mode_iterator/0`.
+  * `:limit` - (number) If non-zero, indicates the maximum number of
+    key-value pairs to return. Defaults to `0`.
+  """
   @spec get_range(t | Database.t(), KeySelectorRange.t(), map) :: Enumerable.t()
   def get_range(
         %{__struct__: struct} = transaction,
@@ -215,6 +260,15 @@ defmodule FDB.Transaction do
     |> Stream.flat_map(& &1)
   end
 
+  @doc """
+  Returns the transaction snapshot read version.
+
+  The transaction obtains a snapshot read version automatically at the
+  time of the first call to `get_*` (including this one) and (unless
+  causal consistency has been deliberately compromised by transaction
+  options) is guaranteed to represent all transactions which were
+  reported committed before that call.
+  """
   @spec get_read_version(t) :: integer()
   def get_read_version(%Transaction{} = transaction) do
     get_read_version_q(transaction)
@@ -230,6 +284,25 @@ defmodule FDB.Transaction do
     |> Future.create()
   end
 
+  @doc """
+  Retrieves the database version number at which a given transaction
+  was committed.
+
+  `commit/1` must have been called on transaction and not an error
+  before this function is called, or the behavior is
+  undefined. Read-only transactions do not modify the database when
+  committed and will have a committed version of -1. Keep in mind that
+  a transaction which reads keys and then sets them to their current
+  values may be optimized to a read-only transaction.
+
+  Note that database versions are not necessarily unique to a given
+  transaction and so cannot be used to determine in what order two
+  transactions completed. The only use for this function is to
+  manually enforce causal consistency when calling
+  `set_read_version/2` on another subsequent transaction.
+
+  Most applications will not call this function.
+  """
   @spec get_committed_version(t) :: integer()
   def get_committed_version(%Transaction{} = transaction) do
     Native.transaction_get_committed_version(transaction.resource)
@@ -237,7 +310,14 @@ defmodule FDB.Transaction do
   end
 
   @doc """
+  Returns an `t:FDB.Future.t/0` which will be set to the versionstamp which was used by any versionstamp operations in this transaction.
 
+  The future will be ready only after the successful completion of a
+  call to `commit/1` on this transaction. Read-only transactions do
+  not modify the database when committed and will result in the future
+  completing with an error. Keep in mind that a transaction which
+  reads keys and then sets them to their current values may be
+  optimized to a read-only transaction.
   """
   @spec get_versionstamp_q(t) :: Future.t()
   def get_versionstamp_q(%Transaction{} = transaction) do
@@ -245,6 +325,40 @@ defmodule FDB.Transaction do
     |> Future.create()
   end
 
+  @doc """
+  watch’s behavior is relative to the transaction that created it. A
+  watch will report a change in relation to the key’s value as
+  readable by that transaction. The initial value used for comparison
+  is either that of the transaction’s read version or the value as
+  modified by the transaction itself prior to the creation of the
+  watch. If the value changes and then changes back to its initial
+  value, the watch might not report the change.
+
+  Until the transaction that created it has been committed, a watch
+  will not report changes made by other transactions. In contrast, a
+  watch will immediately report changes made by the transaction
+  itself. Watches cannot be created if the transaction has set the
+  `FDB.Option.transaction_option_read_your_writes_disable/0`
+  transaction option, and an attempt to do so will return an
+  watches_disabled error.
+
+  If the transaction used to create a watch encounters an error during
+  commit, then the watch will be set with that error. A transaction
+  whose commit result is unknown will set all of its watches with the
+  commit_unknown_result error. If an uncommitted transaction is reset
+  or destroyed, then any watches it created will be set with the
+  transaction_cancelled error.
+
+  Returns an `t:FDB.Future.t/0` representing an empty value that will
+  be set once the watch has detected a change to the value at the
+  specified key.
+
+  By default, each database connection can have no more than 10,000
+  watches that have not yet reported a change. When this number is
+  exceeded, an attempt to create a watch will return a
+  too_many_watches error. This limit can be changed using the
+  `FDB.Option.database_option_max_watches/0` database option.
+  """
   @spec watch_q(t, any) :: Future.t()
   def watch_q(%Transaction{} = transaction, key) do
     Native.transaction_watch(transaction.resource, Coder.encode_key(transaction.coder, key))

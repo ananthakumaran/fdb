@@ -204,7 +204,7 @@ result =
 A `t:FDB.Transaction.Coder.t/0` specifies how the key and value should
 be encoded. The coder could be set at database or transaction
 level. The transaction automatically inherits the coder from database
-if not set explicitly. Under the hood all the functions uses the coder
+if not set explicitly. Under the hood all the functions use the coder
 transparently to encode and decode the values. Refer
 `FDB.Database.set_coder/2` if you want to use multiple coders.
 
