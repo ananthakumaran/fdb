@@ -11,8 +11,8 @@ defmodule FDB.Future do
     %__MODULE__{resource: resource}
   end
 
-  @spec await(t) :: any()
-  def await(%__MODULE__{resource: resource, on_resolve: on_resolve}) do
+  @spec await(t, timeout) :: any()
+  def await(%__MODULE__{resource: resource, on_resolve: on_resolve}, timeout \\ 5000) do
     ref = make_ref()
 
     :ok =
@@ -25,6 +25,9 @@ defmodule FDB.Future do
 
       {error_code, ^ref, nil} ->
         raise FDB.Error, code: error_code, message: Native.get_error(error_code)
+    after
+      timeout ->
+        raise FDB.TimeoutError, "Operation timed out"
     end
   end
 
