@@ -43,6 +43,12 @@ defmodule FDB.Tutorial.TimeSeriesTest do
       m = Transaction.get_q(t, {{{2018, 03, 01}, {1, 0, 0}}, "www.github.com", "/fdb", "mozilla"})
       c = Transaction.get_q(t, {{{2018, 03, 01}, {1, 0, 0}}, "www.github.com", "/fdb", "chrome"})
       assert 2 == @m + @c
+
+      assert nil ==
+               Transaction.get(
+                 t,
+                 {{{2017, 03, 01}, {1, 0, 0}}, "www.github.com", "/fdb", "chrome"}
+               )
     end)
 
     assert_range_size(

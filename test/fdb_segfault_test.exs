@@ -499,8 +499,8 @@ defmodule FDBSegfaultTest do
     fixed_list([
       one_of([term(), constant(transaction())]),
       one_of([term(), binary()]),
-      one_of([term(), binary()]),
-      one_of([term(), integer()])
+      one_of([term(), integer()]),
+      one_of([term(), binary()])
     ])
   )
 

@@ -198,8 +198,8 @@ defmodule FDBTest do
     Transaction.atomic_op(
       t,
       "fdb:counter",
-      <<1::little-integer-unsigned-size(64)>>,
-      mutation_type_add()
+      mutation_type_add(),
+      <<1::little-integer-unsigned-size(64)>>
     )
 
     assert Transaction.commit(t) == :ok
@@ -214,8 +214,8 @@ defmodule FDBTest do
     Transaction.atomic_op(
       t,
       "fdb:counter",
-      <<5::little-integer-unsigned-size(64)>>,
-      mutation_type_add()
+      mutation_type_add(),
+      <<5::little-integer-unsigned-size(64)>>
     )
 
     assert Transaction.commit(t) == :ok
@@ -272,6 +272,8 @@ defmodule FDBTest do
     assert Transaction.commit(t) == :ok
 
     t = new_transaction()
+    assert Transaction.get_key(t, KeySelector.last_less_or_equal("a")) == <<>>
+    assert Transaction.get_key(t, KeySelector.first_greater_or_equal("z")) == <<0xFF>>
     assert Transaction.get_key(t, KeySelector.first_greater_or_equal("fdb:000")) == "fdb:001"
     assert Transaction.get_key(t, KeySelector.first_greater_or_equal("fdb:001")) == "fdb:001"
 

@@ -27,7 +27,14 @@ defmodule FDB.OptionBuilder do
     Enum.map(scope.options, fn option ->
       type =
         if String.length(option.param_type) > 0 do
-          "Type: `#{option.param_type}`"
+          elixir_type =
+            case option.param_type do
+              "Bytes" -> "binary"
+              "Int" -> "integer"
+              "String" -> "String.t"
+            end
+
+          "Type: `t:#{elixir_type}/0`"
         end
 
       doc =

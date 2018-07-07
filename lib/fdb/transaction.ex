@@ -65,7 +65,9 @@ defmodule FDB.Transaction do
   end
 
   @doc """
-  Reads a value from database.
+  Reads a value from the database snapshot represented by transaction.
+
+  If *key* is not present in the database, `nil` is returned as the result.
 
   ## Options
 
@@ -122,12 +124,14 @@ defmodule FDB.Transaction do
   end
 
   @doc """
-  Reads key value pairs that falls within the given range.
+  Reads all key-value pairs in the database snapshot represented by
+  transaction which have a key lexicographically greater than or equal
+  to the key resolved by the begin key selector and lexicographically
+  less than the key resolved by the end key selector.
 
-  Begin key is inclusive and end key is exclusive. Multiple calls may
-  be made to server to fetch the data. The amount of data returned on
-  each call is determined by the options like `target_bytes` and
-  `mode`.
+  Multiple calls may be made to server to fetch the data. The amount
+  of data returned on each call is determined by the options like
+  `target_bytes` and `mode`.
 
   A `Stream` is returned which fetches the data lazily. This is
   suitable for iterating over large list of key value pair.
@@ -365,6 +369,12 @@ defmodule FDB.Transaction do
     |> Future.create()
   end
 
+  @doc """
+  Resolves a key selector against the keys in the database snapshot
+  represented by transaction.
+
+  Returns the key in the database matching the key selector.
+  """
   @spec get_key(t, KeySelector.t()) :: any
   def get_key(%Transaction{} = transaction, %KeySelector{} = key_selector, options \\ %{})
       when is_map(options) do
@@ -392,7 +402,12 @@ defmodule FDB.Transaction do
     |> Future.map(&Coder.decode_key(transaction.coder, &1))
   end
 
-  @spec get_addresses_for_key(t, any) :: any
+  @doc """
+  Returns a list of public network addresses as strings, one for each
+  of the storage servers responsible for storing key and its
+  associated value.
+  """
+  @spec get_addresses_for_key(t, any) :: [String.t()]
   def get_addresses_for_key(%Transaction{} = transaction, key) do
     get_addresses_for_key_q(transaction, key)
     |> Future.await()
@@ -410,6 +425,14 @@ defmodule FDB.Transaction do
     |> Future.create()
   end
 
+  @doc """
+  Modify the database snapshot represented by transaction to change
+  the given key to have the given value.
+
+  If the given key was not previously present in the database it is
+  inserted. The modification affects the actual database only if
+  transaction is later committed with `commit/1`.
+  """
   @spec set(t, any, any) :: :ok
   def set(%Transaction{} = transaction, key, value) do
     Native.transaction_set(
@@ -420,31 +443,92 @@ defmodule FDB.Transaction do
     |> Utils.verify_ok()
   end
 
+  @doc """
+  Sets the snapshot read version used by a transaction.
+
+  This is not needed in simple cases. If the given version is too old,
+  subsequent reads will fail with error_code_past_version; if it is
+  too new, subsequent reads may be delayed indefinitely and/or fail
+  with error_code_future_version. If any of `get*` have been called on
+  this transaction already, the result is undefined.
+  """
   @spec set_read_version(t, integer) :: :ok
   def set_read_version(%Transaction{} = transaction, version) when is_integer(version) do
     Native.transaction_set_read_version(transaction.resource, version)
     |> Utils.verify_ok()
   end
 
+  @doc """
+  Modify the database snapshot represented by transaction to perform
+  the operation indicated by operation_type with operand param to the
+  value stored by the given key.
+
+  An atomic operation is a single database command that carries out
+  several logical steps: reading the value of a key, performing a
+  transformation on that value, and writing the result. Different
+  atomic operations perform different transformations. Like other
+  database operations, an atomic operation is used within a
+  transaction; however, its use within a transaction will not cause
+  the transaction to conflict.
+
+  Atomic operations do not expose the current value of the key to the
+  client but simply send the database the transformation to apply. In
+  regard to conflict checking, an atomic operation is equivalent to a
+  write without a read. It can only cause other transactions
+  performing reads of the key to conflict.
+
+  By combining these logical steps into a single, read-free operation,
+  FoundationDB can guarantee that the transaction will not conflict
+  due to the operation. This makes atomic operations ideal for
+  operating on keys that are frequently modified. A common example is
+  the use of a key-value pair as a counter.
+
+  > If a transaction uses both an atomic operation and a serializable
+    read on the same key, the benefits of using the atomic operation
+    (for both conflict checking and performance) are lost.
+
+  The modification affects the actual database only if transaction is
+  later committed with `commit/1`.
+
+  Refer `FDB.Option` for the list of operation_type. Any option that
+  starts with `mutation_type_` is allowed
+  """
   @spec atomic_op(t, any, Option.key(), Option.value()) :: :ok
-  def atomic_op(%Transaction{} = transaction, key, param, op) do
-    Option.verify_mutation_type(op, param)
+  def atomic_op(%Transaction{} = transaction, key, operation_type, param) do
+    Option.verify_mutation_type(operation_type, param)
 
     Native.transaction_atomic_op(
       transaction.resource,
       Coder.encode_key(transaction.coder, key),
       param,
-      op
+      operation_type
     )
     |> Utils.verify_ok()
   end
 
+  @doc """
+  Modifies the database snapshot represented by transaction to remove
+  the given key from the database. If the key was not previously
+  present in the database, there is no effect.
+
+  The modification affects the actual database only if transaction is
+  later committed with `commit/1`.
+  """
   @spec clear(t, any) :: :ok
   def clear(%Transaction{} = transaction, key) do
     Native.transaction_clear(transaction.resource, Coder.encode_key(transaction.coder, key))
     |> Utils.verify_ok()
   end
 
+  @doc """
+  Modify the database snapshot represented by transaction to remove
+  all keys (if any) which are lexicographically greater than or equal
+  to the given begin key and lexicographically less than the given end
+  key.
+
+  The modification affects the actual database only if transaction is
+  later committed with `commit/1`.
+  """
   @spec clear_range(t, KeyRange.t()) :: :ok
   def clear_range(%Transaction{} = transaction, %KeyRange{} = key_range) do
     begin_key = Coder.encode_range(transaction.coder, key_range.begin.key, key_range.begin.prefix)
@@ -454,6 +538,30 @@ defmodule FDB.Transaction do
     |> Utils.verify_ok()
   end
 
+  @doc """
+  Attempts to commit the sets and clears previously applied to the
+  database snapshot represented by transaction to the actual
+  database. The commit may or may not succeed – in particular, if a
+  conflicting transaction previously committed, then the commit must
+  fail in order to preserve transactional isolation. If the commit
+  does succeed, the transaction is durably committed to the database
+  and all subsequently started transactions will observe its effects.
+
+  It is not necessary to commit a read-only transaction.
+
+  As with other client/server databases, in some failure scenarios a
+  client may be unable to determine whether a transaction
+  succeeded. In these cases, `commit/1` will return a
+  commit_unknown_result error. The `FDB.Database.transact/2` function
+  treats this error as retryable, so this could execute the
+  transaction twice. In these cases, you must consider the idempotence
+  of the transaction.
+
+  Normally, commit will wait for outstanding reads to return. However,
+  if those reads were snapshot reads or the transaction option for
+  `FDB.Option.transaction_option_read_your_writes_disable/0` has been
+  invoked, any outstanding reads will immediately return errors.
+  """
   @spec commit(t) :: :ok
   def commit(%Transaction{} = transaction) do
     commit_q(transaction)
@@ -469,6 +577,19 @@ defmodule FDB.Transaction do
     |> Future.create()
   end
 
+  @doc """
+  Cancels the transaction. All pending or future uses of the
+  transaction will return a transaction_cancelled error.
+
+  > If your program attempts to cancel a transaction after `commit/1`
+    has been called but before it returns, unpredictable behavior will
+    result. While it is guaranteed that the transaction will
+    eventually end up in a cancelled state, the commit may or may not
+    occur. Moreover, even if the call to `commit/1` appears to return
+    a transaction_cancelled error, the commit may have occurred or may
+    occur in the future. This can make it more difficult to reason
+    about the order in which transactions occur.
+  """
   @spec cancel(t) :: :ok
   def cancel(%Transaction{} = transaction) do
     Native.transaction_cancel(transaction.resource)
@@ -490,6 +611,14 @@ defmodule FDB.Transaction do
     |> Future.create()
   end
 
+  @doc """
+  Adds a conflict range to a transaction without performing the
+  associated read or write.
+
+  > Most applications will use the serializable isolation that
+    transactions provide by default and will not need to manipulate
+    conflict ranges.
+  """
   @spec add_conflict_range(t, KeyRange.t(), Option.key()) :: :ok
   def add_conflict_range(%Transaction{} = transaction, %KeyRange{} = key_range, type) do
     Option.verify_conflict_range_type(type)

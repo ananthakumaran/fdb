@@ -481,7 +481,7 @@ defmodule FDB.Machine do
       pop(s.stack, 3)
 
     op = apply(Option, String.to_atom("mutation_type_" <> String.downcase(op_name)), [])
-    :ok = Transaction.atomic_op(trx(s), key, value, op)
+    :ok = Transaction.atomic_op(trx(s), key, op, value)
     %{s | stack: stack}
   end
 
