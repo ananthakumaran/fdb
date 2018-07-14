@@ -9,9 +9,18 @@ defmodule FDB.Coder.Subspace do
   end
 
   @spec new(any, FDB.Coder.t(), FDB.Coder.t()) :: FDB.Coder.t()
-  def new(prefix, coder, prefix_coder \\ FDB.Coder.Identity.new()) do
+  def new(prefix, coder \\ FDB.Coder.Identity.new(), prefix_coder \\ FDB.Coder.Identity.new()) do
     prefix = prefix_coder.module.encode(prefix, prefix_coder.opts)
     opts = %Opts{prefix: prefix, coder: coder}
+
+    %FDB.Coder{
+      module: __MODULE__,
+      opts: opts
+    }
+  end
+
+  def concat(a, b) do
+    opts = %Opts{prefix: a.opts.prefix <> b.opts.prefix, coder: b.opts.coder}
 
     %FDB.Coder{
       module: __MODULE__,

@@ -12,6 +12,18 @@ defmodule FDB.TransactionMap do
   def get(name) do
     Agent.get(__MODULE__, &Map.fetch!(&1, name))
   end
+
+  def put_if_not_present(name, transaction) do
+    Agent.update(__MODULE__, fn map ->
+      case Map.get(map, name) do
+        nil ->
+          Map.put(map, name, transaction)
+
+        _ ->
+          map
+      end
+    end)
+  end
 end
 
 defmodule Stack do
@@ -26,6 +38,15 @@ defmodule Stack do
     |> Tuple.append(stack)
   end
 
+  def pop_tuples(stack) do
+    {{:integer, i}, stack} = pop(stack)
+
+    Enum.reduce(Enum.drop(0..i, 1), {[], stack}, fn _, {result, stack} ->
+      {element, stack} = pop(stack)
+      {result ++ [element], stack}
+    end)
+  end
+
   def split(stack, count \\ 1) do
     {values, stack} = Enum.split(stack, count)
     {Enum.map(values, &elem(&1, 0)), stack}
@@ -36,13 +57,15 @@ defmodule FDB.Machine do
   alias FDB.Transaction
   alias FDB.Database
   alias FDB.TransactionMap
-  alias FDB.Coder.Dynamic
+  alias FDB.Coder.{Dynamic, Subspace}
   alias FDB.Coder
   alias FDB.KeySelector
   alias FDB.KeyRange
   alias FDB.KeySelectorRange
   alias FDB.Option
   alias FDB.Future
+  alias FDB.Utils
+  alias FDB.Directory
   import Stack
 
   defmodule State do
@@ -53,7 +76,11 @@ defmodule FDB.Machine do
               last_version: nil,
               debug: nil,
               snapshot: false,
-              processes: []
+              processes: [],
+              dirs: [],
+              dir_index: 0,
+              dir_error_index: 0,
+              db_transaction: nil
   end
 
   def init(db, prefix, debug) do
@@ -63,7 +90,13 @@ defmodule FDB.Machine do
         %FDB.Transaction.Coder{key: Dynamic.new(), value: Dynamic.new()}
       )
 
-    %State{db: db, prefix: prefix, transaction_name: prefix, debug: debug}
+    %State{
+      db: db,
+      prefix: prefix,
+      transaction_name: prefix,
+      debug: debug,
+      dirs: [Directory.new()]
+    }
   end
 
   def execute({id, instruction}, s) do
@@ -87,11 +120,10 @@ defmodule FDB.Machine do
     cond do
       String.contains?(op, "_DATABASE") ->
         op = String.replace(op, "_DATABASE", "")
-        old_t = trx(s)
         t = Transaction.create(s.db)
-        :ok = TransactionMap.put(s.transaction_name, t)
+        s = %{s | db_transaction: t}
         s = do_execute(id, List.to_tuple([op | rest]), s)
-        :ok = TransactionMap.put(s.transaction_name, old_t)
+        s = %{s | db_transaction: nil}
 
         case s.stack do
           [{_, ^id} | _] ->
@@ -104,7 +136,11 @@ defmodule FDB.Machine do
                 {:byte_string, "RESULT_NOT_PRESENT"}
               end)
 
-            %{s | stack: push(s.stack, value, id)}
+            if Enum.member?(["DIRECTORY_CREATE"], op) do
+              s
+            else
+              %{s | stack: push(s.stack, value, id)}
+            end
         end
 
       true ->
@@ -237,6 +273,14 @@ defmodule FDB.Machine do
     s
   end
 
+  def do_execute(_id, {"USE_TRANSACTION"}, s) do
+    {{_, name}, stack} = pop(s.stack)
+    db = Database.set_coder(s.db, Transaction.Coder.new())
+    :ok = TransactionMap.put_if_not_present(name, Transaction.create(db))
+
+    %{s | transaction_name: name, stack: stack}
+  end
+
   def do_execute(_id, {"LOG_STACK"}, s) do
     {{:byte_string, prefix}, stack} = pop(s.stack)
 
@@ -331,7 +375,7 @@ defmodule FDB.Machine do
           cond do
             String.starts_with?(result, prefix) -> result
             result < prefix -> prefix
-            true -> strinc(prefix)
+            true -> Utils.strinc(prefix)
           end
 
         {:byte_string, result}
@@ -409,7 +453,7 @@ defmodule FDB.Machine do
           trx(s),
           KeySelectorRange.range(
             KeySelector.first_greater_or_equal(prefix),
-            KeySelector.first_greater_or_equal(strinc(prefix))
+            KeySelector.first_greater_or_equal(Utils.strinc(prefix))
           ),
           %{
             limit: limit,
@@ -437,7 +481,7 @@ defmodule FDB.Machine do
             Transaction.set_coder(t, Transaction.Coder.new()),
             KeySelectorRange.range(
               KeySelector.first_greater_or_equal(prefix),
-              KeySelector.first_greater_or_equal(strinc(prefix))
+              KeySelector.first_greater_or_equal(Utils.strinc(prefix))
             )
           )
           |> Enum.to_list()
@@ -571,7 +615,7 @@ defmodule FDB.Machine do
     :ok =
       Transaction.clear_range(
         trx(s),
-        KeyRange.range(key, strinc(key))
+        KeyRange.range(key, Utils.strinc(key))
       )
 
     %{s | stack: stack}
@@ -617,6 +661,240 @@ defmodule FDB.Machine do
     %{s | stack: stack}
   end
 
+  def do_execute(_id, {"DIRECTORY_CREATE_SUBSPACE"}, s) do
+    {path, stack} = pop_tuples(s.stack)
+    {{:byte_string, prefix}, stack} = pop(stack)
+    {:byte_string, path} = tuple_pack(path)
+    %{s | stack: stack, dirs: s.dirs ++ [Subspace.new(prefix <> path)]}
+  end
+
+  def do_execute(_id, {"DIRECTORY_CREATE_LAYER"}, s) do
+    {{:integer, nodei}, {:integer, contenti}, {:integer, manual}, stack} = pop(s.stack, 3)
+
+    node_subspace = Enum.at(s.dirs, nodei)
+    content_subspace = Enum.at(s.dirs, contenti)
+
+    dir =
+      if !node_subspace || !content_subspace do
+        nil
+      else
+        Directory.new(%{
+          node_subspace: node_subspace,
+          content_subspace: content_subspace,
+          allow_manual_prefixes: manual == 1
+        })
+      end
+
+    %{s | stack: stack, dirs: s.dirs ++ [dir]}
+  end
+
+  def do_execute(_id, {"DIRECTORY_CHANGE"}, s) do
+    {{:integer, i}, stack} = pop(s.stack)
+
+    i =
+      if is_nil(Enum.at(s.dirs, i)) do
+        s.dir_error_index
+      else
+        i
+      end
+
+    %{s | stack: stack, dir_index: i}
+  end
+
+  def do_execute(_id, {"DIRECTORY_SET_ERROR_INDEX"}, s) do
+    {{:integer, i}, stack} = pop(s.stack)
+    %{s | stack: stack, dir_error_index: i}
+  end
+
+  def do_execute(id, {"DIRECTORY_OPEN"}, s) do
+    {path, stack} = pop_tuples(s.stack)
+    path = Enum.map(path, fn {:unicode_string, part} -> part end)
+
+    {{:byte_string, layer}, stack} = pop(stack)
+
+    try do
+      new_dir = Directory.open(dir(s), trx(s), path, %{layer: layer})
+      %{s | stack: stack, dirs: s.dirs ++ [new_dir]}
+    rescue
+      _e in [FDB.Error, ArgumentError] ->
+        error = {:byte_string, "DIRECTORY_ERROR"}
+        %{s | stack: push(stack, error, id), dirs: s.dirs ++ [nil]}
+    end
+  end
+
+  def do_execute(id, {"DIRECTORY_CREATE"}, s) do
+    {path, stack} = pop_tuples(s.stack)
+    path = Enum.map(path, fn {:unicode_string, part} -> part end)
+    {{:byte_string, layer}, {_, prefix}, stack} = pop(stack, 2)
+
+    try do
+      new_dir = Directory.create(dir(s), trx(s), path, %{layer: layer, prefix: prefix})
+      %{s | stack: stack, dirs: s.dirs ++ [new_dir]}
+    rescue
+      _e in [FDB.Error, ArgumentError] ->
+        error = {:byte_string, "DIRECTORY_ERROR"}
+        %{s | stack: push(stack, error, id), dirs: s.dirs ++ [nil]}
+    end
+  end
+
+  def do_execute(id, {"DIRECTORY_LIST"}, s) do
+    {{:integer, count}, stack} = pop(s.stack)
+
+    {path, stack} =
+      case count do
+        0 ->
+          {[], stack}
+
+        1 ->
+          {path, stack} = pop_tuples(stack)
+          path = Enum.map(path, fn {:unicode_string, part} -> part end)
+          {path, stack}
+      end
+
+    result =
+      rescue_dir_error(fn ->
+        Directory.list(dir(s), trx(s), path)
+        |> Enum.map(fn name ->
+          {:unicode_string, name}
+        end)
+        |> tuple_pack
+      end)
+
+    %{s | stack: push(stack, result, id)}
+  end
+
+  def do_execute(id, {"DIRECTORY_EXISTS"}, s) do
+    {{:integer, count}, stack} = pop(s.stack)
+
+    {path, stack} =
+      case count do
+        0 ->
+          {[], stack}
+
+        1 ->
+          {path, stack} = pop_tuples(stack)
+          path = Enum.map(path, fn {:unicode_string, part} -> part end)
+          {path, stack}
+      end
+
+    result =
+      if Directory.exists?(dir(s), trx(s), path) do
+        {:integer, 1}
+      else
+        {:integer, 0}
+      end
+
+    %{s | stack: push(stack, result, id)}
+  end
+
+  def do_execute(_id, {"DIRECTORY_LOG_DIRECTORY"}, s) do
+    {{:byte_string, prefix}, stack} = pop(s.stack)
+
+    tr =
+      trx(
+        s,
+        Transaction.Coder.new(
+          Subspace.new(prefix, Coder.Tuple.new({Coder.Integer.new(), Coder.UnicodeString.new()})),
+          Dynamic.new()
+        )
+      )
+
+    d = dir(s)
+
+    Transaction.set(
+      tr,
+      {s.dir_index, "path"},
+      Enum.map(d.current_node.path, fn p -> {:unicode_string, p} end)
+      |> List.to_tuple()
+    )
+
+    Transaction.set(
+      tr,
+      {s.dir_index, "layer"},
+      {:byte_string, d.current_node.layer}
+    )
+
+    children =
+      Directory.list(d, trx(s))
+      |> Enum.map(fn name -> {:unicode_string, name} end)
+      |> List.to_tuple()
+
+    Transaction.set(
+      tr,
+      {s.dir_index, "children"},
+      children
+    )
+
+    Transaction.set(
+      tr,
+      {s.dir_index, "exists"},
+      {:integer, 1}
+    )
+
+    %{s | stack: stack}
+  end
+
+  def do_execute(_id, {"DIRECTORY_LOG_SUBSPACE"}, s) do
+    {{:byte_string, prefix}, stack} = pop(s.stack)
+
+    tr =
+      trx(
+        s,
+        Transaction.Coder.new(
+          Subspace.new(prefix, Coder.Integer.new()),
+          Coder.Identity.new()
+        )
+      )
+
+    prefix =
+      case(dir(s)) do
+        %FDB.Coder{opts: opts} ->
+          opts.prefix
+
+        %FDB.Directory{current_node: current_node} ->
+          current_node.prefix
+      end
+
+    Transaction.set(
+      tr,
+      s.dir_index,
+      prefix
+    )
+
+    %{s | stack: stack}
+  end
+
+  def do_execute(id, {"DIRECTORY_PACK_KEY"}, s) do
+    {tuple, stack} = pop(s.stack)
+    %{s | stack: push(stack, tuple_pack([tuple]), id)}
+  end
+
+  def do_execute(id, {"TUPLE_UNPACK"}, s) do
+    {{:byte_string, key}, stack} = pop(s.stack)
+    unpacked = tuple_unpack({:byte_string, key})
+
+    stack =
+      Enum.reduce(Tuple.to_list(unpacked), stack, fn item, stack ->
+        push(stack, tuple_pack([item]), id)
+      end)
+
+    %{s | stack: stack}
+  end
+
+  def do_execute(id, {"DIRECTORY_STRIP_PREFIX"}, s) do
+    {{:byte_string, key}, stack} = pop(s.stack)
+    prefix = dir(s).opts.prefix
+
+    if !Utils.starts_with?(key, prefix) do
+      raise ArgumentError, "String #{key} does not start with prefix #{prefix}"
+    end
+
+    result =
+      {:byte_string, binary_part(key, byte_size(prefix), byte_size(key) - byte_size(prefix))}
+
+    %{s | stack: push(stack, result, id)}
+  end
+
   def do_execute(_id, {"UNIT_TESTS"}, s) do
     s
   end
@@ -657,27 +935,17 @@ defmodule FDB.Machine do
      Transaction.Coder.encode_range(coder, key, :last)}
   end
 
-  defp strinc(text) do
-    text = String.replace(text, ~r/#{<<0xFF>>}*\z/, "")
-
-    case text do
-      "" ->
-        <<0x00>>
-
-      _ ->
-        {prefix, <<last::integer>>} = cut(text, byte_size(text) - 1)
-        prefix <> <<last + 1::integer>>
-    end
-  end
-
-  defp cut(bin, at) do
-    first = binary_part(bin, 0, at)
-    rest = binary_part(bin, at, byte_size(bin) - at)
-    {first, rest}
+  defp dir(s) do
+    Enum.at(s.dirs, s.dir_index)
   end
 
   defp trx(s, coder \\ Transaction.Coder.new()) do
-    t = FDB.TransactionMap.get(s.transaction_name)
+    t =
+      if s.db_transaction do
+        s.db_transaction
+      else
+        FDB.TransactionMap.get(s.transaction_name)
+      end
 
     if coder do
       Transaction.set_coder(t, coder)
@@ -691,6 +959,13 @@ defmodule FDB.Machine do
   rescue
     e in FDB.Error ->
       tuple_pack([{:byte_string, "ERROR"}, {:byte_string, Integer.to_string(e.code)}])
+  end
+
+  defp rescue_dir_error(cb) do
+    cb.()
+  rescue
+    _e in [FDB.Error, ArgumentError] ->
+      {:byte_string, "DIRECTORY_ERROR"}
   end
 
   defp trim(binary) when byte_size(binary) > 40000 do

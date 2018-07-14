@@ -7,6 +7,9 @@ do
     echo "========"
     echo ""
 
+    echo "# hca"
+    foundationdb/bindings/bindingtester/bindingtester.py elixir --test-name directory_hca --num-ops 100 --concurrency 5 || exit 1
+
     echo "# scripted"
     foundationdb/bindings/bindingtester/bindingtester.py elixir --test-name scripted || exit 1
 

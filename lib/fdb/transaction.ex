@@ -85,14 +85,15 @@ defmodule FDB.Transaction do
   @spec get_q(t, any, map) :: Future.t()
   def get_q(%Transaction{} = transaction, key, options \\ %{}) when is_map(options) do
     options = Utils.normalize_bool_values(options, [:snapshot])
+    coder = Map.get(options, :coder, transaction.coder)
 
     Native.transaction_get(
       transaction.resource,
-      Coder.encode_key(transaction.coder, key),
+      Coder.encode_key(coder, key),
       Map.get(options, :snapshot, 0)
     )
     |> Future.create()
-    |> Future.map(&Coder.decode_value(transaction.coder, &1))
+    |> Future.map(&Coder.decode_value(coder, &1))
   end
 
   defp do_get_range(%Transaction{} = transaction, begin_key_selector, end_key_selector, options) do
@@ -158,6 +159,8 @@ defmodule FDB.Transaction do
       when is_map(options) and struct in [Transaction, Database] do
     database_or_transaction = transaction
 
+    coder = Map.get(options, :coder, database_or_transaction.coder)
+
     options =
       Utils.normalize_bool_values(options, [:reverse, :snapshot])
       |> Utils.verify_value(:limit, :positive_integer)
@@ -170,7 +173,7 @@ defmodule FDB.Transaction do
       key_selector_range.begin
       | key:
           Coder.encode_range(
-            database_or_transaction.coder,
+            coder,
             key_selector_range.begin.key,
             key_selector_range.begin.prefix
           )
@@ -180,7 +183,7 @@ defmodule FDB.Transaction do
       key_selector_range.end
       | key:
           Coder.encode_range(
-            database_or_transaction.coder,
+            coder,
             key_selector_range.end.key,
             key_selector_range.end.prefix
           )
@@ -250,7 +253,7 @@ defmodule FDB.Transaction do
               {nil, nil}
             end
 
-          {decode_range_items(database_or_transaction.coder, list),
+          {decode_range_items(coder, list),
            %{
              state
              | has_more: has_more,
@@ -433,12 +436,14 @@ defmodule FDB.Transaction do
   inserted. The modification affects the actual database only if
   transaction is later committed with `commit/1`.
   """
-  @spec set(t, any, any) :: :ok
-  def set(%Transaction{} = transaction, key, value) do
+  @spec set(t, any, any, map) :: :ok
+  def set(%Transaction{} = transaction, key, value, options \\ %{}) do
+    coder = Map.get(options, :coder, transaction.coder)
+
     Native.transaction_set(
       transaction.resource,
-      Coder.encode_key(transaction.coder, key),
-      Coder.encode_value(transaction.coder, value)
+      Coder.encode_key(coder, key),
+      Coder.encode_value(coder, value)
     )
     |> Utils.verify_ok()
   end
@@ -495,6 +500,7 @@ defmodule FDB.Transaction do
   """
   @spec atomic_op(t, any, Option.key(), Option.value()) :: :ok
   def atomic_op(%Transaction{} = transaction, key, operation_type, param) do
+    param = Coder.encode_value(transaction.coder, param)
     Option.verify_mutation_type(operation_type, param)
 
     Native.transaction_atomic_op(
@@ -625,6 +631,16 @@ defmodule FDB.Transaction do
 
     begin_key = Coder.encode_range(transaction.coder, key_range.begin.key, key_range.begin.prefix)
     end_key = Coder.encode_range(transaction.coder, key_range.end.key, key_range.end.prefix)
+
+    Native.transaction_add_conflict_range(transaction.resource, begin_key, end_key, type)
+    |> Utils.verify_ok()
+  end
+
+  def add_conflict_key(%Transaction{} = transaction, key, type) do
+    Option.verify_conflict_range_type(type)
+
+    begin_key = Coder.encode_key(transaction.coder, key)
+    end_key = begin_key <> <<0x00>>
 
     Native.transaction_add_conflict_range(transaction.resource, begin_key, end_key, type)
     |> Utils.verify_ok()
