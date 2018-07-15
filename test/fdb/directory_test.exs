@@ -62,11 +62,12 @@ defmodule FDB.DirectoryTest do
         )
 
       Database.transact(database, fn t ->
-        [{{0, _start}, report_size}] =
+        {{0, _start}, report_size} =
           Transaction.get_range(t, KeySelectorRange.starts_with({0}), %{
             coder: count_coder
           })
           |> Enum.to_list()
+          |> List.last()
 
         allocated =
           Transaction.get_range(t, KeySelectorRange.starts_with({1}), %{
