@@ -7,7 +7,9 @@ defmodule FDB.DirectoryTest do
   use ExUnitProperties
   alias FDB.Coder.{Identity, Subspace, ByteString, Integer, Tuple, LittleEndianInteger}
   alias FDB.KeySelectorRange
+  alias FDB.KeySelector
   alias FDB.Transaction
+  require Logger
 
   setup do
     flushdb()
@@ -62,7 +64,7 @@ defmodule FDB.DirectoryTest do
         )
 
       Database.transact(database, fn t ->
-        {{0, _start}, report_size} =
+        {{0, start}, report_size} =
           Transaction.get_range(t, KeySelectorRange.starts_with({0}), %{
             coder: count_coder
           })
@@ -70,12 +72,21 @@ defmodule FDB.DirectoryTest do
           |> List.last()
 
         allocated =
-          Transaction.get_range(t, KeySelectorRange.starts_with({1}), %{
-            coder: candidate_coder
-          })
-          |> Enum.to_list()
+          Transaction.get_range(
+            t,
+            KeySelectorRange.range(
+              KeySelector.first_greater_or_equal({1, start}),
+              KeySelector.first_greater_or_equal({1}, %{prefix: :last})
+            ),
+            %{
+              coder: candidate_coder
+            }
+          )
+          |> Enum.count()
 
-        assert Enum.count(allocated) <= report_size
+        Logger.info(inspect(%{start: start, allocated: allocated, report_size: report_size}))
+
+        assert allocated <= report_size
       end)
     end
   end
