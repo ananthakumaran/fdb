@@ -67,7 +67,7 @@ defmodule FDB.Directory.HighContentionAllocator do
     window = window_size(start)
 
     if count * 2 < window do
-      start..(start + window)
+      start..(start + window - 1)
     else
       range(t, start + window, true)
     end
@@ -82,8 +82,6 @@ defmodule FDB.Directory.HighContentionAllocator do
   end
 
   defp search_candidate(t, search_range) do
-    candidate = Enum.random(search_range)
-
     latest_start =
       Transaction.get_range(t, KeySelectorRange.starts_with({@counter}), %{
         limit: 1,
@@ -103,6 +101,7 @@ defmodule FDB.Directory.HighContentionAllocator do
           )
         )
 
+      candidate = Enum.random(search_range)
       candidate_value = Transaction.get(t1, {@recent, candidate})
 
       :ok =

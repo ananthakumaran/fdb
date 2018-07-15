@@ -5,6 +5,9 @@ defmodule FDB.DirectoryTest do
   alias FDB.Directory
   alias FDB.Database
   use ExUnitProperties
+  alias FDB.Coder.{Identity, Subspace, ByteString, Integer, Tuple, LittleEndianInteger}
+  alias FDB.KeySelectorRange
+  alias FDB.Transaction
 
   setup do
     flushdb()
@@ -13,7 +16,8 @@ defmodule FDB.DirectoryTest do
   property "unique" do
     check all count <- integer(1..1500),
               concurrency <- integer(1..100),
-              max_run_time: 3000 do
+              max_run_time: 3000,
+              max_shrinking_steps: 0 do
       :ok = flushdb()
 
       database = new_database()
@@ -35,6 +39,43 @@ defmodule FDB.DirectoryTest do
         |> Enum.map(fn {:ok, dir} -> dir end)
 
       assert length(dirs) == length(Enum.uniq(dirs))
+
+      key =
+        Subspace.concat(
+          Subspace.new(<<0xFE>>),
+          Subspace.new(<<0xFE>>, Identity.new(), ByteString.new())
+        )
+        |> Subspace.concat(
+          Subspace.new("hca", Tuple.new({Integer.new(), Integer.new()}), ByteString.new())
+        )
+
+      count_coder =
+        Transaction.Coder.new(
+          key,
+          LittleEndianInteger.new(64)
+        )
+
+      candidate_coder =
+        Transaction.Coder.new(
+          key,
+          Identity.new()
+        )
+
+      Database.transact(database, fn t ->
+        [{{0, _start}, report_size}] =
+          Transaction.get_range(t, KeySelectorRange.starts_with({0}), %{
+            coder: count_coder
+          })
+          |> Enum.to_list()
+
+        allocated =
+          Transaction.get_range(t, KeySelectorRange.starts_with({1}), %{
+            coder: candidate_coder
+          })
+          |> Enum.to_list()
+
+        assert Enum.count(allocated) <= report_size
+      end)
     end
   end
 
