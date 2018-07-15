@@ -30,7 +30,7 @@ defmodule FDB.Directory.Node do
   end
 
   def find(directory, tr, path) do
-    node = directory.current_node
+    node = directory.node
 
     Enum.reduce(path, node, fn
       _part, nil ->
@@ -41,24 +41,29 @@ defmodule FDB.Directory.Node do
     end)
   end
 
-  def create_subdirectory(directory, tr, parent, node) do
-    name = List.last(node.path)
+  def create_subdirectory(directory, tr, %{name: name, prefix: prefix, layer: layer}) do
+    parent = directory.node
 
     :ok =
-      Transaction.set(tr, {parent.prefix, @subdirs, name}, node.prefix, %{
+      Transaction.set(tr, {parent.prefix, @subdirs, name}, prefix, %{
         coder: directory.node_name_coder
       })
 
     :ok =
-      Transaction.set(tr, {node.prefix, @layer}, node.layer, %{
+      Transaction.set(tr, {prefix, @layer}, layer, %{
         coder: directory.node_layer_coder
       })
 
-    node
+    %__MODULE__{
+      parent: parent,
+      layer: layer,
+      path: parent.path ++ [name],
+      prefix: prefix
+    }
   end
 
   def remove(directory, tr) do
-    node = directory.current_node
+    node = directory.node
     parent = node.parent
 
     :ok =

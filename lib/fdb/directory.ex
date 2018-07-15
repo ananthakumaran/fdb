@@ -20,7 +20,7 @@ defmodule FDB.Directory do
     :content_subspace,
     :allow_manual_prefixes,
     :root_node,
-    :current_node,
+    :node,
     :database,
     :node_name_coder,
     :node_layer_coder,
@@ -106,7 +106,7 @@ defmodule FDB.Directory do
       prefix_coder: prefix_coder,
       hca_coder: hca_coder,
       node_layer_coder: node_layer_coder,
-      current_node: root_node
+      node: root_node
     }
   end
 
@@ -137,7 +137,7 @@ defmodule FDB.Directory do
           raise ArgumentError, "The directory was created with an incompatible layer."
         end
 
-        %{directory | current_node: node}
+        %{directory | node: node}
     end
   end
 
@@ -175,9 +175,9 @@ defmodule FDB.Directory do
   end
 
   def move_to(directory, tr, new_path) do
-    root_directory = %{directory | current_node: directory.root_node}
+    root_directory = %{directory | node: directory.root_node}
     check_version(directory, tr, true)
-    from = Node.find(root_directory, tr, directory.current_node.path)
+    from = Node.find(root_directory, tr, directory.node.path)
 
     cond do
       is_nil(from) -> raise ArgumentError, "The source directory does not exist."
@@ -207,9 +207,15 @@ defmodule FDB.Directory do
     end
 
     :ok = Node.remove(directory, tr)
-    to = %{from | parent: to_parent, path: new_path}
-    to = Node.create_subdirectory(%{directory | current_node: to_parent}, tr, to_parent, to)
-    %{directory | current_node: to}
+
+    to =
+      Node.create_subdirectory(%{directory | node: to_parent}, tr, %{
+        name: List.last(new_path),
+        prefix: from.prefix,
+        layer: from.layer
+      })
+
+    %{directory | node: to}
   end
 
   defp do_create(directory, tr, path, options) do
@@ -254,14 +260,13 @@ defmodule FDB.Directory do
     end
 
     node =
-      Node.create_subdirectory(directory, tr, parent_node, %Node{
+      Node.create_subdirectory(%{directory | node: parent_node}, tr, %{
         prefix: prefix,
-        path: path,
-        layer: layer,
-        parent: parent_node
+        name: List.last(path),
+        layer: layer
       })
 
-    %{directory | current_node: node}
+    %{directory | node: node}
   end
 
   def prefix_free?(directory, tr, prefix) do

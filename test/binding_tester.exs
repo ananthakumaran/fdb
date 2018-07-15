@@ -804,14 +804,14 @@ defmodule FDB.Machine do
     Transaction.set(
       tr,
       {s.dir_index, "path"},
-      Enum.map(d.current_node.path, fn p -> {:unicode_string, p} end)
+      Enum.map(d.node.path, fn p -> {:unicode_string, p} end)
       |> List.to_tuple()
     )
 
     Transaction.set(
       tr,
       {s.dir_index, "layer"},
-      {:byte_string, d.current_node.layer}
+      {:byte_string, d.node.layer}
     )
 
     children =
@@ -851,8 +851,8 @@ defmodule FDB.Machine do
         %FDB.Coder{opts: opts} ->
           opts.prefix
 
-        %FDB.Directory{current_node: current_node} ->
-          current_node.prefix
+        %FDB.Directory{node: node} ->
+          node.prefix
       end
 
     Transaction.set(
