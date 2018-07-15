@@ -367,8 +367,10 @@ defmodule FDB.Transaction do
   `FDB.Option.database_option_max_watches/0` database option.
   """
   @spec watch_q(t, any) :: Future.t()
-  def watch_q(%Transaction{} = transaction, key) do
-    Native.transaction_watch(transaction.resource, Coder.encode_key(transaction.coder, key))
+  def watch_q(%Transaction{} = transaction, key, options \\ %{}) do
+    coder = Map.get(options, :coder, transaction.coder)
+
+    Native.transaction_watch(transaction.resource, Coder.encode_key(coder, key))
     |> Future.create()
   end
 
@@ -392,7 +394,8 @@ defmodule FDB.Transaction do
   def get_key_q(%Transaction{} = transaction, %KeySelector{} = key_selector, options \\ %{})
       when is_map(options) do
     options = Utils.normalize_bool_values(options, [:snapshot])
-    key = Coder.encode_range(transaction.coder, key_selector.key, key_selector.prefix)
+    coder = Map.get(options, :coder, transaction.coder)
+    key = Coder.encode_range(coder, key_selector.key, key_selector.prefix)
 
     Native.transaction_get_key(
       transaction.resource,
@@ -402,7 +405,7 @@ defmodule FDB.Transaction do
       Map.get(options, :snapshot, 0)
     )
     |> Future.create()
-    |> Future.map(&Coder.decode_key(transaction.coder, &1))
+    |> Future.map(&Coder.decode_key(coder, &1))
   end
 
   @doc """
@@ -420,10 +423,12 @@ defmodule FDB.Transaction do
   Async version of `get_addresses_for_key/2`
   """
   @spec get_addresses_for_key_q(t, any) :: Future.t()
-  def get_addresses_for_key_q(%Transaction{} = transaction, key) do
+  def get_addresses_for_key_q(%Transaction{} = transaction, key, options \\ %{}) do
+    coder = Map.get(options, :coder, transaction.coder)
+
     Native.transaction_get_addresses_for_key(
       transaction.resource,
-      Coder.encode_key(transaction.coder, key)
+      Coder.encode_key(coder, key)
     )
     |> Future.create()
   end
@@ -499,13 +504,14 @@ defmodule FDB.Transaction do
   starts with `mutation_type_` is allowed
   """
   @spec atomic_op(t, any, Option.key(), Option.value()) :: :ok
-  def atomic_op(%Transaction{} = transaction, key, operation_type, param) do
-    param = Coder.encode_value(transaction.coder, param)
+  def atomic_op(%Transaction{} = transaction, key, operation_type, param, options \\ %{}) do
+    coder = Map.get(options, :coder, transaction.coder)
+    param = Coder.encode_value(coder, param)
     Option.verify_mutation_type(operation_type, param)
 
     Native.transaction_atomic_op(
       transaction.resource,
-      Coder.encode_key(transaction.coder, key),
+      Coder.encode_key(coder, key),
       param,
       operation_type
     )
@@ -521,8 +527,10 @@ defmodule FDB.Transaction do
   later committed with `commit/1`.
   """
   @spec clear(t, any) :: :ok
-  def clear(%Transaction{} = transaction, key) do
-    Native.transaction_clear(transaction.resource, Coder.encode_key(transaction.coder, key))
+  def clear(%Transaction{} = transaction, key, options \\ %{}) do
+    coder = Map.get(options, :coder, transaction.coder)
+
+    Native.transaction_clear(transaction.resource, Coder.encode_key(coder, key))
     |> Utils.verify_ok()
   end
 
@@ -536,9 +544,10 @@ defmodule FDB.Transaction do
   later committed with `commit/1`.
   """
   @spec clear_range(t, KeyRange.t()) :: :ok
-  def clear_range(%Transaction{} = transaction, %KeyRange{} = key_range) do
-    begin_key = Coder.encode_range(transaction.coder, key_range.begin.key, key_range.begin.prefix)
-    end_key = Coder.encode_range(transaction.coder, key_range.end.key, key_range.end.prefix)
+  def clear_range(%Transaction{} = transaction, %KeyRange{} = key_range, options \\ %{}) do
+    coder = Map.get(options, :coder, transaction.coder)
+    begin_key = Coder.encode_range(coder, key_range.begin.key, key_range.begin.prefix)
+    end_key = Coder.encode_range(coder, key_range.end.key, key_range.end.prefix)
 
     Native.transaction_clear_range(transaction.resource, begin_key, end_key)
     |> Utils.verify_ok()
@@ -626,20 +635,27 @@ defmodule FDB.Transaction do
     conflict ranges.
   """
   @spec add_conflict_range(t, KeyRange.t(), Option.key()) :: :ok
-  def add_conflict_range(%Transaction{} = transaction, %KeyRange{} = key_range, type) do
+  def add_conflict_range(
+        %Transaction{} = transaction,
+        %KeyRange{} = key_range,
+        type,
+        options \\ %{}
+      ) do
     Option.verify_conflict_range_type(type)
+    coder = Map.get(options, :coder, transaction.coder)
 
-    begin_key = Coder.encode_range(transaction.coder, key_range.begin.key, key_range.begin.prefix)
-    end_key = Coder.encode_range(transaction.coder, key_range.end.key, key_range.end.prefix)
+    begin_key = Coder.encode_range(coder, key_range.begin.key, key_range.begin.prefix)
+    end_key = Coder.encode_range(coder, key_range.end.key, key_range.end.prefix)
 
     Native.transaction_add_conflict_range(transaction.resource, begin_key, end_key, type)
     |> Utils.verify_ok()
   end
 
-  def add_conflict_key(%Transaction{} = transaction, key, type) do
+  def add_conflict_key(%Transaction{} = transaction, key, type, options \\ %{}) do
     Option.verify_conflict_range_type(type)
+    coder = Map.get(options, :coder, transaction.coder)
 
-    begin_key = Coder.encode_key(transaction.coder, key)
+    begin_key = Coder.encode_key(coder, key)
     end_key = begin_key <> <<0x00>>
 
     Native.transaction_add_conflict_range(transaction.resource, begin_key, end_key, type)

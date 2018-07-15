@@ -1,5 +1,5 @@
 defmodule FDB.Directory.HighContentionAllocator do
-  alias FDB.Coder.{Integer, ByteString}
+  alias FDB.Coder.{Integer, Identity}
   alias FDB.Transaction
   alias FDB.KeySelectorRange
   alias FDB.KeyRange
@@ -97,7 +97,7 @@ defmodule FDB.Directory.HighContentionAllocator do
           t,
           Transaction.Coder.new(
             t.coder.key,
-            ByteString.new()
+            Identity.new()
           )
         )
 

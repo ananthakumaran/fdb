@@ -109,5 +109,13 @@ defmodule FDB.DirectoryTest do
       india = Directory.move_to(bharat, tr, ["india"])
       assert Directory.list(india, tr) == ["bihar"]
     end)
+
+    Database.transact(database, fn tr ->
+      refute Directory.exists?(root, tr, ["bharat"])
+      assert Directory.exists?(root, tr, ["india"])
+      india = Directory.open(root, tr, ["india"])
+      Directory.remove(india, tr)
+      refute Directory.exists?(root, tr, ["india"])
+    end)
   end
 end

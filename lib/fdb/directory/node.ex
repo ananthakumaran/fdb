@@ -5,6 +5,7 @@ defmodule FDB.Directory.Node do
   alias FDB.Transaction
   alias FDB.KeySelector
   alias FDB.KeySelectorRange
+  alias FDB.KeyRange
   alias FDB.Utils
 
   defstruct [:prefix, :path, layer: "", parent: nil]
@@ -67,13 +68,28 @@ defmodule FDB.Directory.Node do
     parent = node.parent
 
     :ok =
-      Transaction.set(tr, {parent.prefix, @subdirs, name(node)}, node.prefix, %{
+      Transaction.clear(tr, {parent.prefix, @subdirs, name(node)}, %{
         coder: directory.node_name_coder
       })
 
     :ok =
-      Transaction.set(tr, {node.prefix, @layer}, node.layer, %{
+      Transaction.clear(tr, {node.prefix, @layer}, %{
         coder: directory.node_layer_coder
+      })
+  end
+
+  def remove_all(directory, tr) do
+    :ok = remove_subdirectories_recursively(directory, tr, directory.node)
+    remove(directory, tr)
+  end
+
+  defp remove_subdirectories_recursively(directory, tr, node) do
+    subdirectories(directory, tr, node)
+    |> Enum.each(&remove_subdirectories_recursively(directory, tr, &1))
+
+    :ok =
+      Transaction.clear_range(tr, KeyRange.starts_with({node.prefix}), %{
+        coder: directory.node_name_coder
       })
   end
 

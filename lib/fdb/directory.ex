@@ -141,10 +141,10 @@ defmodule FDB.Directory do
     end
   end
 
-  def exists?(directory, tr, path) do
+  def exists?(directory, tr, path \\ []) do
     check_version(directory, tr, false)
 
-    case Node.find(directory, tr, path) do
+    case refetch_node(directory, tr, path) do
       nil -> false
       _node -> true
     end
@@ -167,7 +167,7 @@ defmodule FDB.Directory do
 
     case Node.find(directory, tr, path) do
       node when not is_nil(node) ->
-        node
+        %{directory | node: node}
 
       nil ->
         do_create(directory, tr, path, options)
@@ -175,9 +175,9 @@ defmodule FDB.Directory do
   end
 
   def move_to(directory, tr, new_path) do
-    root_directory = %{directory | node: directory.root_node}
     check_version(directory, tr, true)
-    from = Node.find(root_directory, tr, directory.node.path)
+    root_directory = %{directory | node: directory.root_node}
+    from = refetch_node(directory, tr)
 
     cond do
       is_nil(from) -> raise ArgumentError, "The source directory does not exist."
@@ -216,6 +216,44 @@ defmodule FDB.Directory do
       })
 
     %{directory | node: to}
+  end
+
+  def remove(directory, tr, path \\ []) do
+    check_version(directory, tr, true)
+    node = refetch_node(directory, tr, path)
+
+    cond do
+      is_nil(node) ->
+        raise ArgumentError, "The directory does not exist."
+
+      Node.root?(node) ->
+        raise ArgumentError, "The root directory cannot be removed."
+
+      true ->
+        :ok = Node.remove_all(directory, tr)
+    end
+  end
+
+  def remove_if_exists(directory, tr, path \\ []) do
+    check_version(directory, tr, true)
+    node = refetch_node(directory, tr, path)
+
+    cond do
+      is_nil(node) ->
+        false
+
+      Node.root?(node) ->
+        raise ArgumentError, "The root directory cannot be removed."
+
+      true ->
+        :ok = Node.remove_all(directory, tr)
+        true
+    end
+  end
+
+  defp refetch_node(directory, tr, path \\ []) do
+    root_directory = %{directory | node: directory.root_node}
+    Node.find(root_directory, tr, directory.node.path ++ path)
   end
 
   defp do_create(directory, tr, path, options) do
