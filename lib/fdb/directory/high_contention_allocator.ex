@@ -93,27 +93,24 @@ defmodule FDB.Directory.HighContentionAllocator do
       |> Enum.map(fn {{@counter, start}, _} -> start end)
       |> List.first()
 
-    t1 =
-      Transaction.set_coder(
-        t,
-        Transaction.Coder.new(
-          t.coder.key,
-          ByteString.new()
+    unless latest_start && latest_start > search_range.first do
+      t1 =
+        Transaction.set_coder(
+          t,
+          Transaction.Coder.new(
+            t.coder.key,
+            ByteString.new()
+          )
         )
-      )
 
-    candidate_value = Transaction.get(t1, {@recent, candidate})
+      candidate_value = Transaction.get(t1, {@recent, candidate})
 
-    :ok =
-      Transaction.set_option(t1, Option.transaction_option_next_write_no_write_conflict_range())
+      :ok =
+        Transaction.set_option(t1, Option.transaction_option_next_write_no_write_conflict_range())
 
-    :ok = Transaction.set(t1, {@recent, candidate}, "")
+      :ok = Transaction.set(t1, {@recent, candidate}, "")
 
-    cond do
-      latest_start && latest_start > search_range.first ->
-        nil
-
-      is_nil(candidate_value) ->
+      if is_nil(candidate_value) do
         :ok =
           Transaction.add_conflict_key(
             t,
@@ -122,9 +119,9 @@ defmodule FDB.Directory.HighContentionAllocator do
           )
 
         candidate
-
-      true ->
+      else
         search_candidate(t, search_range)
+      end
     end
   end
 end
