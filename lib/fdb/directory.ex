@@ -162,6 +162,56 @@ defmodule FDB.Directory do
     end
   end
 
+  def create_or_open(directory, tr, path, options \\ %{}) do
+    check_version(directory, tr, false)
+
+    case Node.find(directory, tr, path) do
+      node when not is_nil(node) ->
+        node
+
+      nil ->
+        do_create(directory, tr, path, options)
+    end
+  end
+
+  def move_to(directory, tr, new_path) do
+    root_directory = %{directory | current_node: directory.root_node}
+    check_version(directory, tr, true)
+    from = Node.find(root_directory, tr, directory.current_node.path)
+
+    cond do
+      is_nil(from) -> raise ArgumentError, "The source directory does not exist."
+      Node.root?(from) -> raise ArgumentError, "The root directory cannot be moved."
+      true -> :ok
+    end
+
+    old_path = from.path
+    new_parent_path = Enum.drop(new_path, -1)
+
+    if old_path == new_parent_path do
+      raise ArgumentError,
+            "The desination directory cannot be a subdirectory of the source directory."
+    end
+
+    to = Node.find(root_directory, tr, new_path)
+
+    if to do
+      raise ArgumentError, "The destination directory already exists. Remove it first."
+    end
+
+    to_parent = Node.find(root_directory, tr, new_parent_path)
+
+    if !to_parent do
+      raise ArgumentError,
+            "The parent directory of the destination directory does not exist. Create it first."
+    end
+
+    :ok = Node.remove(directory, tr)
+    to = %{from | parent: to_parent, path: new_path}
+    to = Node.create_subdirectory(%{directory | current_node: to_parent}, tr, to_parent, to)
+    %{directory | current_node: to}
+  end
+
   defp do_create(directory, tr, path, options) do
     check_version(directory, tr, true)
     prefix = Map.get(options, :prefix)
@@ -207,7 +257,8 @@ defmodule FDB.Directory do
       Node.create_subdirectory(directory, tr, parent_node, %Node{
         prefix: prefix,
         path: path,
-        layer: layer
+        layer: layer,
+        parent: parent_node
       })
 
     %{directory | current_node: node}

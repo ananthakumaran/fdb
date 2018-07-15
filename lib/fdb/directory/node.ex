@@ -16,6 +16,10 @@ defmodule FDB.Directory.Node do
     end
   end
 
+  def root?(node) do
+    node.path == [] && node.parent == nil
+  end
+
   defp fetch(directory, node, tr) do
     layer =
       Transaction.get(tr, {node.prefix, @layer}, %{
@@ -51,6 +55,21 @@ defmodule FDB.Directory.Node do
       })
 
     node
+  end
+
+  def remove(directory, tr) do
+    node = directory.current_node
+    parent = node.parent
+
+    :ok =
+      Transaction.set(tr, {parent.prefix, @subdirs, name(node)}, node.prefix, %{
+        coder: directory.node_name_coder
+      })
+
+    :ok =
+      Transaction.set(tr, {node.prefix, @layer}, node.layer, %{
+        coder: directory.node_layer_coder
+      })
   end
 
   def subdirectory(directory, tr, node, name) do

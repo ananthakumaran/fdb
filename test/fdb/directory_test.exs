@@ -50,6 +50,11 @@ defmodule FDB.DirectoryTest do
       assert Directory.list(arizona, tr) == []
       usa = Directory.open(root, tr, ["usa"])
       assert Directory.list(usa, tr) == ["arizona"]
+
+      bharat = Directory.create_or_open(root, tr, ["bharat"])
+      _bihar = Directory.create(bharat, tr, ["bihar"])
+      india = Directory.move_to(bharat, tr, ["india"])
+      assert Directory.list(india, tr) == ["bihar"]
     end)
   end
 end
