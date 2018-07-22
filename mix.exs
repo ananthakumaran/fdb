@@ -45,7 +45,7 @@ defmodule FDB.MixProject do
       licenses: ["MIT"],
       links: %{"Github" => "https://github.com/ananthakumaran/fdb"},
       maintainers: ["ananthakumaran@gmail.com"],
-      files: ["lib", "priv/fdb.options", "mix.exs", "README*", "LICENSE*"]
+      files: ["lib", "priv/fdb.options", "mix.exs", "README*", "LICENSE*", "Makefile"]
     }
   end
 
