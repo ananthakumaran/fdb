@@ -36,29 +36,24 @@ defmodule FDB.Coder.NestedTuple do
   end
 
   @impl true
-  def range(nil, _), do: {<<>>, :partial}
+  def range(nil, _), do: {<<>>, <<>>}
 
   def range(values, coders) do
     values = Tuple.to_list(values)
 
-    {encoded, state} = do_range(Enum.take(coders, length(values)), values)
-
-    if length(values) == length(coders) && state == :complete do
-      {@code <> encoded <> @end_code, state}
-    else
-      {@code <> encoded, :partial}
-    end
+    {encoded, suffix} = do_range(Enum.take(coders, length(values)), values)
+    {@code <> encoded, suffix <> @end_code}
   end
 
   defp do_range(coders, values) do
     Enum.zip(coders, values)
-    |> Enum.reduce({<<>>, :partial}, fn {coder, value}, {encoded, _state} ->
-      {e, state} = coder.module.range(value, coder.opts)
+    |> Enum.reduce({<<>>, <<>>}, fn {coder, value}, {encoded, suffix} ->
+      {e, s} = coder.module.range(value, coder.opts)
 
       if is_nil(value) do
-        {encoded <> e <> @null_suffix, state}
+        {encoded <> suffix <> e <> @null_suffix, s}
       else
-        {encoded <> e, state}
+        {encoded <> suffix <> e, s}
       end
     end)
   end

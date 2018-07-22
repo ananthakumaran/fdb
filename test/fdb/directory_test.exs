@@ -5,7 +5,7 @@ defmodule FDB.DirectoryTest do
   alias FDB.Directory
   alias FDB.Database
   use ExUnitProperties
-  alias FDB.Coder.{Identity, Subspace, ByteString, Integer, Tuple, LittleEndianInteger}
+  alias FDB.Coder.{Identity, Subspace, ByteString, Integer, Tuple, LittleEndianInteger, Dynamic}
   alias FDB.KeySelectorRange
   alias FDB.KeySelector
   alias FDB.Transaction
@@ -116,6 +116,99 @@ defmodule FDB.DirectoryTest do
       india = Directory.open(root, tr, ["india"])
       Directory.remove(india, tr)
       refute Directory.exists?(root, tr, ["india"])
+    end)
+  end
+
+  test "manual prefix" do
+    database = new_database()
+    root = Directory.new()
+
+    Database.transact(database, fn tr ->
+      assert_raise(ArgumentError, fn -> Directory.create(root, tr, ["a"], %{prefix: "a"}) end)
+    end)
+
+    root = Directory.new(%{allow_manual_prefixes: true})
+
+    Database.transact(database, fn tr ->
+      Directory.create(root, tr, ["a"], %{prefix: "abcde"})
+      assert_raise(ArgumentError, fn -> Directory.create(root, tr, ["b"], %{prefix: "abcde"}) end)
+      assert_raise(ArgumentError, fn -> Directory.create(root, tr, ["c"], %{prefix: "a"}) end)
+    end)
+  end
+
+  test "move" do
+    database = new_database()
+    root = Directory.new()
+
+    Database.transact(database, fn tr ->
+      default = Directory.create(root, tr, ["default1"])
+      Directory.create(default, tr, ["1"])
+      Directory.create(root, tr, ["1"])
+      Directory.move_to(default, tr, ["1", "1"])
+
+      Directory.tree(root, tr)
+
+      Directory.list(root, tr, ["1"])
+      |> IO.inspect()
+    end)
+
+    Database.transact(database, fn tr ->
+      Directory.create(root, tr, ["2", "2"])
+      d2 = Directory.create(root, tr, ["default1", "3"])
+      Directory.tree(root, tr)
+      Directory.move_to(d2, tr, ["2", "2", "2"])
+      Directory.tree(root, tr)
+    end)
+  end
+
+  test "partition" do
+    database = new_database()
+    root = Directory.new()
+
+    coder =
+      Transaction.Coder.new(
+        Subspace.new(<<0xFE>>, Dynamic.new()),
+        Identity.new()
+      )
+
+    Database.transact(database, fn tr ->
+      usa = Directory.create(root, tr, ["usa"])
+      p1 = Directory.create_or_open(root, tr, ["p1"], %{layer: "partition"})
+      _p1_1 = Directory.create(p1, tr, ["1"])
+      _p1_2 = Directory.create(p1, tr, ["2"])
+      _p1_2 = Directory.create(p1, tr, ["2", "2", "2"])
+      p1_3 = Directory.create(p1, tr, ["3"])
+      assert Directory.list(p1, tr) == ["1", "2", "3"]
+      assert Directory.list(root, tr, ["p1"]) == ["1", "2", "3"]
+
+      Directory.tree(root, tr)
+
+      _p1_3_a = Directory.create(p1_3, tr, ["a"])
+      p1_4 = Directory.move_to(p1_3, tr, ["4"])
+      assert Directory.list(p1_4, tr) == ["a"]
+      assert Directory.list(root, tr, ["p1", "4"]) == ["a"]
+
+      assert_raise(ArgumentError, fn -> Directory.move_to(usa, tr, ["p1", "6"]) end)
+
+      Directory.remove(p1, tr, ["4"])
+
+      Directory.tree(root, tr)
+
+      Transaction.get_range(tr, KeySelectorRange.starts_with({}), %{coder: coder})
+      |> Enum.to_list()
+      |> inspect()
+      |> Logger.info()
+
+      prefix_coder =
+        Transaction.Coder.new(
+          Subspace.new(p1.node.prefix <> <<0xFE>>, Dynamic.new()),
+          Identity.new()
+        )
+
+      Transaction.get_range(tr, KeySelectorRange.starts_with({}), %{coder: prefix_coder})
+      |> Enum.to_list()
+      |> inspect()
+      |> Logger.info()
     end)
   end
 end

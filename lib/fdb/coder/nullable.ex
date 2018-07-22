@@ -17,6 +17,6 @@ defmodule FDB.Coder.Nullable do
   def decode(value, coder), do: coder.module.decode(value, coder.opts)
 
   @impl true
-  def range(nil, _), do: {@code, :complete}
+  def range(nil, _), do: {@code, <<>>}
   def range(value, coder), do: coder.module.range(value, coder.opts)
 end

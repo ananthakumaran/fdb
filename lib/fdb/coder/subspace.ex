@@ -43,10 +43,10 @@ defmodule FDB.Coder.Subspace do
   end
 
   @impl true
-  def range(nil, opts), do: {opts.prefix, :partial}
+  def range(nil, opts), do: {opts.prefix, <<>>}
 
   def range(value, opts) do
-    {prefix, state} = opts.coder.module.range(value, opts.coder.opts)
-    {opts.prefix <> prefix, state}
+    {prefix, suffix} = opts.coder.module.range(value, opts.coder.opts)
+    {opts.prefix <> prefix, suffix}
   end
 end

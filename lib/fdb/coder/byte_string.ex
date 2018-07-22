@@ -28,4 +28,11 @@ defmodule FDB.Coder.ByteString do
 
   defp do_decode(<<char::binary-size(1)>> <> rest, acc),
     do: do_decode(rest, <<acc::binary, char::binary-size(1)>>)
+
+  @impl true
+  def range(nil, _), do: {<<>>, <<>>}
+
+  def range(value, null_pattern) do
+    {@code <> :binary.replace(value, null_pattern, @escaped, [:global]), @suffix}
+  end
 end

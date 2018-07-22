@@ -26,7 +26,9 @@ defmodule FDB.Directory do
     :node_layer_coder,
     :version_coder,
     :prefix_coder,
-    :hca_coder
+    :hca_coder,
+    :content_coder,
+    :parent_directory
   ]
 
   @directory_version {1, 0, 0}
@@ -96,9 +98,24 @@ defmodule FDB.Directory do
         DirectoryVersion.new()
       )
 
+    content_subspace = Map.get(options, :content_subspace, Subspace.new(<<>>))
+
+    content_coder =
+      Transaction.Coder.new(
+        Subspace.concat(
+          content_subspace,
+          Subspace.new(
+            "",
+            Identity.new(),
+            Identity.new()
+          )
+        ),
+        Identity.new()
+      )
+
     %__MODULE__{
       node_subspace: node_subspace,
-      content_subspace: Map.get(options, :content_subspace, Subspace.new(<<>>)),
+      content_subspace: content_subspace,
       allow_manual_prefixes: Map.get(options, :allow_manual_prefixes, false),
       root_node: root_node,
       node_name_coder: node_name_coder,
@@ -106,8 +123,26 @@ defmodule FDB.Directory do
       prefix_coder: prefix_coder,
       hca_coder: hca_coder,
       node_layer_coder: node_layer_coder,
+      content_coder: content_coder,
       node: root_node
     }
+  end
+
+  def partition_root(directory) do
+    node = directory.node
+
+    %{
+      new(%{
+        node_subspace: Subspace.new(node.prefix <> <<0xFE>>),
+        content_subspace: Subspace.new(directory.content_subspace.opts.prefix <> node.prefix)
+      })
+      | parent_directory: directory
+    }
+  end
+
+  defp same_partition?(destination_parent, source) do
+    destination = Node.follow_partition(destination_parent)
+    destination.root_node.prefix == source.root_node.prefix
   end
 
   def list(directory, tr, path \\ []) do
@@ -117,47 +152,62 @@ defmodule FDB.Directory do
       nil ->
         raise ArgumentError, "The directory does not exist"
 
-      node ->
-        Node.subdirectories(directory, tr, node)
+      directory ->
+        Node.subdirectories(directory, tr)
         |> Enum.map(&Node.name/1)
+    end
+  end
+
+  def tree(directory, tr) do
+    check_version(directory, tr, false)
+    print_tree(%{directory | node: directory.root_node}, tr)
+  end
+
+  defp print_tree(directory, tr, path \\ [], depth \\ 0) do
+    for name <- list(directory, tr, path) do
+      dir = open(directory, tr, path ++ [name])
+      IO.puts(inspect(String.duplicate("  ", depth) <> "//" <> name <> ":" <> dir.node.layer))
+      print_tree(directory, tr, path ++ [name], depth + 1)
     end
   end
 
   def open(directory, tr, path, options \\ %{}) do
     check_version(directory, tr, false)
 
+    if Node.root?(directory, path) do
+      raise ArgumentError, "The root directory cannot be opened."
+    end
+
     case Node.find(directory, tr, path) do
       nil ->
         raise ArgumentError, "The directory does not exist"
 
-      node ->
-        layer = Map.get(options, :layer)
-
-        if layer && node.layer != layer do
-          raise ArgumentError, "The directory was created with an incompatible layer."
-        end
-
-        %{directory | node: node}
+      directory ->
+        check_layer(directory, Map.get(options, :layer))
+        directory
     end
   end
 
   def exists?(directory, tr, path \\ []) do
     check_version(directory, tr, false)
 
-    case refetch_node(directory, tr, path) do
-      nil -> false
-      _node -> true
-    end
+    !!Node.find(directory, tr, path)
   end
 
   def create(directory, tr, path, options \\ %{}) do
     check_version(directory, tr, false)
 
+    if Node.root?(directory, path) do
+      raise ArgumentError, "The root directory cannot be opened."
+    end
+
     case Node.find(directory, tr, path) do
-      node when not is_nil(node) ->
+      directory when not is_nil(directory) ->
         raise ArgumentError, "The directory already exists"
 
       nil ->
+        path = directory.node.path ++ path
+        directory = %{directory | node: directory.root_node}
         do_create(directory, tr, path, options)
     end
   end
@@ -165,11 +215,24 @@ defmodule FDB.Directory do
   def create_or_open(directory, tr, path, options \\ %{}) do
     check_version(directory, tr, false)
 
+    prefix = Map.get(options, :prefix)
+
+    if prefix != nil do
+      raise ArgumentError, "Cannot specify a prefix when calling create_or_open."
+    end
+
+    if Node.root?(directory, path) do
+      raise ArgumentError, "The root directory cannot be opened."
+    end
+
     case Node.find(directory, tr, path) do
-      node when not is_nil(node) ->
-        %{directory | node: node}
+      directory when not is_nil(directory) ->
+        check_layer(directory, Map.get(options, :layer))
+        directory
 
       nil ->
+        path = directory.node.path ++ path
+        directory = %{directory | node: directory.root_node}
         do_create(directory, tr, path, options)
     end
   end
@@ -177,18 +240,18 @@ defmodule FDB.Directory do
   def move_to(directory, tr, new_path) do
     check_version(directory, tr, true)
     root_directory = %{directory | node: directory.root_node}
-    from = refetch_node(directory, tr)
+    from = Node.find(directory, tr, [])
 
     cond do
       is_nil(from) -> raise ArgumentError, "The source directory does not exist."
-      Node.root?(from) -> raise ArgumentError, "The root directory cannot be moved."
+      Node.root?(from, [], false) -> raise ArgumentError, "The root directory cannot be moved."
       true -> :ok
     end
 
-    old_path = from.path
+    old_path = from.node.path
     new_parent_path = Enum.drop(new_path, -1)
 
-    if old_path == new_parent_path do
+    if old_path == Enum.take(new_path, length(old_path)) do
       raise ArgumentError,
             "The desination directory cannot be a subdirectory of the source directory."
     end
@@ -206,27 +269,29 @@ defmodule FDB.Directory do
             "The parent directory of the destination directory does not exist. Create it first."
     end
 
-    :ok = Node.remove(directory, tr)
+    if !same_partition?(to_parent, from) do
+      raise ArgumentError,
+            "Cannot move between partitions."
+    end
 
-    to =
-      Node.create_subdirectory(%{directory | node: to_parent}, tr, %{
-        name: List.last(new_path),
-        prefix: from.prefix,
-        layer: from.layer
-      })
+    :ok = Node.remove(from, tr)
 
-    %{directory | node: to}
+    Node.create_subdirectory(to_parent, tr, %{
+      name: List.last(new_path),
+      prefix: from.node.prefix,
+      layer: from.node.layer
+    })
   end
 
   def remove(directory, tr, path \\ []) do
     check_version(directory, tr, true)
-    node = refetch_node(directory, tr, path)
+    directory = Node.find(directory, tr, path)
 
     cond do
-      is_nil(node) ->
+      is_nil(directory) ->
         raise ArgumentError, "The directory does not exist."
 
-      Node.root?(node) ->
+      Node.root?(directory, [], false) ->
         raise ArgumentError, "The root directory cannot be removed."
 
       true ->
@@ -236,13 +301,13 @@ defmodule FDB.Directory do
 
   def remove_if_exists(directory, tr, path \\ []) do
     check_version(directory, tr, true)
-    node = refetch_node(directory, tr, path)
+    directory = Node.find(directory, tr, path)
 
     cond do
-      is_nil(node) ->
+      is_nil(directory) ->
         false
 
-      Node.root?(node) ->
+      Node.root?(directory, [], false) ->
         raise ArgumentError, "The root directory cannot be removed."
 
       true ->
@@ -251,21 +316,20 @@ defmodule FDB.Directory do
     end
   end
 
-  defp refetch_node(directory, tr, path \\ []) do
-    root_directory = %{directory | node: directory.root_node}
-    Node.find(root_directory, tr, directory.node.path ++ path)
-  end
-
   defp do_create(directory, tr, path, options) do
     check_version(directory, tr, true)
     prefix = Map.get(options, :prefix)
     layer = Map.get(options, :layer, "")
 
+    if !directory.allow_manual_prefixes && prefix != nil do
+      raise ArgumentError, "Cannot specify a prefix unless manual prefixes are enabled."
+    end
+
     prefix =
       cond do
         prefix ->
           if !prefix_free?(directory, tr, prefix) do
-            raise ArgumentError, "The given prefix #{inspect(prefix)}is already in use."
+            raise ArgumentError, "The given prefix #{inspect(prefix)} is already in use."
           else
             prefix
           end
@@ -291,20 +355,24 @@ defmodule FDB.Directory do
           prefix
       end
 
-    parent_node = Node.find(directory, tr, Enum.drop(path, -1))
+    parent_path = Enum.drop(path, -1)
 
-    unless parent_node do
+    parent =
+      if parent_path == [] do
+        %{directory | node: directory.root_node}
+      else
+        create_or_open(directory, tr, parent_path)
+      end
+
+    unless parent do
       raise ArgumentError, "The parent directory does not exist."
     end
 
-    node =
-      Node.create_subdirectory(%{directory | node: parent_node}, tr, %{
-        prefix: prefix,
-        name: List.last(path),
-        layer: layer
-      })
-
-    %{directory | node: node}
+    Node.create_subdirectory(parent, tr, %{
+      prefix: prefix,
+      name: List.last(path),
+      layer: layer
+    })
   end
 
   def prefix_free?(directory, tr, prefix) do
@@ -340,5 +408,15 @@ defmodule FDB.Directory do
       _ ->
         :ok
     end
+  end
+
+  defp check_layer(directory, layer) do
+    node = directory.node
+
+    if layer && layer != "" && node.layer != layer do
+      raise ArgumentError, "The directory was created with an incompatible layer."
+    end
+
+    :ok
   end
 end

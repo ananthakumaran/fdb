@@ -7,42 +7,53 @@ defmodule FDB.Directory.Node do
   alias FDB.KeySelectorRange
   alias FDB.KeyRange
   alias FDB.Utils
+  alias FDB.Directory
 
   defstruct [:prefix, :path, layer: "", parent: nil]
 
-  def name(node) do
-    case node.path do
+  def name(directory) do
+    case directory.node.path do
       [] -> ""
       path -> List.last(path)
     end
   end
 
-  def root?(node) do
-    node.path == [] && node.parent == nil
+  def full_path(directory) do
+    if directory.parent_directory do
+      full_path(directory.parent_directory) ++ directory.node.path
+    else
+      directory.node.path
+    end
   end
 
-  defp fetch(directory, node, tr) do
-    layer =
-      Transaction.get(tr, {node.prefix, @layer}, %{
-        coder: directory.node_layer_coder
-      })
+  def root?(directory, path \\ [], follow_partition \\ true) do
+    directory =
+      if follow_partition do
+        follow_partition(directory)
+      else
+        directory
+      end
 
-    %{node | layer: layer}
+    node = directory.node
+    path = node.path ++ path
+    path == [] && node.parent == nil
   end
 
   def find(directory, tr, path) do
-    node = directory.node
+    root_directory = %{directory | node: directory.root_node}
+    path = directory.node.path ++ path
 
-    Enum.reduce(path, node, fn
+    Enum.reduce(path, root_directory, fn
       _part, nil ->
         nil
 
-      part, node ->
-        subdirectory(directory, tr, node, part)
+      part, directory ->
+        subdirectory(directory, tr, part)
     end)
   end
 
   def create_subdirectory(directory, tr, %{name: name, prefix: prefix, layer: layer}) do
+    directory = follow_partition(directory)
     parent = directory.node
 
     :ok =
@@ -55,12 +66,14 @@ defmodule FDB.Directory.Node do
         coder: directory.node_layer_coder
       })
 
-    %__MODULE__{
+    node = %__MODULE__{
       parent: parent,
       layer: layer,
       path: parent.path ++ [name],
       prefix: prefix
     }
+
+    %{directory | node: node}
   end
 
   def remove(directory, tr) do
@@ -68,7 +81,7 @@ defmodule FDB.Directory.Node do
     parent = node.parent
 
     :ok =
-      Transaction.clear(tr, {parent.prefix, @subdirs, name(node)}, %{
+      Transaction.clear(tr, {parent.prefix, @subdirs, name(directory)}, %{
         coder: directory.node_name_coder
       })
 
@@ -79,21 +92,31 @@ defmodule FDB.Directory.Node do
   end
 
   def remove_all(directory, tr) do
-    :ok = remove_subdirectories_recursively(directory, tr, directory.node)
+    :ok = remove_subdirectories_recursively(directory, tr)
     remove(directory, tr)
   end
 
-  defp remove_subdirectories_recursively(directory, tr, node) do
-    subdirectories(directory, tr, node)
-    |> Enum.each(&remove_subdirectories_recursively(directory, tr, &1))
+  defp remove_subdirectories_recursively(directory, tr) do
+    subdirectories(directory, tr)
+    |> Enum.each(&remove_subdirectories_recursively(&1, tr))
+
+    node = directory.node
 
     :ok =
       Transaction.clear_range(tr, KeyRange.starts_with({node.prefix}), %{
         coder: directory.node_name_coder
       })
+
+    :ok =
+      Transaction.clear_range(tr, KeyRange.starts_with(node.prefix), %{
+        coder: directory.content_coder
+      })
   end
 
-  def subdirectory(directory, tr, node, name) do
+  def subdirectory(directory, tr, name) do
+    directory = follow_partition(directory)
+    node = directory.node
+
     case Transaction.get(tr, {node.prefix, @subdirs, name}, %{coder: directory.node_name_coder}) do
       nil ->
         nil
@@ -103,7 +126,9 @@ defmodule FDB.Directory.Node do
     end
   end
 
-  def subdirectories(directory, tr, node) do
+  def subdirectories(directory, tr) do
+    directory = follow_partition(directory)
+    node = directory.node
     prefix = node.prefix
 
     Transaction.get_range(tr, KeySelectorRange.starts_with({prefix, @subdirs}), %{
@@ -116,6 +141,14 @@ defmodule FDB.Directory.Node do
         tr
       )
     end)
+  end
+
+  def follow_partition(directory) do
+    if directory.node.layer == "partition" do
+      Directory.partition_root(directory)
+    else
+      directory
+    end
   end
 
   def prefix_free?(directory, tr, prefix) do
@@ -142,5 +175,14 @@ defmodule FDB.Directory.Node do
         %{coder: directory.prefix_coder}
       )
       |> Enum.empty?()
+  end
+
+  defp fetch(directory, node, tr) do
+    layer =
+      Transaction.get(tr, {node.prefix, @layer}, %{
+        coder: directory.node_layer_coder
+      }) || ""
+
+    %{directory | node: %{node | layer: layer}}
   end
 end
