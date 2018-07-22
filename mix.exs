@@ -1,7 +1,7 @@
 defmodule FDB.MixProject do
   use Mix.Project
 
-  @version "5.1.7-2"
+  @version "5.1.7-3"
 
   def project do
     [
@@ -45,7 +45,7 @@ defmodule FDB.MixProject do
       licenses: ["MIT"],
       links: %{"Github" => "https://github.com/ananthakumaran/fdb"},
       maintainers: ["ananthakumaran@gmail.com"],
-      files: ["lib", "priv/fdb.options", "mix.exs", "README*", "LICENSE*", "Makefile"]
+      files: ["lib", "priv/fdb.options", "mix.exs", "README*", "LICENSE*", "Makefile", "c_src"]
     }
   end
 
