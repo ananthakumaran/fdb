@@ -724,7 +724,7 @@ defmodule FDB.Machine do
 
     case result do
       {:byte_string, error} ->
-        %{s | stack: push(stack, {:byte_string, error}, id)}
+        %{s | stack: push(stack, {:byte_string, error}, id), dirs: s.dirs ++ [nil]}
 
       d ->
         %{s | stack: stack, dirs: s.dirs ++ [d]}

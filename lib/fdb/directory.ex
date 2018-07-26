@@ -147,6 +147,7 @@ defmodule FDB.Directory do
 
   def list(directory, tr, path \\ []) do
     check_version(directory, tr, false)
+    directory = Node.follow_partition(directory)
 
     case Node.find(directory, tr, path) do
       nil ->
@@ -173,6 +174,7 @@ defmodule FDB.Directory do
 
   def open(directory, tr, path, options \\ %{}) do
     check_version(directory, tr, false)
+    directory = Node.follow_partition(directory)
 
     if Node.root?(directory, path) do
       raise ArgumentError, "The root directory cannot be opened."
@@ -196,6 +198,7 @@ defmodule FDB.Directory do
 
   def create(directory, tr, path, options \\ %{}) do
     check_version(directory, tr, false)
+    directory = Node.follow_partition(directory)
 
     if Node.root?(directory, path) do
       raise ArgumentError, "The root directory cannot be opened."
@@ -214,6 +217,7 @@ defmodule FDB.Directory do
 
   def create_or_open(directory, tr, path, options \\ %{}) do
     check_version(directory, tr, false)
+    directory = Node.follow_partition(directory)
 
     prefix = Map.get(options, :prefix)
 
