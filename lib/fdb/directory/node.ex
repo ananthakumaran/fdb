@@ -1,9 +1,6 @@
 defmodule FDB.Directory.Node do
   alias FDB.Coder.{Tuple, ByteString, Identity, Subspace, UnicodeString, Integer}
   alias FDB.Transaction
-  alias FDB.KeySelectorRange
-  alias FDB.KeySelector
-  alias FDB.Utils
 
   defstruct [:subspace, :prefix, :layer_coder, :subdir_coder, :path, :target_path, layer: nil]
 
