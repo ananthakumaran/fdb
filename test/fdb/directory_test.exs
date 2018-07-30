@@ -23,7 +23,7 @@ defmodule FDB.DirectoryTest do
       :ok = flushdb()
 
       database = new_database()
-      root = Directory.new()
+      root = Directory.Layer.new()
 
       dirs =
         Task.async_stream(
@@ -93,10 +93,11 @@ defmodule FDB.DirectoryTest do
 
   test "create" do
     database = new_database()
-    root = Directory.new()
+    root = Directory.Layer.new()
 
     Database.transact(database, fn tr ->
       usa = Directory.create(root, tr, ["usa"])
+      assert Directory.list(root, tr) == ["usa"]
       assert Directory.list(usa, tr) == []
       arizona = Directory.create(usa, tr, ["arizona"])
       assert Directory.list(usa, tr) == ["arizona"]
@@ -121,13 +122,13 @@ defmodule FDB.DirectoryTest do
 
   test "manual prefix" do
     database = new_database()
-    root = Directory.new()
+    root = Directory.Layer.new()
 
     Database.transact(database, fn tr ->
       assert_raise(ArgumentError, fn -> Directory.create(root, tr, ["a"], %{prefix: "a"}) end)
     end)
 
-    root = Directory.new(%{allow_manual_prefixes: true})
+    root = Directory.Layer.new(%{allow_manual_prefixes: true})
 
     Database.transact(database, fn tr ->
       Directory.create(root, tr, ["a"], %{prefix: "abcde"})
@@ -138,7 +139,7 @@ defmodule FDB.DirectoryTest do
 
   test "move" do
     database = new_database()
-    root = Directory.new()
+    root = Directory.Layer.new()
 
     Database.transact(database, fn tr ->
       default = Directory.create(root, tr, ["default1"])
@@ -146,30 +147,19 @@ defmodule FDB.DirectoryTest do
       Directory.create(root, tr, ["1"])
       Directory.move_to(default, tr, ["1", "1"])
 
-      Directory.tree(root, tr)
-
-      Directory.list(root, tr, ["1"])
-      |> IO.inspect()
+      assert Directory.list(root, tr, ["1"]) == ["1"]
     end)
 
     Database.transact(database, fn tr ->
       Directory.create(root, tr, ["2", "2"])
       d2 = Directory.create(root, tr, ["default1", "3"])
-      Directory.tree(root, tr)
       Directory.move_to(d2, tr, ["2", "2", "2"])
-      Directory.tree(root, tr)
     end)
   end
 
   test "partition" do
     database = new_database()
-    root = Directory.new()
-
-    coder =
-      Transaction.Coder.new(
-        Subspace.new(<<0xFE>>, Dynamic.new()),
-        Identity.new()
-      )
+    root = Directory.Layer.new()
 
     Database.transact(database, fn tr ->
       usa = Directory.create(root, tr, ["usa"])
@@ -178,37 +168,35 @@ defmodule FDB.DirectoryTest do
       _p1_2 = Directory.create(p1, tr, ["2"])
       _p1_2 = Directory.create(p1, tr, ["2", "2", "2"])
       p1_3 = Directory.create(p1, tr, ["3"])
+      assert p1_3.path == ["p1", "3"]
       assert Directory.list(p1, tr) == ["1", "2", "3"]
       assert Directory.list(root, tr, ["p1"]) == ["1", "2", "3"]
 
-      Directory.tree(root, tr)
-
-      _p1_3_a = Directory.create(p1_3, tr, ["a"])
-      p1_4 = Directory.move_to(p1_3, tr, ["4"])
+      p1_3_a = Directory.create(p1_3, tr, ["a"])
+      assert p1_3_a.path == ["p1", "3", "a"]
+      p1_4 = Directory.move_to(p1_3, tr, ["p1", "4"])
       assert Directory.list(p1_4, tr) == ["a"]
       assert Directory.list(root, tr, ["p1", "4"]) == ["a"]
 
       assert_raise(ArgumentError, fn -> Directory.move_to(usa, tr, ["p1", "6"]) end)
 
       Directory.remove(p1, tr, ["4"])
+    end)
+  end
 
-      Directory.tree(root, tr)
+  def debug() do
+    database = new_database()
 
-      Transaction.get_range(tr, KeySelectorRange.starts_with({}), %{coder: coder})
-      |> Enum.to_list()
-      |> inspect()
-      |> Logger.info()
+    prefix_coder =
+      Transaction.Coder.new(
+        Subspace.new(<<254>>, Dynamic.new()),
+        Identity.new()
+      )
 
-      prefix_coder =
-        Transaction.Coder.new(
-          Subspace.new(p1.node.prefix <> <<0xFE>>, Dynamic.new()),
-          Identity.new()
-        )
-
+    Database.transact(database, fn tr ->
       Transaction.get_range(tr, KeySelectorRange.starts_with({}), %{coder: prefix_coder})
       |> Enum.to_list()
-      |> inspect()
-      |> Logger.info()
+      |> IO.inspect()
     end)
   end
 end

@@ -7,9 +7,6 @@ do
     echo "========"
     echo ""
 
-    echo "# hca"
-    foundationdb/bindings/bindingtester/bindingtester.py elixir --test-name directory_hca --num-ops 100 --concurrency 5 || exit 1
-
     echo "# scripted"
     foundationdb/bindings/bindingtester/bindingtester.py elixir --test-name scripted || exit 1
 
@@ -18,4 +15,10 @@ do
 
     echo "# api with concurrency 5"
     foundationdb/bindings/bindingtester/bindingtester.py elixir --test-name api --num-ops 1000 --concurrency 5 || exit 1
+
+    echo "# directory"
+    foundationdb/bindings/bindingtester/bindingtester.py elixir --test-name directory --num-ops 1000 --compare || exit 1
+
+    echo "# directory hca"
+    foundationdb/bindings/bindingtester/bindingtester.py elixir --test-name directory_hca --num-ops 100 --concurrency 5 || exit 1
 done

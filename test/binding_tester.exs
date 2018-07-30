@@ -105,7 +105,7 @@ defmodule FDB.Machine do
       prefix: prefix,
       transaction_name: prefix,
       debug: debug,
-      dirs: [Directory.new()]
+      dirs: [Directory.Layer.new()]
     }
   end
 
@@ -144,7 +144,6 @@ defmodule FDB.Machine do
               value =
                 rescue_error(fn ->
                   :ok = Transaction.commit(t)
-                  debug("commited")
                   {:byte_string, "RESULT_NOT_PRESENT"}
                 end)
 
@@ -158,17 +157,6 @@ defmodule FDB.Machine do
         true ->
           do_execute(id, List.to_tuple([op | rest]), s)
       end
-
-    if System.get_env("DEBUG") &&
-         (String.contains?(op, "DIRECTORY") || String.contains?(op, "COMMIT")) do
-      debug({"dir_length", length(s.dirs)})
-      d = dir(s)
-      t = Transaction.create(s.db)
-
-      if d && Map.get(d, :node) do
-        Directory.tree(d, t)
-      end
-    end
 
     s
   end
@@ -703,7 +691,7 @@ defmodule FDB.Machine do
       if !node_subspace || !content_subspace do
         nil
       else
-        Directory.new(%{
+        Directory.Layer.new(%{
           node_subspace: node_subspace,
           content_subspace: content_subspace,
           allow_manual_prefixes: manual == 1
@@ -755,12 +743,10 @@ defmodule FDB.Machine do
     {{:byte_string, layer}, stack} = pop(stack)
 
     try do
-      debug({dir(s).node, path, layer})
       new_dir = Directory.open(dir(s), trx(s), path, %{layer: layer})
       %{s | stack: stack, dirs: s.dirs ++ [new_dir]}
     rescue
-      _e ->
-        debug(_e)
+      _e in [FDB.Error, ArgumentError] ->
         error = {:byte_string, "DIRECTORY_ERROR"}
         %{s | stack: push(stack, error, id), dirs: s.dirs ++ [nil]}
     end
@@ -771,12 +757,10 @@ defmodule FDB.Machine do
     {{:byte_string, layer}, {_, prefix}, stack} = pop(stack, 2)
 
     try do
-      debug({dir(s).node, path, layer, prefix})
       new_dir = Directory.create(dir(s), trx(s), path, %{layer: layer, prefix: prefix})
       %{s | stack: stack, dirs: s.dirs ++ [new_dir]}
     rescue
-      _e ->
-        debug(_e)
+      _e in [FDB.Error, ArgumentError] ->
         error = {:byte_string, "DIRECTORY_ERROR"}
         %{s | stack: push(stack, error, id), dirs: s.dirs ++ [nil]}
     end
@@ -787,12 +771,10 @@ defmodule FDB.Machine do
     {{:byte_string, layer}, stack} = pop(stack)
 
     try do
-      debug({dir(s).node, path, layer})
       new_dir = Directory.create_or_open(dir(s), trx(s), path, %{layer: layer})
       %{s | stack: stack, dirs: s.dirs ++ [new_dir]}
     rescue
-      _e ->
-        debug(_e)
+      _e in [FDB.Error, ArgumentError] ->
         error = {:byte_string, "DIRECTORY_ERROR"}
         %{s | stack: push(stack, error, id), dirs: s.dirs ++ [nil]}
     end
@@ -803,18 +785,11 @@ defmodule FDB.Machine do
     {new_path, stack} = pop_tuples(stack)
 
     try do
-      d = dir(s)
-
-      debug({old_path, new_path, d.node})
-
-      new_dir =
-        Directory.open(d, trx(s), old_path)
-        |> Directory.move_to(trx(s), d.node.path ++ new_path)
+      new_dir = Directory.move(dir(s), trx(s), old_path, new_path)
 
       %{s | stack: stack, dirs: s.dirs ++ [new_dir]}
     rescue
-      _e ->
-        debug(_e)
+      _e in [FDB.Error, ArgumentError] ->
         error = {:byte_string, "DIRECTORY_ERROR"}
         %{s | stack: push(stack, error, id), dirs: s.dirs ++ [nil]}
     end
@@ -824,13 +799,11 @@ defmodule FDB.Machine do
     {new_path, stack} = pop_tuples(s.stack)
 
     try do
-      debug({new_path, dir(s).node})
       new_dir = Directory.move_to(dir(s), trx(s), new_path)
 
       %{s | stack: stack, dirs: s.dirs ++ [new_dir]}
     rescue
-      _e ->
-        debug(_e)
+      _e in [FDB.Error, ArgumentError] ->
         error = {:byte_string, "DIRECTORY_ERROR"}
         %{s | stack: push(stack, error, id), dirs: s.dirs ++ [nil]}
     end
@@ -850,8 +823,6 @@ defmodule FDB.Machine do
 
     result =
       rescue_dir_error(fn ->
-        debug({dir(s).node, path})
-
         Directory.list(dir(s), trx(s), path)
         |> Enum.map(fn name ->
           {:unicode_string, name}
@@ -873,8 +844,6 @@ defmodule FDB.Machine do
         1 ->
           pop_tuples(stack)
       end
-
-    debug({dir(s).node, path, Directory.exists?(dir(s), trx(s), path)})
 
     result =
       rescue_dir_error(fn ->
@@ -901,13 +870,10 @@ defmodule FDB.Machine do
       end
 
     try do
-      debug({dir(s).node, path})
-      result = Directory.remove_if_exists(dir(s), trx(s), path)
-      debug({result})
+      Directory.remove_if_exists(dir(s), trx(s), path)
       %{s | stack: stack}
     rescue
-      _e ->
-        debug(_e)
+      _e in [FDB.Error, ArgumentError] ->
         error = {:byte_string, "DIRECTORY_ERROR"}
         %{s | stack: push(stack, error, id)}
     end
@@ -926,11 +892,10 @@ defmodule FDB.Machine do
       end
 
     try do
-      :ok = Directory.remove(dir(s), trx(s), path)
+      Directory.remove(dir(s), trx(s), path)
       %{s | stack: stack}
     rescue
-      _e ->
-        debug(_e)
+      _e in [FDB.Error, ArgumentError] ->
         error = {:byte_string, "DIRECTORY_ERROR"}
         %{s | stack: push(stack, error, id)}
     end
@@ -954,20 +919,19 @@ defmodule FDB.Machine do
           )
 
         d = dir(s)
-        debug({s.dir_index, d.node})
         exists = Directory.exists?(d, tr)
 
         Transaction.set(
           tr,
           {s.dir_index, "path"},
-          Enum.map(Directory.Node.full_path(d), fn p -> {:unicode_string, p} end)
+          Enum.map(Directory.path(d), fn p -> {:unicode_string, p} end)
           |> List.to_tuple()
         )
 
         Transaction.set(
           tr,
           {s.dir_index, "layer"},
-          {:byte_string, d.node.layer}
+          {:byte_string, d.layer}
         )
 
         children =
@@ -1063,10 +1027,9 @@ defmodule FDB.Machine do
           push(stack, {:byte_string, error}, id)
 
         unpacked ->
-          stack =
-            Enum.reduce(Tuple.to_list(unpacked), stack, fn item, stack ->
-              push(stack, item, id)
-            end)
+          Enum.reduce(Tuple.to_list(unpacked), stack, fn item, stack ->
+            push(stack, item, id)
+          end)
       end
 
     %{s | stack: stack}
@@ -1088,7 +1051,7 @@ defmodule FDB.Machine do
 
     result =
       with_prefix(dir(s), fn prefix ->
-        {start_key, end_key} = tuple_range(tuple, prefix)
+        tuple_range(tuple, prefix)
       end)
 
     stack =
@@ -1201,10 +1164,6 @@ defmodule FDB.Machine do
     cb.()
   rescue
     _e in [FDB.Error, ArgumentError] ->
-      IO.inspect(_e)
-      {:byte_string, "DIRECTORY_ERROR"}
-
-    _e ->
       {:byte_string, "DIRECTORY_ERROR"}
   end
 
@@ -1216,16 +1175,13 @@ defmodule FDB.Machine do
       %FDB.Coder{opts: opts} ->
         cb.(opts.prefix)
 
-      %FDB.Directory{node: node} ->
+      directory ->
         cond do
-          node.layer == "partition" ->
-            {:byte_string, "DIRECTORY_ERROR"}
-
-          dir.parent_directory && dir.node.path == [] ->
+          directory.layer == "partition" ->
             {:byte_string, "DIRECTORY_ERROR"}
 
           true ->
-            cb.(node.prefix)
+            cb.(directory.prefix)
         end
     end
   end
@@ -1235,12 +1191,6 @@ defmodule FDB.Machine do
   end
 
   defp trim(x), do: x
-
-  defp debug(x) do
-    if System.get_env("DEBUG") do
-      IO.inspect(x)
-    end
-  end
 end
 
 defmodule FDB.Runner do

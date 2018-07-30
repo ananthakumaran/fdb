@@ -1,188 +1,103 @@
 defmodule FDB.Directory.Node do
-  @subdirs 0
-  @layer "layer"
-
+  alias FDB.Coder.{Tuple, ByteString, Identity, Subspace, UnicodeString, Integer}
   alias FDB.Transaction
-  alias FDB.KeySelector
   alias FDB.KeySelectorRange
-  alias FDB.KeyRange
+  alias FDB.KeySelector
   alias FDB.Utils
-  alias FDB.Directory
 
-  defstruct [:prefix, :path, layer: "", parent: nil]
+  defstruct [:subspace, :prefix, :layer_coder, :subdir_coder, :path, :target_path, layer: nil]
 
-  def name(directory) do
-    case directory.node.path do
-      [] -> ""
-      path -> List.last(path)
-    end
-  end
-
-  def full_path(directory) do
-    if directory.parent_directory do
-      full_path(directory.parent_directory) ++ directory.node.path
-    else
-      directory.node.path
-    end
-  end
-
-  def root?(directory, path \\ [], follow_partition \\ true) do
-    directory =
-      if follow_partition do
-        follow_partition(directory)
-      else
-        directory
-      end
-
-    node = directory.node
-    path = node.path ++ path
-    path == [] && node.parent == nil
-  end
-
-  def find(directory, tr, path) do
-    root_directory = %{directory | node: directory.root_node}
-    path = directory.node.path ++ path
-
-    Enum.reduce(path, root_directory, fn
-      _part, nil ->
-        nil
-
-      part, directory ->
-        subdirectory(directory, tr, part)
-    end)
-  end
-
-  def create_subdirectory(directory, tr, %{name: name, prefix: prefix, layer: layer}) do
-    directory = follow_partition(directory)
-    parent = directory.node
-
-    :ok =
-      Transaction.set(tr, {parent.prefix, @subdirs, name}, prefix, %{
-        coder: directory.node_name_coder
-      })
-
-    :ok =
-      Transaction.set(tr, {prefix, @layer}, layer, %{
-        coder: directory.node_layer_coder
-      })
-
-    node = %__MODULE__{
-      parent: parent,
-      layer: layer,
-      path: parent.path ++ [name],
+  def new(nil, prefix, path, target_path) do
+    %__MODULE__{
+      path: path,
+      target_path: target_path,
       prefix: prefix
     }
-
-    %{directory | node: node}
   end
 
-  def remove(directory, tr) do
-    node = directory.node
-    parent = node.parent
-
-    :ok =
-      Transaction.clear(tr, {parent.prefix, @subdirs, name(directory)}, %{
-        coder: directory.node_name_coder
-      })
-
-    :ok =
-      Transaction.clear(tr, {node.prefix, @layer}, %{
-        coder: directory.node_layer_coder
-      })
+  def new(%__MODULE__{} = node, prefix, path, target_path) do
+    new(node.subspace, prefix, path, target_path)
   end
 
-  def remove_all(directory, tr) do
-    :ok = remove_subdirectories_recursively(directory, tr)
-    remove(directory, tr)
-  end
-
-  defp remove_subdirectories_recursively(directory, tr) do
-    subdirectories(directory, tr)
-    |> Enum.each(&remove_subdirectories_recursively(&1, tr))
-
-    node = directory.node
-
-    :ok =
-      Transaction.clear_range(tr, KeyRange.starts_with({node.prefix}), %{
-        coder: directory.node_name_coder
-      })
-
-    :ok =
-      Transaction.clear_range(tr, KeyRange.starts_with(node.prefix), %{
-        coder: directory.content_coder
-      })
-  end
-
-  def subdirectory(directory, tr, name) do
-    directory = follow_partition(directory)
-    node = directory.node
-
-    case Transaction.get(tr, {node.prefix, @subdirs, name}, %{coder: directory.node_name_coder}) do
-      nil ->
-        nil
-
-      prefix ->
-        fetch(directory, %__MODULE__{prefix: prefix, path: node.path ++ [name], parent: node}, tr)
-    end
-  end
-
-  def subdirectories(directory, tr) do
-    directory = follow_partition(directory)
-    node = directory.node
-    prefix = node.prefix
-
-    Transaction.get_range(tr, KeySelectorRange.starts_with({prefix, @subdirs}), %{
-      coder: directory.node_name_coder
-    })
-    |> Enum.map(fn {{^prefix, @subdirs, name}, subdirectory_prefix} ->
-      fetch(
-        directory,
-        %__MODULE__{prefix: subdirectory_prefix, path: node.path ++ [name], parent: node},
-        tr
-      )
-    end)
-  end
-
-  def follow_partition(directory) do
-    if directory.node.layer == "partition" do
-      Directory.partition_root(directory)
-    else
-      directory
-    end
-  end
-
-  def prefix_free?(directory, tr, prefix) do
-    root_node = directory.root_node
-
-    !Utils.starts_with?(root_node.prefix, prefix) &&
-      Transaction.get_range(
-        tr,
-        KeySelectorRange.range(
-          KeySelector.first_greater_or_equal({}, %{prefix: :first}),
-          KeySelector.first_greater_or_equal({prefix}, %{prefix: :first})
+  def new(subspace, prefix, path, target_path) do
+    layer_coder =
+      Transaction.Coder.new(
+        Subspace.concat(
+          subspace,
+          Subspace.new(
+            {prefix, "layer"},
+            Tuple.new({}),
+            Tuple.new({ByteString.new(), ByteString.new()})
+          )
         ),
-        %{
-          coder: directory.prefix_coder,
-          reverse: true,
-          limit: 1
-        }
+        Identity.new()
       )
-      |> Enum.filter(fn {{prev_prefix, _}, _} -> Utils.starts_with?(prefix, prev_prefix) end)
-      |> Enum.empty?() &&
-      Transaction.get_range(
-        tr,
-        KeySelectorRange.starts_with({prefix}),
-        %{coder: directory.prefix_coder}
+
+    subdir_coder =
+      Transaction.Coder.new(
+        Subspace.concat(
+          subspace,
+          Subspace.new(
+            {prefix, 0},
+            Tuple.new({UnicodeString.new()}),
+            Tuple.new({ByteString.new(), Integer.new()})
+          )
+        ),
+        Identity.new()
       )
-      |> Enum.empty?()
+
+    %__MODULE__{
+      subspace: subspace,
+      prefix: prefix,
+      path: path,
+      target_path: target_path,
+      layer: nil,
+      layer_coder: layer_coder,
+      subdir_coder: subdir_coder
+    }
   end
 
-  defp fetch(directory, node, tr) do
-    layer =
-      Transaction.get(tr, {node.prefix, @layer}, %{
-        coder: directory.node_layer_coder
-      }) || ""
+  def exists?(node) do
+    !!node.subspace
+  end
 
-    %{directory | node: %{node | layer: layer}}
+  def prefetch_metadata(node, tr) do
+    if exists?(node) do
+      {node, _} = layer(node, tr)
+      node
+    else
+      node
+    end
+  end
+
+  def layer(node, tr \\ nil) do
+    if tr do
+      layer = Transaction.get(tr, {}, %{coder: node.layer_coder})
+      {%{node | layer: layer}, layer}
+    else
+      if !node.layer do
+        raise "Layer has not been read"
+      end
+
+      {node, node.layer}
+    end
+  end
+
+  def is_in_partition?(node, _tr \\ nil, include_empty_subpath \\ false) do
+    exists?(node) && node.layer == "partition" &&
+      (include_empty_subpath || length(node.path) < length(node.target_path))
+  end
+
+  def get_partition_subpath(node, _tr \\ nil) do
+    Enum.drop(node.target_path, length(node.path))
+  end
+
+  def get_contents(node, directory, tr \\ nil) do
+    {_node, layer} = layer(node, tr)
+    FDB.Directory.Layer.contents_of_node(directory, node, node.path, layer)
+  end
+
+  def subdir(node, tr, name, prefix) do
+    Transaction.set(tr, {name}, prefix, %{coder: node.subdir_coder})
   end
 end
