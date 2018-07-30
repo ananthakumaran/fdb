@@ -10,7 +10,7 @@ defmodule FDB.Directory.HighContentionAllocator do
 
   def allocate(directory, t) do
     integer = Integer.new()
-    t = Transaction.set_coder(t, directory.hca_coder)
+    t = Transaction.set_defaults(t, %{coder: directory.hca_coder})
     candidate = search(t)
     integer.module.encode(candidate, integer.opts)
   end
@@ -93,12 +93,15 @@ defmodule FDB.Directory.HighContentionAllocator do
 
     unless latest_start && latest_start > search_range.first do
       t1 =
-        Transaction.set_coder(
+        Transaction.set_defaults(
           t,
-          Transaction.Coder.new(
-            t.coder.key,
-            Identity.new()
-          )
+          %{
+            coder:
+              Transaction.Coder.new(
+                t.coder.key,
+                Identity.new()
+              )
+          }
         )
 
       candidate = Enum.random(search_range)

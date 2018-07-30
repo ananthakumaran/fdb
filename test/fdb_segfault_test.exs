@@ -104,7 +104,7 @@ defmodule FDBSegfaultTest do
 
   fuzz(
     FDB.Database,
-    :set_coder,
+    :set_defaults,
     2,
     fixed_list([
       one_of([term(), constant(database())]),
@@ -209,7 +209,7 @@ defmodule FDBSegfaultTest do
 
   fuzz(
     FDB.Transaction,
-    :set_coder,
+    :set_defaults,
     2,
     fixed_list([
       one_of([term(), constant(transaction())]),

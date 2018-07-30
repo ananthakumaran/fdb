@@ -10,36 +10,32 @@ defmodule FDB.Transaction do
   alias FDB.Transaction.Coder
   alias FDB.Option
 
-  defstruct resource: nil, coder: nil
-  @type t :: %__MODULE__{resource: identifier, coder: Transaction.Coder.t() | nil}
+  defstruct resource: nil, coder: nil, snapshot: 0
+  @type t :: %__MODULE__{resource: identifier, coder: Transaction.Coder.t(), snapshot: integer}
 
   @doc """
   Creates a new transaction.
-
-  if `coder` is not set then `database`'s coder is used.
   """
-  @spec create(Database.t(), Transaction.Coder.t() | nil) :: t
-  def create(%Database{} = database, coder \\ nil) do
+  @spec create(Database.t(), map) :: t
+  def create(%Database{} = database, defaults \\ %{}) when is_map(defaults) do
     resource =
       Native.database_create_transaction(database.resource)
       |> Utils.verify_result()
 
-    coder =
-      if coder do
-        coder
-      else
-        database.coder
-      end
+    defaults = Utils.normalize_bool_values(defaults, [:snapshot])
 
-    %Transaction{resource: resource, coder: coder}
+    struct!(__MODULE__, Map.take(database, [:coder]))
+    |> struct!(defaults)
+    |> struct!(%{resource: resource})
   end
 
   @doc """
-  Changes the `t:FDB.Transaction.Coder.t/0` associated with the transaction.
+  Changes the default options associated with the transaction.
   """
-  @spec set_coder(t, Transaction.Coder.t()) :: t
-  def set_coder(%Transaction{} = transaction, coder) do
-    %{transaction | coder: coder}
+  @spec set_defaults(t, map) :: t
+  def set_defaults(%Transaction{} = transaction, defaults) when is_map(defaults) do
+    defaults = Utils.normalize_bool_values(defaults, [:snapshot])
+    struct!(transaction, defaults)
   end
 
   @doc """
@@ -90,7 +86,7 @@ defmodule FDB.Transaction do
     Native.transaction_get(
       transaction.resource,
       Coder.encode_key(coder, key),
-      Map.get(options, :snapshot, 0)
+      Map.get(options, :snapshot, transaction.snapshot)
     )
     |> Future.create()
     |> Future.map(&Coder.decode_value(coder, &1))
@@ -109,7 +105,7 @@ defmodule FDB.Transaction do
       Map.get(options, :target_bytes, 0),
       Map.get(options, :mode, FDB.Option.streaming_mode_iterator()),
       Map.get(options, :iteration, 1),
-      Map.get(options, :snapshot, 0),
+      Map.get(options, :snapshot, transaction.snapshot),
       Map.get(options, :reverse, 0)
     )
     |> Future.create()
@@ -402,7 +398,7 @@ defmodule FDB.Transaction do
       key,
       key_selector.or_equal,
       key_selector.offset,
-      Map.get(options, :snapshot, 0)
+      Map.get(options, :snapshot, transaction.snapshot)
     )
     |> Future.create()
     |> Future.map(&Coder.decode_key(coder, &1))

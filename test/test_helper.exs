@@ -86,7 +86,7 @@ defmodule TestUtils do
               true -> :ok
             end
           rescue
-            e in [FDB.Error, ArgumentError, FunctionClauseError] ->
+            e in [FDB.Error, ArgumentError, FunctionClauseError, KeyError] ->
               :ok
 
             e in [ErlangError] ->

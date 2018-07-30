@@ -20,7 +20,7 @@ defmodule FDB.CoderTest do
 
     db =
       Cluster.create()
-      |> Database.create(coder)
+      |> Database.create(%{coder: coder})
 
     db_raw =
       Cluster.create()

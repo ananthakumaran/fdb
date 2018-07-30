@@ -545,4 +545,8 @@ defimpl FDB.Directory, for: FDB.Directory.Layer do
         true
     end
   end
+
+  def get_layer_for_path(directory, _path) do
+    directory
+  end
 end

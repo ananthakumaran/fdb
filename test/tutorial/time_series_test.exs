@@ -35,7 +35,7 @@ defmodule FDB.Tutorial.TimeSeriesTest do
 
     db =
       Cluster.create()
-      |> Database.create(coder)
+      |> Database.create(%{coder: coder})
 
     populate(db)
 

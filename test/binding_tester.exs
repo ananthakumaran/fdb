@@ -95,9 +95,9 @@ defmodule FDB.Machine do
 
   def init(db, prefix, debug) do
     db =
-      FDB.Database.set_coder(
+      FDB.Database.set_defaults(
         db,
-        %FDB.Transaction.Coder{key: Dynamic.new(), value: Dynamic.new()}
+        %{coder: %FDB.Transaction.Coder{key: Dynamic.new(), value: Dynamic.new()}}
       )
 
     %State{
@@ -281,14 +281,14 @@ defmodule FDB.Machine do
   end
 
   def do_execute(_id, {op}, s) when op in ["NEW_TRANSACTION", "RESET"] do
-    db = Database.set_coder(s.db, Transaction.Coder.new())
+    db = Database.set_defaults(s.db, %{coder: Transaction.Coder.new()})
     :ok = TransactionMap.put(s.transaction_name, Transaction.create(db))
     s
   end
 
   def do_execute(_id, {"USE_TRANSACTION"}, s) do
     {{_, name}, stack} = pop(s.stack)
-    db = Database.set_coder(s.db, Transaction.Coder.new())
+    db = Database.set_defaults(s.db, %{coder: Transaction.Coder.new()})
     :ok = TransactionMap.put_if_not_present(name, Transaction.create(db))
 
     %{s | transaction_name: name, stack: stack}
@@ -298,12 +298,15 @@ defmodule FDB.Machine do
     {{:byte_string, prefix}, stack} = pop(s.stack)
 
     db =
-      Database.set_coder(
+      Database.set_defaults(
         s.db,
-        Transaction.Coder.new(
-          Coder.Tuple.new({Coder.Identity.new(), Coder.Integer.new(), Coder.Integer.new()}),
-          Coder.Identity.new()
-        )
+        %{
+          coder:
+            Transaction.Coder.new(
+              Coder.Tuple.new({Coder.Identity.new(), Coder.Integer.new(), Coder.Integer.new()}),
+              Coder.Identity.new()
+            )
+        }
       )
 
     Enum.reverse(stack)
@@ -380,8 +383,7 @@ defmodule FDB.Machine do
         result =
           Transaction.get_key(
             trx(s),
-            %KeySelector{key: key, or_equal: or_equal, offset: offset},
-            %{snapshot: s.snapshot}
+            %KeySelector{key: key, or_equal: or_equal, offset: offset}
           )
 
         result =
@@ -414,8 +416,7 @@ defmodule FDB.Machine do
           %{
             limit: limit,
             reverse: reverse,
-            mode: streaming_mode,
-            snapshot: s.snapshot
+            mode: streaming_mode
           }
         )
         |> Enum.filter(fn {key, _value} -> String.starts_with?(key, prefix) end)
@@ -443,8 +444,7 @@ defmodule FDB.Machine do
           %{
             limit: limit,
             reverse: reverse,
-            mode: streaming_mode,
-            snapshot: s.snapshot
+            mode: streaming_mode
           }
         )
         |> Enum.map(fn {key, value} -> {{:byte_string, key}, {:byte_string, value}} end)
@@ -471,8 +471,7 @@ defmodule FDB.Machine do
           %{
             limit: limit,
             reverse: reverse,
-            mode: streaming_mode,
-            snapshot: s.snapshot
+            mode: streaming_mode
           }
         )
         |> Enum.map(fn {key, value} -> {{:byte_string, key}, {:byte_string, value}} end)
@@ -491,7 +490,7 @@ defmodule FDB.Machine do
       Database.transact(s.db, fn t ->
         result =
           Transaction.get_range(
-            Transaction.set_coder(t, Transaction.Coder.new()),
+            Transaction.set_defaults(t, %{coder: Transaction.Coder.new()}),
             KeySelectorRange.range(
               KeySelector.first_greater_or_equal(prefix),
               KeySelector.first_greater_or_equal(Utils.strinc(prefix))
@@ -526,7 +525,7 @@ defmodule FDB.Machine do
 
     result =
       rescue_error(fn ->
-        value = Transaction.get(trx(s), key, %{snapshot: s.snapshot})
+        value = Transaction.get(trx(s), key)
         {:byte_string, value || "RESULT_NOT_PRESENT"}
       end)
 
@@ -1146,8 +1145,15 @@ defmodule FDB.Machine do
         FDB.TransactionMap.get(s.transaction_name)
       end
 
-    if coder do
-      Transaction.set_coder(t, coder)
+    t =
+      if coder do
+        Transaction.set_defaults(t, %{coder: coder})
+      else
+        t
+      end
+
+    if s.snapshot do
+      Transaction.set_defaults(t, %{snapshot: true})
     else
       t
     end
@@ -1205,7 +1211,7 @@ defmodule FDB.Runner do
         Dynamic.new()
       )
 
-    db = FDB.Database.set_coder(db, coder)
+    db = FDB.Database.set_defaults(db, %{coder: coder})
 
     state =
       Transaction.get_range(

@@ -187,7 +187,7 @@ coder =
   )
 db =
   Cluster.create()
-  |> Database.create(coder)
+  |> Database.create(%{coder: coder})
 
 Database.transact(db, fn t ->
   m = Transaction.get(t, {{{2018, 03, 01}, {1, 0, 0}}, "www.github.com", "/fdb", "mozilla"})
@@ -206,7 +206,7 @@ be encoded. The coder could be set at database or transaction
 level. The transaction automatically inherits the coder from database
 if not set explicitly. Under the hood all the functions use the coder
 transparently to encode and decode the values. Refer
-`FDB.Database.set_coder/2` if you want to use multiple coders.
+`FDB.Database.set_defaults/2` if you want to use multiple coders.
 
 See the [documenation](https://hexdocs.pm/fdb) for more
 information.
