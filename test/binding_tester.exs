@@ -741,71 +741,44 @@ defmodule FDB.Machine do
 
     {{:byte_string, layer}, stack} = pop(stack)
 
-    try do
-      new_dir = Directory.open(dir(s), trx(s), path, %{layer: layer})
-      %{s | stack: stack, dirs: s.dirs ++ [new_dir]}
-    rescue
-      _e in [FDB.Error, ArgumentError] ->
-        error = {:byte_string, "DIRECTORY_ERROR"}
-        %{s | stack: push(stack, error, id), dirs: s.dirs ++ [nil]}
-    end
+    rescue_new_dir_error(s, stack, id, fn ->
+      Directory.open(dir(s), trx(s), path, %{layer: layer})
+    end)
   end
 
   def do_execute(id, {"DIRECTORY_CREATE"}, s) do
     {path, stack} = pop_tuples(s.stack)
     {{:byte_string, layer}, {_, prefix}, stack} = pop(stack, 2)
 
-    try do
-      new_dir = Directory.create(dir(s), trx(s), path, %{layer: layer, prefix: prefix})
-      %{s | stack: stack, dirs: s.dirs ++ [new_dir]}
-    rescue
-      _e in [FDB.Error, ArgumentError] ->
-        error = {:byte_string, "DIRECTORY_ERROR"}
-        %{s | stack: push(stack, error, id), dirs: s.dirs ++ [nil]}
-    end
+    rescue_new_dir_error(s, stack, id, fn ->
+      Directory.create(dir(s), trx(s), path, %{layer: layer, prefix: prefix})
+    end)
   end
 
   def do_execute(id, {"DIRECTORY_CREATE_OR_OPEN"}, s) do
     {path, stack} = pop_tuples(s.stack)
     {{:byte_string, layer}, stack} = pop(stack)
 
-    try do
-      new_dir = Directory.create_or_open(dir(s), trx(s), path, %{layer: layer})
-      %{s | stack: stack, dirs: s.dirs ++ [new_dir]}
-    rescue
-      _e in [FDB.Error, ArgumentError] ->
-        error = {:byte_string, "DIRECTORY_ERROR"}
-        %{s | stack: push(stack, error, id), dirs: s.dirs ++ [nil]}
-    end
+    rescue_new_dir_error(s, stack, id, fn ->
+      Directory.create_or_open(dir(s), trx(s), path, %{layer: layer})
+    end)
   end
 
   def do_execute(id, {"DIRECTORY_MOVE"}, s) do
     {old_path, stack} = pop_tuples(s.stack)
     {new_path, stack} = pop_tuples(stack)
 
-    try do
-      new_dir = Directory.move(dir(s), trx(s), old_path, new_path)
-
-      %{s | stack: stack, dirs: s.dirs ++ [new_dir]}
-    rescue
-      _e in [FDB.Error, ArgumentError] ->
-        error = {:byte_string, "DIRECTORY_ERROR"}
-        %{s | stack: push(stack, error, id), dirs: s.dirs ++ [nil]}
-    end
+    rescue_new_dir_error(s, stack, id, fn ->
+      Directory.move(dir(s), trx(s), old_path, new_path)
+    end)
   end
 
   def do_execute(id, {"DIRECTORY_MOVE_TO"}, s) do
     {new_path, stack} = pop_tuples(s.stack)
 
-    try do
-      new_dir = Directory.move_to(dir(s), trx(s), new_path)
-
-      %{s | stack: stack, dirs: s.dirs ++ [new_dir]}
-    rescue
-      _e in [FDB.Error, ArgumentError] ->
-        error = {:byte_string, "DIRECTORY_ERROR"}
-        %{s | stack: push(stack, error, id), dirs: s.dirs ++ [nil]}
-    end
+    rescue_new_dir_error(s, stack, id, fn ->
+      Directory.move_to(dir(s), trx(s), new_path)
+    end)
   end
 
   def do_execute(id, {"DIRECTORY_LIST"}, s) do
@@ -1079,15 +1052,19 @@ defmodule FDB.Machine do
   end
 
   def do_execute(id, {"DIRECTORY_STRIP_PREFIX"}, s) do
-    {{:byte_string, key}, stack} = pop(s.stack)
+    {{type, key}, stack} = pop(s.stack)
 
     result =
       with_prefix(dir(s), fn prefix ->
-        if !Utils.starts_with?(key, prefix) do
-          raise ArgumentError, "String #{key} does not start with prefix #{prefix}"
-        end
+        if type == :byte_string do
+          if !Utils.starts_with?(key, prefix) do
+            raise ArgumentError, "String #{key} does not start with prefix #{prefix}"
+          end
 
-        {:byte_string, binary_part(key, byte_size(prefix), byte_size(key) - byte_size(prefix))}
+          {:byte_string, binary_part(key, byte_size(prefix), byte_size(key) - byte_size(prefix))}
+        else
+          {:byte_string, "DIRECTORY_ERROR"}
+        end
       end)
 
     %{s | stack: push(stack, result, id)}
@@ -1171,6 +1148,15 @@ defmodule FDB.Machine do
   rescue
     _e in [FDB.Error, ArgumentError] ->
       {:byte_string, "DIRECTORY_ERROR"}
+  end
+
+  defp rescue_new_dir_error(s, stack, id, cb) do
+    new_dir = cb.()
+    %{s | stack: stack, dirs: s.dirs ++ [new_dir]}
+  rescue
+    _e in [FDB.Error, ArgumentError] ->
+      error = {:byte_string, "DIRECTORY_ERROR"}
+      %{s | stack: push(stack, error, id), dirs: s.dirs ++ [nil]}
   end
 
   defp with_prefix(dir, cb) do
