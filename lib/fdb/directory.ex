@@ -1,25 +1,48 @@
-defprotocol FDB.Directory do
-  def layer(directory)
+defmodule FDB.Directory do
+  alias FDB.Directory.Protocol
+  alias FDB.Directory.Layer
+  alias FDB.Transaction
 
-  def path(directory)
+  @type t :: Protocol.t()
+  @type path :: [String.t()]
 
-  def create_or_open(directory, tr, path, options \\ %{})
+  @spec new(map) :: t
+  defdelegate new(options \\ %{}), to: Layer
 
-  def open(directory, tr, path, options \\ %{})
+  @spec layer(t) :: String.t()
+  defdelegate layer(directory), to: Protocol
 
-  def create(directory, tr, path, options \\ %{})
+  @spec path(t) :: path
+  defdelegate path(directory), to: Protocol
 
-  def move_to(directory, tr, new_absolute_path)
+  @spec create_or_open(t, Transaction.t(), path, map) :: t
+  defdelegate create_or_open(directory, tr, path, options \\ %{}), to: Protocol
 
-  def move(directory, tr, old_path, new_path)
+  @spec open(t, Transaction.t(), path, map) :: t
+  defdelegate open(directory, tr, path, options \\ %{}), to: Protocol
 
-  def remove(directory, tr, path \\ [])
+  @spec create(t, Transaction.t(), path, map) :: t
+  defdelegate create(directory, tr, path, options \\ %{}), to: Protocol
 
-  def remove_if_exists(directory, tr, path \\ [])
+  @spec move_to(t, Transaction.t(), path) :: t
+  defdelegate move_to(directory, tr, new_absolute_path), to: Protocol
 
-  def exists?(directory, tr, path \\ [])
+  @spec move(t, Transaction.t(), path, path) :: t
+  defdelegate move(directory, tr, old_path, new_path), to: Protocol
 
-  def list(directory, tr, path \\ [])
+  @spec remove(t, Transaction.t(), path) :: t
+  defdelegate remove(directory, tr, path \\ []), to: Protocol
 
-  def get_layer_for_path(directory, path)
+  @spec remove_if_exists(t, Transaction.t(), path) :: t
+  defdelegate remove_if_exists(directory, tr, path \\ []), to: Protocol
+
+  @spec exists?(t, Transaction.t(), path) :: t
+  defdelegate exists?(directory, tr, path \\ []), to: Protocol
+
+  @spec list(t, Transaction.t(), path) :: t
+  defdelegate list(directory, tr, path \\ []), to: Protocol
+
+  @doc false
+  @spec get_layer_for_path(t, path) :: t
+  defdelegate get_layer_for_path(directory, path), to: Protocol
 end

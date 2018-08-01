@@ -1,4 +1,6 @@
 defmodule FDB.Directory.HighContentionAllocator do
+  @moduledoc false
+
   alias FDB.Coder.{Integer, Identity}
   alias FDB.Transaction
   alias FDB.KeySelectorRange

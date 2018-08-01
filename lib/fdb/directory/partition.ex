@@ -1,4 +1,6 @@
 defmodule FDB.Directory.Partition do
+  @moduledoc false
+
   alias FDB.Directory.Layer
   alias FDB.Coder.{Subspace}
 

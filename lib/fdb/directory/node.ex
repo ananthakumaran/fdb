@@ -1,4 +1,6 @@
 defmodule FDB.Directory.Node do
+  @moduledoc false
+
   alias FDB.Coder.{Tuple, ByteString, Identity, Subspace, UnicodeString, Integer}
   alias FDB.Transaction
 

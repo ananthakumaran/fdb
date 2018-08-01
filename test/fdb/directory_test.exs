@@ -23,7 +23,7 @@ defmodule FDB.DirectoryTest do
       :ok = flushdb()
 
       database = new_database()
-      root = Directory.Layer.new()
+      root = Directory.new()
 
       dirs =
         Task.async_stream(
@@ -93,7 +93,7 @@ defmodule FDB.DirectoryTest do
 
   test "create" do
     database = new_database()
-    root = Directory.Layer.new()
+    root = Directory.new()
 
     Database.transact(database, fn tr ->
       usa = Directory.create(root, tr, ["usa"])
@@ -122,13 +122,13 @@ defmodule FDB.DirectoryTest do
 
   test "manual prefix" do
     database = new_database()
-    root = Directory.Layer.new()
+    root = Directory.new()
 
     Database.transact(database, fn tr ->
       assert_raise(ArgumentError, fn -> Directory.create(root, tr, ["a"], %{prefix: "a"}) end)
     end)
 
-    root = Directory.Layer.new(%{allow_manual_prefixes: true})
+    root = Directory.new(%{allow_manual_prefixes: true})
 
     Database.transact(database, fn tr ->
       Directory.create(root, tr, ["a"], %{prefix: "abcde"})
@@ -139,7 +139,7 @@ defmodule FDB.DirectoryTest do
 
   test "move" do
     database = new_database()
-    root = Directory.Layer.new()
+    root = Directory.new()
 
     Database.transact(database, fn tr ->
       default = Directory.create(root, tr, ["default1"])
@@ -159,7 +159,7 @@ defmodule FDB.DirectoryTest do
 
   test "partition" do
     database = new_database()
-    root = Directory.Layer.new()
+    root = Directory.new()
 
     Database.transact(database, fn tr ->
       usa = Directory.create(root, tr, ["usa"])

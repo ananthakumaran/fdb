@@ -105,7 +105,7 @@ defmodule FDB.Machine do
       prefix: prefix,
       transaction_name: prefix,
       debug: debug,
-      dirs: [Directory.Layer.new()]
+      dirs: [Directory.new()]
     }
   end
 
@@ -690,7 +690,7 @@ defmodule FDB.Machine do
       if !node_subspace || !content_subspace do
         nil
       else
-        Directory.Layer.new(%{
+        Directory.new(%{
           node_subspace: node_subspace,
           content_subspace: content_subspace,
           allow_manual_prefixes: manual == 1

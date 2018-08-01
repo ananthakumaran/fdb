@@ -1,4 +1,6 @@
 defmodule FDB.Directory.Subspace do
+  @moduledoc false
+
   defstruct [:path, :prefix, :directory, :layer]
 
   def new(path, prefix, directory, layer \\ "") do
@@ -11,7 +13,7 @@ defmodule FDB.Directory.Subspace do
   end
 end
 
-defimpl FDB.Directory, for: [FDB.Directory.Subspace, FDB.Directory.Partition] do
+defimpl FDB.Directory.Protocol, for: [FDB.Directory.Subspace, FDB.Directory.Partition] do
   alias FDB.Directory
 
   def path(subspace) do

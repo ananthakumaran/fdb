@@ -1,4 +1,6 @@
 defmodule FDB.Directory.Layer do
+  @moduledoc false
+
   alias FDB.Coder.{
     Subspace,
     Identity,
@@ -421,7 +423,7 @@ defmodule FDB.Directory.Layer do
   end
 end
 
-defimpl FDB.Directory, for: FDB.Directory.Layer do
+defimpl FDB.Directory.Protocol, for: FDB.Directory.Layer do
   alias FDB.Directory
   alias FDB.Directory.Node
   alias FDB.Directory.Layer
