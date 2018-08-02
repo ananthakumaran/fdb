@@ -1,2 +1,3 @@
 '__impl__'/1
 Function move_to/3 only terminates with explicit exception
+Function prefix/1 only terminates with explicit exception
