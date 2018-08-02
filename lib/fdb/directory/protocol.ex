@@ -1,6 +1,8 @@
 defprotocol FDB.Directory.Protocol do
   @moduledoc false
 
+  def prefix(directory)
+
   def layer(directory)
 
   def path(directory)

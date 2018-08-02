@@ -24,6 +24,14 @@ defimpl FDB.Directory.Protocol, for: [FDB.Directory.Subspace, FDB.Directory.Part
     subspace.layer
   end
 
+  def prefix(subspace) do
+    if subspace.layer == "partition" do
+      raise ArgumentError, "The root directory cannot used as a subspace"
+    else
+      subspace.prefix
+    end
+  end
+
   def create_or_open(subspace, tr, name_or_path, options \\ %{}) do
     path = tuplify_path(name_or_path)
     Directory.create_or_open(subspace.directory, tr, partition_subpath(subspace, path), options)

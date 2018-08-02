@@ -24,9 +24,8 @@ defmodule FDB.Directory.Node do
         Subspace.concat(
           subspace,
           Subspace.new(
-            {prefix, "layer"},
-            Tuple.new({}),
-            Tuple.new({ByteString.new(), ByteString.new()})
+            {{prefix, "layer"}, Tuple.new({ByteString.new(), ByteString.new()})},
+            Tuple.new({})
           )
         ),
         Identity.new()
@@ -37,9 +36,8 @@ defmodule FDB.Directory.Node do
         Subspace.concat(
           subspace,
           Subspace.new(
-            {prefix, 0},
-            Tuple.new({UnicodeString.new()}),
-            Tuple.new({ByteString.new(), Integer.new()})
+            {{prefix, 0}, Tuple.new({ByteString.new(), Integer.new()})},
+            Tuple.new({UnicodeString.new()})
           )
         ),
         Identity.new()

@@ -45,10 +45,10 @@ defmodule FDB.DirectoryTest do
       key =
         Subspace.concat(
           Subspace.new(<<0xFE>>),
-          Subspace.new(<<0xFE>>, Identity.new(), ByteString.new())
+          Subspace.new({<<0xFE>>, ByteString.new()}, Identity.new())
         )
         |> Subspace.concat(
-          Subspace.new("hca", Tuple.new({Integer.new(), Integer.new()}), ByteString.new())
+          Subspace.new({"hca", ByteString.new()}, Tuple.new({Integer.new(), Integer.new()}))
         )
 
       count_coder =

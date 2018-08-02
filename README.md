@@ -165,7 +165,7 @@ alias FDB.Coder.{Integer, Tuple, NestedTuple, ByteString, Subspace}
 coder =
   Transaction.Coder.new(
     Subspace.new(
-      "ts",
+      {"ts", ByteString.new()},
       Tuple.new({
         # date
         NestedTuple.new({
@@ -180,8 +180,7 @@ coder =
         ByteString.new(),
         # browser
         ByteString.new()
-      }),
-      ByteString.new()
+      })
     ),
     Integer.new()
   )

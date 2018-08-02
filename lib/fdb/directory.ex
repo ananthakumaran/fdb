@@ -15,6 +15,9 @@ defmodule FDB.Directory do
   @spec path(t) :: path
   defdelegate path(directory), to: Protocol
 
+  @spec prefix(t) :: binary
+  defdelegate prefix(directory), to: Protocol
+
   @spec create_or_open(t, Transaction.t(), path, map) :: t
   defdelegate create_or_open(directory, tr, path, options \\ %{}), to: Protocol
 

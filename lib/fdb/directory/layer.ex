@@ -48,8 +48,7 @@ defmodule FDB.Directory.Layer do
           node_subspace,
           Subspace.new(
             "",
-            Tuple.new({ByteString.new(), Integer.new(), UnicodeString.new()}),
-            Identity.new()
+            Tuple.new({ByteString.new(), Integer.new(), UnicodeString.new()})
           )
         ),
         Identity.new()
@@ -61,8 +60,7 @@ defmodule FDB.Directory.Layer do
           node_subspace,
           Subspace.new(
             "",
-            Tuple.new({ByteString.new(), Identity.new()}),
-            Identity.new()
+            Tuple.new({ByteString.new(), Identity.new()})
           )
         ),
         Identity.new()
@@ -80,10 +78,10 @@ defmodule FDB.Directory.Layer do
       Transaction.Coder.new(
         Subspace.concat(
           node_subspace,
-          Subspace.new(root_node.prefix, Identity.new(), ByteString.new())
+          Subspace.new({root_node.prefix, ByteString.new()}, Identity.new())
         )
         |> Subspace.concat(
-          Subspace.new("hca", Tuple.new({Integer.new(), Integer.new()}), ByteString.new())
+          Subspace.new({"hca", ByteString.new()}, Tuple.new({Integer.new(), Integer.new()}))
         ),
         LittleEndianInteger.new(64)
       )
@@ -105,7 +103,6 @@ defmodule FDB.Directory.Layer do
           content_subspace,
           Subspace.new(
             "",
-            Identity.new(),
             Identity.new()
           )
         ),
@@ -434,6 +431,10 @@ defimpl FDB.Directory.Protocol, for: FDB.Directory.Layer do
 
   def path(directory) do
     directory.path
+  end
+
+  def prefix(_directory) do
+    raise ArgumentError, "The root directory cannot used as a subspace"
   end
 
   def create_or_open(directory, tr, path, options \\ %{}) do
