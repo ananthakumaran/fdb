@@ -9,7 +9,6 @@ defmodule FDB.Coder.Subspace do
     defstruct [:prefix, :coder]
   end
 
-
   @doc """
   Creates a new subspace.
   The prefix can be provided in three ways
@@ -18,7 +17,7 @@ defmodule FDB.Coder.Subspace do
   * {prefix_value, prefix_coder} - a value and a coder to encode the value
   * a directory
   """
-  @spec new(binary | {any, FDB.Coder.t()} | Directory.t, FDB.Coder.t()) :: FDB.Coder.t()
+  @spec new(binary | {any, FDB.Coder.t()} | Directory.t(), FDB.Coder.t()) :: FDB.Coder.t()
   def new(prefix, coder \\ FDB.Coder.Identity.new())
 
   def new({prefix_value, prefix_coder}, coder) do

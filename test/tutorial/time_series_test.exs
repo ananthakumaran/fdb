@@ -16,10 +16,11 @@ defmodule FDB.Tutorial.TimeSeriesTest do
       Cluster.create()
       |> Database.create()
 
-    ts_dir = Database.transact(db, fn tr ->
-      root = Directory.new()
-      Directory.create(root, tr, ["ts"])
-    end)
+    ts_dir =
+      Database.transact(db, fn tr ->
+        root = Directory.new()
+        Directory.create(root, tr, ["ts"])
+      end)
 
     coder =
       Transaction.Coder.new(
