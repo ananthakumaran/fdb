@@ -40,7 +40,7 @@ defmodule FDB.DirectoryTest do
         )
         |> Enum.map(fn {:ok, dir} -> dir end)
 
-      assert length(dirs) == length(Enum.uniq(dirs))
+      assert_uniqueness(dirs)
 
       key =
         Subspace.concat(
@@ -89,6 +89,36 @@ defmodule FDB.DirectoryTest do
         assert allocated <= report_size
       end)
     end
+  end
+
+  test "same transaction" do
+    database = new_database()
+    root = Directory.new()
+
+    dirs =
+      Task.async_stream(
+        1..50,
+        fn _ ->
+          Database.transact(database, fn t ->
+            Task.async_stream(
+              1..5,
+              fn _ ->
+                HighContentionAllocator.allocate(
+                  root,
+                  t
+                )
+              end,
+              max_concurrency: 5
+            )
+            |> Enum.map(fn {:ok, dir} -> dir end)
+          end)
+        end,
+        max_concurrency: 5
+      )
+      |> Enum.map(fn {:ok, dirs} -> dirs end)
+      |> Enum.concat()
+
+    assert_uniqueness(dirs)
   end
 
   test "create" do
@@ -198,5 +228,14 @@ defmodule FDB.DirectoryTest do
       |> Enum.to_list()
       |> IO.inspect()
     end)
+  end
+
+  def assert_uniqueness(dirs) do
+    assert length(dirs) == length(Enum.uniq(dirs))
+
+    for x <- dirs, y <- dirs, x != y do
+      size = Enum.min([byte_size(x), byte_size(y)])
+      assert :binary.longest_common_prefix([x, y]) < size, "invalid #{inspect(x)} #{inspect(y)}"
+    end
   end
 end

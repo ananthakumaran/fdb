@@ -42,20 +42,25 @@ defmodule FDB.Directory.HighContentionAllocator do
 
   defp range(t, start, window_advanced) do
     if window_advanced do
-      :ok =
-        Transaction.clear_range(
-          t,
-          KeyRange.range({@counter}, {@counter, start}, %{begin_key_prefix: :first})
-        )
+      lock(t, fn ->
+        :ok =
+          Transaction.clear_range(
+            t,
+            KeyRange.range({@counter}, {@counter, start}, %{begin_key_prefix: :first})
+          )
 
-      :ok =
-        Transaction.set_option(t, Option.transaction_option_next_write_no_write_conflict_range())
+        :ok =
+          Transaction.set_option(
+            t,
+            Option.transaction_option_next_write_no_write_conflict_range()
+          )
 
-      :ok =
-        Transaction.clear_range(
-          t,
-          KeyRange.range({@recent}, {@recent, start}, %{begin_key_prefix: :first})
-        )
+        :ok =
+          Transaction.clear_range(
+            t,
+            KeyRange.range({@recent}, {@recent, start}, %{begin_key_prefix: :first})
+          )
+      end)
     end
 
     :ok = Transaction.atomic_op(t, {@counter, start}, Option.mutation_type_add(), 1)
@@ -84,37 +89,59 @@ defmodule FDB.Directory.HighContentionAllocator do
   end
 
   defp search_candidate(t, search_range) do
-    latest_start =
-      Transaction.get_range(t, KeySelectorRange.starts_with({@counter}), %{
-        limit: 1,
-        reverse: true,
-        snapshot: true
-      })
-      |> Enum.map(fn {{@counter, start}, _} -> start end)
-      |> List.first()
+    result =
+      lock(t, fn ->
+        latest_start =
+          Transaction.get_range(t, KeySelectorRange.starts_with({@counter}), %{
+            limit: 1,
+            reverse: true,
+            snapshot: true
+          })
+          |> Enum.map(fn {{@counter, start}, _} -> start end)
+          |> List.first()
 
-    unless latest_start && latest_start > search_range.first do
-      t1 =
-        Transaction.set_defaults(
-          t,
-          %{
-            coder:
-              Transaction.Coder.new(
-                t.coder.key,
-                Identity.new()
-              )
-          }
-        )
+        if !(latest_start && latest_start > search_range.first) do
+          t1 =
+            Transaction.set_defaults(
+              t,
+              %{
+                coder:
+                  Transaction.Coder.new(
+                    t.coder.key,
+                    Identity.new()
+                  )
+              }
+            )
 
-      candidate = Enum.random(search_range)
-      candidate_value = Transaction.get(t1, {@recent, candidate})
+          candidate = Enum.random(search_range)
+          candidate_value = Transaction.get(t1, {@recent, candidate})
 
-      :ok =
-        Transaction.set_option(t1, Option.transaction_option_next_write_no_write_conflict_range())
+          :ok =
+            Transaction.set_option(
+              t1,
+              Option.transaction_option_next_write_no_write_conflict_range()
+            )
 
-      :ok = Transaction.set(t1, {@recent, candidate}, "")
+          :ok = Transaction.set(t1, {@recent, candidate}, "")
 
-      if is_nil(candidate_value) do
+          if is_nil(candidate_value) do
+            {:ok, candidate}
+          else
+            :retry
+          end
+        else
+          :abort
+        end
+      end)
+
+    case result do
+      :abort ->
+        nil
+
+      :retry ->
+        search_candidate(t, search_range)
+
+      {:ok, candidate} ->
         :ok =
           Transaction.add_conflict_key(
             t,
@@ -123,9 +150,10 @@ defmodule FDB.Directory.HighContentionAllocator do
           )
 
         candidate
-      else
-        search_candidate(t, search_range)
-      end
     end
+  end
+
+  defp lock(t, callback) do
+    :global.trans({t.resource, self()}, callback, [Node.self()])
   end
 end
