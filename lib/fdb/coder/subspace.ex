@@ -29,6 +29,10 @@ defmodule FDB.Coder.Subspace do
     create(prefix, coder)
   end
 
+  def new(%FDB.Coder{module: __MODULE__} = subspace, coder) do
+    create(subspace.opts.prefix, coder)
+  end
+
   def new(directory, coder) do
     create(Directory.prefix(directory), coder)
   end

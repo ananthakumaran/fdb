@@ -704,18 +704,12 @@ defmodule FDB.Machine do
     {tuple, stack} = pop_tuples(s.stack, false)
     {:byte_string, packed} = tuple_pack(tuple)
 
-    result =
-      with_prefix(dir(s), fn prefix ->
-        Subspace.new(prefix <> packed)
-      end)
-
-    case result do
-      {:byte_string, error} ->
-        %{s | stack: push(stack, {:byte_string, error}, id), dirs: s.dirs ++ [nil]}
-
-      d ->
-        %{s | stack: stack, dirs: s.dirs ++ [d]}
-    end
+    rescue_new_dir_error(s, stack, id, fn ->
+      Subspace.concat(
+        Subspace.new(dir(s)),
+        Subspace.new(packed)
+      )
+    end)
   end
 
   def do_execute(_id, {"DIRECTORY_CHANGE"}, s) do
