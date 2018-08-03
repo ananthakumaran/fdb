@@ -32,10 +32,6 @@ before_install:
 matrix:
   include:
     - language: elixir
-      otp_release: 19.3
-      elixir: 1.5
-      os: linux
-    - language: elixir
       otp_release: 20.3
       elixir: 1.5
       os: linux
@@ -52,6 +48,10 @@ matrix:
     - language: elixir
       otp_release: 21.0
       elixir: 1.6
+      os: linux
+    - language: elixir
+      otp_release: 21.0
+      elixir: 1.7
       os: linux
     - os: osx
 
