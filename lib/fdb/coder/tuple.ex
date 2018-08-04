@@ -27,24 +27,18 @@ defmodule FDB.Coder.Tuple do
   end
 
   @impl true
-  def range(nil, _), do: {<<>>, :partial}
+  def range(nil, _), do: {<<>>, <<>>}
 
   def range(values, coders) do
     values = Tuple.to_list(values)
-    {encoded, s} = do_range(Enum.take(coders, length(values)), values)
-
-    if length(values) == length(coders) do
-      {encoded, s}
-    else
-      {encoded, :partial}
-    end
+    do_range(Enum.take(coders, length(values)), values)
   end
 
   defp do_range(coders, values) do
     Enum.zip(coders, values)
-    |> Enum.reduce({<<>>, :partial}, fn {coder, value}, {encoded, _state} ->
+    |> Enum.reduce({<<>>, <<>>}, fn {coder, value}, {encoded, suffix} ->
       {e, s} = coder.module.range(value, coder.opts)
-      {encoded <> e, s}
+      {encoded <> suffix <> e, s}
     end)
   end
 

@@ -2,6 +2,7 @@ defmodule FDB.Tutorial.TimeSeriesTest do
   use ExUnit.Case, async: false
   alias FDB.{Transaction, Database, Cluster, KeySelector, KeySelectorRange}
   alias FDB.Coder.{Integer, Tuple, NestedTuple, ByteString, Subspace}
+  alias FDB.Directory
   use Timex
   import TestUtils
   use FDB.Future.Operators
@@ -11,10 +12,20 @@ defmodule FDB.Tutorial.TimeSeriesTest do
   end
 
   test "timeseries" do
+    db =
+      Cluster.create()
+      |> Database.create()
+
+    ts_dir =
+      Database.transact(db, fn tr ->
+        root = Directory.new()
+        Directory.create(root, tr, ["ts"])
+      end)
+
     coder =
       Transaction.Coder.new(
         Subspace.new(
-          "ts",
+          ts_dir,
           Tuple.new({
             # date
             NestedTuple.new({
@@ -27,16 +38,12 @@ defmodule FDB.Tutorial.TimeSeriesTest do
             ByteString.new(),
             # browser
             ByteString.new()
-          }),
-          ByteString.new()
+          })
         ),
         Integer.new()
       )
 
-    db =
-      Cluster.create()
-      |> Database.create(coder)
-
+    db = Database.set_defaults(db, %{coder: coder})
     populate(db)
 
     Database.transact(db, fn t ->

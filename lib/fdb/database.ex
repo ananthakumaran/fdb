@@ -19,36 +19,40 @@ defmodule FDB.Database do
   Creates a new database.
   """
   @spec create(Cluster.t()) :: t
-  @spec create(Cluster.t(), Transaction.Coder.t()) :: t
-  def create(%Cluster{} = cluster, coder \\ Transaction.Coder.new()) do
-    create_q(cluster, coder)
+  @spec create(Cluster.t(), map) :: t
+  def create(%Cluster{} = cluster, defaults \\ %{}) when is_map(defaults) do
+    create_q(cluster, defaults)
     |> Future.await()
   end
 
   @doc """
   Async version of `create/2`
   """
-  @spec create_q(Cluster.t(), Transaction.Coder.t()) :: Future.t()
-  def create_q(%Cluster{} = cluster, coder \\ Transaction.Coder.new()) do
+  @spec create_q(Cluster.t(), map) :: Future.t()
+  def create_q(%Cluster{} = cluster, defaults \\ %{}) do
     Native.cluster_create_database(cluster.resource)
     |> Future.create()
-    |> Future.map(&%__MODULE__{resource: &1, coder: coder})
+    |> Future.map(fn resource ->
+      struct!(__MODULE__, %{coder: Transaction.Coder.new()})
+      |> struct!(defaults)
+      |> struct!(%{resource: resource})
+    end)
   end
 
   @doc """
-  Changes the `t:FDB.Transaction.Coder.t/0` associated with the database.
+  Changes the defaults options associated with the database.
 
   This doesn't create a new database resource, the same database
   resource is shared. This is the recommended way if one needs to use
   multiple coders.
 
       db = FDB.Database.create(cluster)
-      user_db = FDB.Database.set_coder(db, user_coder)
-      comments_db = FDB.Database.set_coder(db, comment_coder)
+      user_db = FDB.Database.set_defaults(db, %{coder: user_coder})
+      comments_db = FDB.Database.set_defaults(db, %{coder: comment_coder})
   """
-  @spec set_coder(t, Transaction.Coder.t()) :: t
-  def set_coder(%__MODULE__{} = db, coder) do
-    %{db | coder: coder}
+  @spec set_defaults(t, map) :: t
+  def set_defaults(%__MODULE__{} = db, defaults) when is_map(defaults) do
+    struct!(db, defaults)
   end
 
   @doc """

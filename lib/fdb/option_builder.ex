@@ -2,7 +2,7 @@ defmodule FDB.OptionBuilder do
   @moduledoc false
 
   @app Mix.Project.config()[:app]
-  @path :filename.join(:code.priv_dir(@app), 'fdb.options')
+  @path to_string(:filename.join(:code.priv_dir(@app), 'fdb.options'))
   @external_resource @path
 
   def scopes() do

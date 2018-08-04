@@ -1,5 +1,5 @@
 :ok = FDB.start()
-ExUnit.start(exclude: [:integration])
+ExUnit.start(exclude: [:integration], capture_log: true)
 
 System.at_exit(fn _exit_code ->
   :ok = FDB.Network.stop()
@@ -86,7 +86,7 @@ defmodule TestUtils do
               true -> :ok
             end
           rescue
-            e in [FDB.Error, ArgumentError, FunctionClauseError] ->
+            e in [FDB.Error, ArgumentError, FunctionClauseError, KeyError] ->
               :ok
 
             e in [ErlangError] ->

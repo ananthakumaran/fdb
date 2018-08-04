@@ -62,4 +62,21 @@ defmodule FDB.Utils do
 
     map
   end
+
+  def strinc(text) do
+    text = String.replace(text, ~r/#{<<0xFF>>}*\z/, "")
+
+    case text do
+      "" ->
+        <<0x00>>
+
+      _ ->
+        {prefix, <<last::integer>>} = binary_cut(text, byte_size(text) - 1)
+        prefix <> <<last + 1::integer>>
+    end
+  end
+
+  def starts_with?(binary, prefix) do
+    :binary.longest_common_prefix([binary, prefix]) == byte_size(prefix)
+  end
 end
