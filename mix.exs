@@ -30,7 +30,7 @@ defmodule FDB.MixProject do
 
   defp deps do
     [
-      {:sweet_xml, "~> 0.6"},
+      {:sweet_xml, "~> 0.6", runtime: false},
       {:stream_data, "~> 0.4", only: :test},
       {:timex, "~> 3.3.0", only: :test},
       {:ex_doc, "~> 0.18", only: :dev},
