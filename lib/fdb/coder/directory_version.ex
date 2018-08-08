@@ -1,4 +1,5 @@
 defmodule FDB.Coder.DirectoryVersion do
+  @moduledoc false
   use FDB.Coder.Behaviour
 
   @spec new() :: FDB.Coder.t()
