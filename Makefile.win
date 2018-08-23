@@ -1,0 +1,33 @@
+!IF [where /Q Makefile.auto.win]
+# The file doesn't exist, so don't include it.
+!ELSE
+!INCLUDE Makefile.auto.win
+!IF [del /Q /F Makefile.auto.win] == 0
+!ENDIF
+!ENDIF
+
+FDB_PATH = c_src
+NMAKE = nmake /$(MAKEFLAGS)
+CFLAGS = /O2 /EHsc /I"$(FDB_PATH)"
+
+LINKFLAGS = /I"c:/Program Files/foundationdb/include" "c:/Program Files/foundationdb/lib/foundationdb/fdb_c.lib"
+
+all: clean priv\fdb_nif.dll
+
+clean:
+	del /Q /F priv\fdb_nif.*
+
+Makefile.auto.win:
+	erl -eval "io:format(\"~s~n\", [lists:concat([\"ERTS_INCLUDE_PATH=\", code:root_dir(), \"/erts-\", erlang:system_info(version), \"/include\"])])" -s init stop -noshell > $@
+
+!IFDEF ERTS_INCLUDE_PATH
+priv\fdb_nif.dll:
+	if NOT EXIST "priv" mkdir "priv"
+	$(CC) $(CFLAGS) /I"$(ERTS_INCLUDE_PATH)" /LD /MD /Fe$@ c_src\fdb_nif.c $(LINKFLAGS)
+!ELSE
+priv\fdb_nif.dll: Makefile.auto.win
+	$(NMAKE) /F Makefile.win priv\fdb_nif.dll
+!ENDIF
+
+update-options:
+	curl https://github.com/apple/foundationdb/blob/release-5.2/fdbclient/vexillographer/fdb.options > priv/fdb.options

@@ -37,3 +37,5 @@ valgrind
 result.log
 result.ndjson
 test.sh
+.elixir_ls
+fdb_nif.obj

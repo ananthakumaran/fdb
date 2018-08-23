@@ -6,7 +6,7 @@ defmodule FDB.MixProject do
   def project do
     [
       app: :fdb,
-      compilers: [:nif] ++ Mix.compilers(),
+      compilers: [:elixir_make] ++ Mix.compilers(),
       version: @version,
       elixir: "~> 1.3",
       start_permanent: Mix.env() == :prod,
@@ -30,6 +30,7 @@ defmodule FDB.MixProject do
 
   defp deps do
     [
+      {:elixir_make, "~> 0.4", runtime: false},
       {:sweet_xml, "~> 0.6", runtime: false},
       {:stream_data, "~> 0.4", only: :test},
       {:timex, "~> 3.3.0", only: :test},
@@ -57,25 +58,5 @@ defmodule FDB.MixProject do
       main: FDB,
       extras: ["README.md"]
     ]
-  end
-end
-
-defmodule Mix.Tasks.Compile.Nif do
-  def run(_args) do
-    File.mkdir("priv")
-
-    {result, error_code} = System.cmd("make", [], stderr_to_stdout: true)
-    IO.binwrite(result)
-
-    if error_code != 0 do
-      raise Mix.Error,
-        message: """
-        Could not run `make`.
-        Please check if `make` and either `clang` or `gcc` are installed
-        """
-    end
-
-    Mix.Project.build_structure()
-    :ok
   end
 end
