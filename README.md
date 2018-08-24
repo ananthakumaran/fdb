@@ -100,6 +100,16 @@ then you must have client binary `>= 5.1`. If you use `~>` in the
 version requirement, make sure the version includes the patch
 number. Only patch versions are guaranteed to be protocol compatible.
 
+## Additional Steps on Windows
+
+To compile the library in Windows you must have the Visual C++ Tools installed or VS 2017, if you don't use it probably you'll get a message telling you the `nmake` isn't installed
+
+- With Visual C++ Tools: Search for the file `vcvarsall.bat`, the Tools version 2017 are commonly located at `C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional\VC\Auxiliary\Build` and run in a cmd the command `vcvarsall amd64`
+
+- With Visual Studio 2017 intalled: Go and type `Developer Command` in the search box and you will get the cmd programm as a result
+
+Then move to your folder directory and run `mix compile`
+
 ## Getting Started
 
 Before doing anything with the library, the API version has to be set
