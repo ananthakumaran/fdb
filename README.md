@@ -108,7 +108,7 @@ To compile the library in Windows you must have the Visual C++ Tools installed o
 
 - With Visual Studio 2017 intalled: Go and type `Developer Command` in the search box and you will get the cmd programm as a result
 
-Then move to your folder directory and run `mix compile`
+Then move to your project directory and run `mix compile`
 
 ## Getting Started
 
