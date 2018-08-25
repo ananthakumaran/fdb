@@ -17,4 +17,6 @@ build_script:
   - mix local.rebar --force
   - mix deps.get
   - mix compile --force --warnings-as-errors
+
+test_script:
   - mix test --trace --include integration
