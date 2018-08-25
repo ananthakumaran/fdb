@@ -214,12 +214,26 @@ defmodule FDB.DirectoryTest do
     end)
   end
 
-  def debug() do
+  test "partition deletion" do
+    database = new_database()
+    root = Directory.new(%{content_subspace: Subspace.new("content")})
+
+    Database.transact(database, fn tr ->
+      d1 = Directory.create_or_open(root, tr, ["1"], %{layer: "partition"})
+      d2 = Directory.create(d1, tr, ["2"], %{layer: "partition"})
+      Directory.create(d2, tr, ["3"])
+      assert Directory.remove_if_exists(d2, tr)
+      assert Directory.list(d2, tr) == []
+      assert Directory.list(d1, tr) == []
+    end)
+  end
+
+  def debug(prefix \\ <<254>>) do
     database = new_database()
 
     prefix_coder =
       Transaction.Coder.new(
-        Subspace.new(<<254>>, Dynamic.new()),
+        Subspace.new(prefix, Dynamic.new()),
         Identity.new()
       )
 

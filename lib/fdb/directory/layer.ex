@@ -31,7 +31,6 @@ defmodule FDB.Directory.Layer do
     :version_coder,
     :prefix_coder,
     :hca_coder,
-    :content_coder,
     :path,
     :layer
   ]
@@ -97,18 +96,6 @@ defmodule FDB.Directory.Layer do
 
     content_subspace = Map.get(options, :content_subspace, Subspace.new(<<>>))
 
-    content_coder =
-      Transaction.Coder.new(
-        Subspace.concat(
-          content_subspace,
-          Subspace.new(
-            "",
-            Identity.new()
-          )
-        ),
-        Identity.new()
-      )
-
     %__MODULE__{
       node_subspace: node_subspace,
       content_subspace: content_subspace,
@@ -118,7 +105,6 @@ defmodule FDB.Directory.Layer do
       version_coder: version_coder,
       prefix_coder: prefix_coder,
       hca_coder: hca_coder,
-      content_coder: content_coder,
       node: root_node,
       path: [],
       layer: ""
@@ -348,10 +334,7 @@ defmodule FDB.Directory.Layer do
         coder: directory.node_name_coder
       })
 
-    :ok =
-      Transaction.clear_range(tr, KeyRange.starts_with(node.prefix), %{
-        coder: directory.content_coder
-      })
+    :ok = Transaction.clear_range(tr, KeyRange.starts_with(node.prefix))
   end
 
   def prefix_free?(directory, tr, prefix) do
