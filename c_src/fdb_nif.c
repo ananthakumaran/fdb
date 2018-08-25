@@ -786,7 +786,7 @@ transaction_get_range(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   int limit;
   int target_bytes;
 
-  FDBStreamingMode mode;
+  int mode;
   int iteration;
   fdb_bool_t snapshot;
   fdb_bool_t reverse;
@@ -816,7 +816,7 @@ transaction_get_range(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   fdb_future = fdb_transaction_get_range(
       transaction->handle, begin_key.data, begin_key.size, begin_or_equal,
       begin_offset, end_key.data, end_key.size, end_or_equal, end_offset, limit,
-      target_bytes, mode, iteration, snapshot, reverse);
+      target_bytes, (FDBStreamingMode)mode, iteration, snapshot, reverse);
 
   reference = reference_resource_create(transaction, NULL);
   return fdb_future_to_future(env, fdb_future, KEYVALUE_ARRAY, reference, NULL);

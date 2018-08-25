@@ -6,6 +6,7 @@ defmodule FDB.MixProject do
   def project do
     [
       app: :fdb,
+      make_clean: ["clean"],
       compilers: [:elixir_make] ++ Mix.compilers(),
       version: @version,
       elixir: "~> 1.3",
@@ -47,7 +48,16 @@ defmodule FDB.MixProject do
       licenses: ["MIT"],
       links: %{"Github" => "https://github.com/ananthakumaran/fdb"},
       maintainers: ["ananthakumaran@gmail.com"],
-      files: ["lib", "priv/fdb.options", "mix.exs", "README*", "LICENSE*", "Makefile", "c_src"]
+      files: [
+        "lib",
+        "priv/fdb.options",
+        "mix.exs",
+        "README*",
+        "LICENSE*",
+        "Makefile",
+        "Makefile.win",
+        "c_src"
+      ]
     }
   end
 

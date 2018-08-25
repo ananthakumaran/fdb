@@ -103,11 +103,11 @@ number. Only patch versions are guaranteed to be protocol compatible.
 
 ## Additional Steps on Windows
 
-To compile the library in Windows you must have the Visual C++ Tools installed or VS 2017, if you don't use it probably you'll get a message telling you the `nmake` isn't installed
+To compile the library in Windows you must have the Visual C++ Tools installed or VS 2017, if you don't use it probably you'll get a message telling you that `nmake` isn't installed.
 
-- With Visual C++ Tools: Search for the file `vcvarsall.bat`, the Tools version 2017 are commonly located at `C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional\VC\Auxiliary\Build` and run in a cmd the command `vcvarsall amd64`
+- With Visual C++ Tools: search for the file `vcvarsall.bat`, the Tools version 2017 are commonly located at `C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional\VC\Auxiliary\Build` and run the command `vcvarsall amd64`.
 
-- With Visual Studio 2017 intalled: Go and type `Developer Command` in the search box and you will get the cmd programm as a result
+- With Visual Studio 2017 intalled: type `Developer Command` in the search box and you will get the cmd programm as a result.
 
 Then move to your project directory and run `mix compile`
 

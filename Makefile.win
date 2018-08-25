@@ -12,7 +12,7 @@ CFLAGS = /O2 /EHsc /I"$(FDB_PATH)"
 
 LINKFLAGS = /I"c:/Program Files/foundationdb/include" "c:/Program Files/foundationdb/lib/foundationdb/fdb_c.lib"
 
-all: clean priv\fdb_nif.dll
+all: priv\fdb_nif.dll
 
 clean:
 	del /Q /F priv\fdb_nif.*
@@ -28,6 +28,3 @@ priv\fdb_nif.dll:
 priv\fdb_nif.dll: Makefile.auto.win
 	$(NMAKE) /F Makefile.win priv\fdb_nif.dll
 !ENDIF
-
-update-options:
-	curl https://github.com/apple/foundationdb/blob/release-5.2/fdbclient/vexillographer/fdb.options > priv/fdb.options
