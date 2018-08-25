@@ -97,9 +97,8 @@ ignored. For example, if you want to use
 {:fdb, "5.1.7-0"}
 ```
 
-then you must have client binary `>= 5.1`. If you use `~>` in the
-version requirement, make sure the version includes the patch
-number. Only patch versions are guaranteed to be protocol compatible.
+then you must have client binary `>= 5.1`. Only patch versions are
+guaranteed to be protocol compatible.
 
 ## Additional Steps on Windows
 
@@ -107,7 +106,7 @@ To compile the library in Windows you must have the Visual C++ Tools installed o
 
 - With Visual C++ Tools: search for the file `vcvarsall.bat`, the Tools version 2017 are commonly located at `C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional\VC\Auxiliary\Build` and run the command `vcvarsall amd64`.
 
-- With Visual Studio 2017 intalled: type `Developer Command` in the search box and you will get the cmd programm as a result.
+- With Visual Studio 2017 intalled: type `Developer Command` in the search box and you will get the cmd program as a result.
 
 Then move to your project directory and run `mix compile`
 
