@@ -41,7 +41,7 @@ defmodule FDBTest do
   test "timeout" do
     t = new_transaction()
     assert Transaction.set_option(t, transaction_option_timeout(), 1) == :ok
-    :timer.sleep(1)
+    :timer.sleep(2)
     key = random_key()
     assert_raise FDB.Error, ~r/timed out/, fn -> Transaction.get(t, key) end
     assert_raise FDB.Error, ~r/timed out/, fn -> Transaction.commit(t) end
