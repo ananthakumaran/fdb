@@ -217,7 +217,7 @@ if not set explicitly. Under the hood all the functions use the coder
 transparently to encode and decode the values. Refer
 `FDB.Database.set_defaults/2` if you want to use multiple coders.
 
-See the [documenation](https://hexdocs.pm/fdb) for more
+See the [documentation](https://hexdocs.pm/fdb) for more
 information.
 
 ## Benchmark
