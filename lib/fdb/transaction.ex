@@ -326,6 +326,7 @@ defmodule FDB.Transaction do
   def get_versionstamp_q(%Transaction{} = transaction) do
     Native.transaction_get_versionstamp(transaction.resource)
     |> Future.create()
+    |> Future.map(&FDB.Versionstamp.new(&1, 0))
   end
 
   @doc """
@@ -462,6 +463,32 @@ defmodule FDB.Transaction do
   def set_read_version(%Transaction{} = transaction, version) when is_integer(version) do
     Native.transaction_set_read_version(transaction.resource, version)
     |> Utils.verify_ok()
+  end
+
+  @spec set_versionstamped_key(t, any, any, map) :: :ok
+  def set_versionstamped_key(%Transaction{} = transaction, key, value, options \\ %{}) do
+    coder = Map.get(options, :coder, transaction.coder)
+
+    case Coder.encode_key_versionstamped(coder, key) do
+      {:ok, encoded} ->
+        operation_type = FDB.Option.mutation_type_set_versionstamped_key()
+        param = Coder.encode_value(coder, value)
+        Option.verify_mutation_type(operation_type, param)
+
+        Native.transaction_atomic_op(
+          transaction.resource,
+          encoded,
+          param,
+          operation_type
+        )
+        |> Utils.verify_ok()
+
+      {:error, 0} ->
+        raise ArgumentError, "No incomplete versionstamp found in the key"
+
+      {:error, n} when n > 1 ->
+        raise ArgumentError, "More than 1 incomplete versionstamps found in the key"
+    end
   end
 
   @doc """

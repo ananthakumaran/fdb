@@ -11,7 +11,8 @@ defmodule FDB.Coder.Dynamic do
       arbitrary_integer: FDB.Coder.ArbitraryInteger.new(),
       uuid: FDB.Coder.UUID.new(),
       float32: FDB.Coder.Float.new(),
-      float64: FDB.Coder.Float.new(64)
+      float64: FDB.Coder.Float.new(64),
+      versionstamp: FDB.Coder.Versionstamp.new()
     }
 
     %FDB.Coder{module: __MODULE__, opts: coders}
@@ -29,7 +30,8 @@ defmodule FDB.Coder.Dynamic do
              :arbitrary_integer,
              :uuid,
              :float32,
-             :float64
+             :float64,
+             :versionstamp
            ] do
     coder = coders[tag]
     coder.module.encode(value, coder.opts)
@@ -82,6 +84,9 @@ defmodule FDB.Coder.Dynamic do
 
   defp do_decode(<<0x30>> <> _rest = full, coders, acc),
     do: apply_coder(:uuid, full, coders, acc)
+
+  defp do_decode(<<0x33>> <> _rest = full, coders, acc),
+    do: apply_coder(:versionstamp, full, coders, acc)
 
   defp do_decode(<<0x05>> <> rest, coders, acc) do
     {value, rest} = do_decode_nested_tuple(rest, coders, {})

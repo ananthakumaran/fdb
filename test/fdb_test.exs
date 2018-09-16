@@ -9,6 +9,8 @@ defmodule FDBTest do
   alias FDB.Transaction
   alias FDB.Future
   alias FDB.Database
+  alias FDB.Versionstamp
+  alias FDB.Coder
 
   setup do
     flushdb()
@@ -383,7 +385,8 @@ defmodule FDBTest do
       end)
 
     stamp = Future.await(future)
-    assert byte_size(stamp) == 10
+    assert byte_size(Versionstamp.transaction_version(stamp)) == 10
+    assert Versionstamp.user_version(stamp) == 0
 
     future =
       Database.transact(db, fn t ->
@@ -392,6 +395,55 @@ defmodule FDBTest do
       end)
 
     assert_raise FDB.Error, ~r/read-only/, fn -> Future.await(future) end
+  end
+
+  test "versionstamped key" do
+    coder =
+      FDB.Transaction.Coder.new(
+        Coder.Tuple.new({Coder.ByteString.new(), Coder.Versionstamp.new()})
+      )
+
+    db =
+      new_database()
+      |> Database.set_defaults(%{coder: coder})
+
+    future =
+      Database.transact(db, fn t ->
+        assert Transaction.set_versionstamped_key(
+                 t,
+                 {"stamped", FDB.Versionstamp.incomplete()},
+                 random_value()
+               ) == :ok
+
+        Transaction.get_versionstamp_q(t)
+      end)
+
+    stamp = Future.await(future)
+    assert Versionstamp.user_version(stamp) == 0
+
+    [{{"stamped", key_stamp}, _}] =
+      Database.get_range(db, KeySelectorRange.starts_with({"stamped"}))
+      |> Enum.to_list()
+
+    assert stamp == key_stamp
+
+    Database.transact(db, fn t ->
+      assert_raise(ArgumentError, ~r/no/i, fn ->
+        Transaction.set_versionstamped_key(
+          t,
+          {"stamped", nil},
+          random_value()
+        )
+      end)
+
+      assert_raise(ArgumentError, ~r/more/i, fn ->
+        Transaction.set_versionstamped_key(
+          t,
+          {FDB.Versionstamp.incomplete(), FDB.Versionstamp.incomplete()},
+          random_value()
+        )
+      end)
+    end)
   end
 
   test "watch" do

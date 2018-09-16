@@ -100,7 +100,9 @@ defmodule FDB.CoderTest do
         {constant(Coder.UUID.new()), many(binary(length: 16))},
         {constant(Coder.Float.new(32)), many(float32())},
         {constant(Coder.Float.new(64)), many(float())},
-        {constant(Coder.Integer.new()), many(integer(-0xFFFFFFFFFFFFFFFF..0xFFFFFFFFFFFFFFFF))}
+        {constant(Coder.Integer.new()), many(integer(-0xFFFFFFFFFFFFFFFF..0xFFFFFFFFFFFFFFFF))},
+        {constant(Coder.Versionstamp.new()),
+         many(map(binary(length: 12), &FDB.Versionstamp.new(&1)))}
       ])
 
     tree(leaves, fn leaf ->

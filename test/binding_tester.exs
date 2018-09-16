@@ -223,6 +223,27 @@ defmodule FDB.Machine do
     %{s | stack: push(stack, tuple_pack(items), id)}
   end
 
+  def do_execute(id, {"TUPLE_PACK_WITH_VERSIONSTAMP"}, s) do
+    {{:byte_string, prefix}, {_, i}, stack} = pop(s.stack, 2)
+    {items, stack} = split(stack, i)
+    coder = Transaction.Coder.new(Subspace.new(prefix, Dynamic.new()))
+
+    stack =
+      case Transaction.Coder.encode_key_versionstamped(coder, List.to_tuple(items)) do
+        {:error, 0} ->
+          push(stack, {:byte_string, "ERROR: NONE"}, id)
+
+        {:error, n} when n > 1 ->
+          push(stack, {:byte_string, "ERROR: MULTIPLE"}, id)
+
+        {:ok, encoded} ->
+          push(stack, {:byte_string, "OK"}, id)
+          |> push({:byte_string, encoded}, id)
+      end
+
+    %{s | stack: stack}
+  end
+
   def do_execute(id, {"TUPLE_UNPACK"}, s) do
     {{:byte_string, tuple}, stack} = pop(s.stack)
     unpacked = tuple_unpack({:byte_string, tuple})
@@ -370,7 +391,10 @@ defmodule FDB.Machine do
   end
 
   def do_execute(id, {"GET_VERSIONSTAMP"}, s) do
-    future = Transaction.get_versionstamp_q(trx(s))
+    future =
+      Transaction.get_versionstamp_q(trx(s))
+      |> Future.map(&{:byte_string, FDB.Versionstamp.transaction_version(&1)})
+
     %{s | stack: push(s.stack, future, id)}
   end
 
