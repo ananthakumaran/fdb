@@ -77,6 +77,14 @@ defmodule FDB.CoderTest do
     end
   end
 
+  property "traverse" do
+    coder = Transaction.Coder.new()
+
+    check all value <- term() do
+      {:error, 0} = Transaction.Coder.encode_key_versionstamped(coder, value)
+    end
+  end
+
   @ranges [
     0x00..0xF7,
     0xF8..0x37D,

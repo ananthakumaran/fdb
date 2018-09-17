@@ -313,7 +313,7 @@ defmodule FDB.Transaction do
   end
 
   @doc """
-  Returns an `t:FDB.Future.t/0` which will be set to the versionstamp which was used by any versionstamp operations in this transaction.
+  Returns an `t:FDB.Future.t/0` which will be set to the `t:FDB.Versionstamp.t/0` which was used by any versionstamp operations in this transaction.
 
   The future will be ready only after the successful completion of a
   call to `commit/1` on this transaction. Read-only transactions do
@@ -464,6 +464,48 @@ defmodule FDB.Transaction do
     Native.transaction_set_read_version(transaction.resource, version)
     |> Utils.verify_ok()
   end
+
+  @doc """
+  Same as set, but replaces the placeholder versionstamp in the key
+
+  The semantics are same as `set/4` except the key should have one
+  incomplete `t:FDB.Versionstamp.t/0`. The versionstamp will get
+  replaced on commit of the transaction.
+
+  A transaction is not permitted to read any transformed key or value
+  previously set within that transaction, and an attempt to do so will
+  result in an error.
+
+  This operation is not compatible with the READ_YOUR_WRITES_DISABLE
+  transaction option and will generate an error if used with it.
+
+  ### Example
+
+      coder =
+        FDB.Transaction.Coder.new(
+          Coder.Tuple.new({Coder.ByteString.new(), Coder.Versionstamp.new()})
+        )
+
+      future =
+        Database.transact(db, fn t ->
+          :ok =
+            Transaction.set_versionstamped_key(
+              t,
+              {"stamped", FDB.Versionstamp.incomplete()},
+              random_value()
+            )
+
+          Transaction.get_versionstamp_q(t)
+        end)
+
+      stamp = Future.await(future)
+
+      [{{"stamped", key_stamp}, _}] =
+        Database.get_range(db, KeySelectorRange.starts_with({"stamped"}))
+        |> Enum.to_list()
+
+      assert stamp == key_stamp
+  """
 
   @spec set_versionstamped_key(t, any, any, map) :: :ok
   def set_versionstamped_key(%Transaction{} = transaction, key, value, options \\ %{}) do

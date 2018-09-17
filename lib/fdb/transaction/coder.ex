@@ -50,7 +50,7 @@ defmodule FDB.Transaction.Coder do
   end
 
   @doc false
-  @spec decode_key(t, any) :: any
+  @spec decode_key(t, binary) :: any
   def decode_key(%__MODULE__{key: %Coder{module: module, opts: opts}}, key) do
     {value, <<>>} = module.decode(key, opts)
     value
@@ -63,7 +63,7 @@ defmodule FDB.Transaction.Coder do
   end
 
   @doc false
-  @spec decode_value(t, any) :: any
+  @spec decode_value(t, binary) :: any
   def decode_value(_, nil), do: nil
 
   def decode_value(%__MODULE__{value: %Coder{module: module, opts: opts}}, value) do

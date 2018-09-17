@@ -446,6 +446,34 @@ defmodule FDBTest do
     end)
   end
 
+  test "versionstamped key with subspace" do
+    coder = FDB.Transaction.Coder.new(Coder.Subspace.new("stamped", Coder.Versionstamp.new()))
+
+    db =
+      new_database()
+      |> Database.set_defaults(%{coder: coder})
+
+    future =
+      Database.transact(db, fn t ->
+        assert Transaction.set_versionstamped_key(
+                 t,
+                 FDB.Versionstamp.incomplete(),
+                 random_value()
+               ) == :ok
+
+        Transaction.get_versionstamp_q(t)
+      end)
+
+    stamp = Future.await(future)
+    assert Versionstamp.user_version(stamp) == 0
+
+    [{key_stamp, _}] =
+      Database.get_range(db, KeySelectorRange.starts_with(nil))
+      |> Enum.to_list()
+
+    assert stamp == key_stamp
+  end
+
   test "watch" do
     value = random_value()
     key = random_key()
