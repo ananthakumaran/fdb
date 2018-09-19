@@ -77,6 +77,14 @@ defmodule FDB.CoderTest do
     end
   end
 
+  property "traverse" do
+    coder = Transaction.Coder.new()
+
+    check all value <- term() do
+      {:error, 0} = Transaction.Coder.encode_key_versionstamped(coder, value)
+    end
+  end
+
   @ranges [
     0x00..0xF7,
     0xF8..0x37D,
@@ -100,7 +108,9 @@ defmodule FDB.CoderTest do
         {constant(Coder.UUID.new()), many(binary(length: 16))},
         {constant(Coder.Float.new(32)), many(float32())},
         {constant(Coder.Float.new(64)), many(float())},
-        {constant(Coder.Integer.new()), many(integer(-0xFFFFFFFFFFFFFFFF..0xFFFFFFFFFFFFFFFF))}
+        {constant(Coder.Integer.new()), many(integer(-0xFFFFFFFFFFFFFFFF..0xFFFFFFFFFFFFFFFF))},
+        {constant(Coder.Versionstamp.new()),
+         many(map(binary(length: 12), &FDB.Versionstamp.new(&1)))}
       ])
 
     tree(leaves, fn leaf ->

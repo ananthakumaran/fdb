@@ -5,6 +5,7 @@ defmodule FDB.Transaction.Coder do
 
   alias FDB.Coder
   alias FDB.Coder.Identity
+  alias FDB.Versionstamp
 
   defstruct key: Identity.new(), value: Identity.new()
 
@@ -19,26 +20,50 @@ defmodule FDB.Transaction.Coder do
   end
 
   @doc false
-  @spec encode_key(t, any) :: any
+  @spec encode_key(t, any) :: binary
   def encode_key(%__MODULE__{key: %Coder{module: module, opts: opts}}, key) do
     module.encode(key, opts)
   end
 
   @doc false
-  @spec decode_key(t, any) :: any
+  @spec encode_key_versionstamped(t, any) :: {:ok, binary} | {:error, integer}
+  def encode_key_versionstamped(%__MODULE__{key: %Coder{module: module, opts: opts}} = coder, key) do
+    marker = :crypto.strong_rand_bytes(10)
+
+    {count, transformed_key} =
+      traverse(key, &Versionstamp.new(marker, Versionstamp.user_version(&1)))
+
+    if count != 1 do
+      {:error, count}
+    else
+      encoded = module.encode(transformed_key, opts)
+      {start, 10} = :binary.match(encoded, marker)
+
+      case :binary.match(encoded, marker, [{:scope, {start + 1, 10}}]) do
+        :nomatch ->
+          {:ok, encoded <> <<start::unsigned-little-integer-size(16)>>}
+
+        _ ->
+          encode_key_versionstamped(coder, key)
+      end
+    end
+  end
+
+  @doc false
+  @spec decode_key(t, binary) :: any
   def decode_key(%__MODULE__{key: %Coder{module: module, opts: opts}}, key) do
     {value, <<>>} = module.decode(key, opts)
     value
   end
 
   @doc false
-  @spec encode_value(t, any) :: any
+  @spec encode_value(t, any) :: binary
   def encode_value(%__MODULE__{value: %Coder{module: module, opts: opts}}, key) do
     module.encode(key, opts)
   end
 
   @doc false
-  @spec decode_value(t, any) :: any
+  @spec decode_value(t, binary) :: any
   def decode_value(_, nil), do: nil
 
   def decode_value(%__MODULE__{value: %Coder{module: module, opts: opts}}, value) do
@@ -47,7 +72,7 @@ defmodule FDB.Transaction.Coder do
   end
 
   @doc false
-  @spec encode_range(t, any, :none | :first | :last) :: any
+  @spec encode_range(t, any, :none | :first | :last) :: binary
   def encode_range(coder, key, :none) do
     encode_key(coder, key)
   end
@@ -61,4 +86,34 @@ defmodule FDB.Transaction.Coder do
     {value, _} = module.range(key, opts)
     value <> <<0xFF>>
   end
+
+  defp traverse(%Versionstamp{} = v, cb) do
+    if Versionstamp.incomplete?(v) do
+      {1, cb.(v)}
+    else
+      {0, v}
+    end
+  end
+
+  defp traverse(value, cb) when is_tuple(value) do
+    {count, list} = traverse(Tuple.to_list(value), cb)
+    {count, List.to_tuple(list)}
+  end
+
+  defp traverse(value, cb) when is_map(value) do
+    {count, list} = traverse(Map.to_list(value), cb)
+    {count, Enum.into(list, %{})}
+  end
+
+  defp traverse(value, cb) when is_list(value) do
+    {count, list} =
+      Enum.reduce(value, {0, []}, fn item, {count, list} ->
+        {c, item} = traverse(item, cb)
+        {count + c, [item | list]}
+      end)
+
+    {count, Enum.reverse(list)}
+  end
+
+  defp traverse(value, _cb), do: {0, value}
 end
