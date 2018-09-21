@@ -1,7 +1,7 @@
 
 ## [Unreleased]
 
-## [5.1.7-7] - 21/09/2018
+## 5.1.7-7 - 21/09/2018
 
 ### New
 - FDB.Transaction.set_versionstamped_key/4
