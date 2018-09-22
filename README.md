@@ -100,7 +100,7 @@ ignored. For example, if you want to use
 then you must have client binary `>= 5.1`. Only patch versions are
 guaranteed to be protocol compatible.
 
-## Additional Steps on Windows
+### Additional Steps on Windows
 
 To compile the library in Windows you must have the Visual C++ Tools installed or VS 2017, if you don't use it probably you'll get a message telling you that `nmake` isn't installed.
 
