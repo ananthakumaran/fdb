@@ -19,7 +19,7 @@ index 7606a23c..7a8f9df6 100644
      'java_async': Tester('java', _java_cmd + 'AsyncStackTester', 2040, 510, MAX_API_VERSION, types=ALL_TYPES),
      'go': Tester('go', _absolute_path('go/build/bin/_stacktester'), 2040, 200, MAX_API_VERSION),
      'flow': Tester('flow', _absolute_path('flow/bin/fdb_flow_tester'), 63, 500, MAX_API_VERSION, directory_snapshot_ops_enabled=False),
-+    'elixir': Tester('elixir', './test/binding_tester.sh', 2040, 510, MAX_API_VERSION, types=['null', 'bytes', 'string', 'int', 'uuid', 'bool', 'tuple'])
++    'elixir': Tester('elixir', './test/binding_tester.sh', 2040, 520, MAX_API_VERSION, types=['null', 'bytes', 'string', 'int', 'uuid', 'bool', 'tuple', 'versionstamp'])
  }
 diff --git a/bindings/bindingtester/tests/api.py b/bindings/bindingtester/tests/api.py
 index ccad9d39..5f195299 100644

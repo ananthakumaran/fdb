@@ -41,7 +41,7 @@ defmodule FDB.Transaction.Coder do
 
       case :binary.match(encoded, marker, [{:scope, {start + 1, 10}}]) do
         :nomatch ->
-          {:ok, encoded <> <<start::unsigned-little-integer-size(16)>>}
+          {:ok, encoded <> <<start::unsigned-little-integer-size(32)>>}
 
         _ ->
           encode_key_versionstamped(coder, key)
