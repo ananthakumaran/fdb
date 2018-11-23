@@ -1,6 +1,8 @@
 
 ## [Unreleased]
 
+## [6.0.15-1] - 23/11/2018
+
 ### New
 - FDB.Transaction.set_versionstamped_value/4
 
