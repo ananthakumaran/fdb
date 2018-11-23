@@ -27,26 +27,8 @@ defmodule FDB.Transaction.Coder do
 
   @doc false
   @spec encode_key_versionstamped(t, any) :: {:ok, binary} | {:error, integer}
-  def encode_key_versionstamped(%__MODULE__{key: %Coder{module: module, opts: opts}} = coder, key) do
-    marker = :crypto.strong_rand_bytes(10)
-
-    {count, transformed_key} =
-      traverse(key, &Versionstamp.new(marker, Versionstamp.user_version(&1)))
-
-    if count != 1 do
-      {:error, count}
-    else
-      encoded = module.encode(transformed_key, opts)
-      {start, 10} = :binary.match(encoded, marker)
-
-      case :binary.match(encoded, marker, [{:scope, {start + 1, 10}}]) do
-        :nomatch ->
-          {:ok, encoded <> <<start::unsigned-little-integer-size(32)>>}
-
-        _ ->
-          encode_key_versionstamped(coder, key)
-      end
-    end
+  def encode_key_versionstamped(%__MODULE__{key: coder}, key) do
+    encode_versionstamped(coder, key)
   end
 
   @doc false
@@ -60,6 +42,12 @@ defmodule FDB.Transaction.Coder do
   @spec encode_value(t, any) :: binary
   def encode_value(%__MODULE__{value: %Coder{module: module, opts: opts}}, key) do
     module.encode(key, opts)
+  end
+
+  @doc false
+  @spec encode_value_versionstamped(t, any) :: {:ok, binary} | {:error, integer}
+  def encode_value_versionstamped(%__MODULE__{value: coder}, value) do
+    encode_versionstamped(coder, value)
   end
 
   @doc false
@@ -116,4 +104,26 @@ defmodule FDB.Transaction.Coder do
   end
 
   defp traverse(value, _cb), do: {0, value}
+
+  defp encode_versionstamped(%Coder{module: module, opts: opts} = coder, value) do
+    marker = :crypto.strong_rand_bytes(10)
+
+    {count, transformed_value} =
+      traverse(value, &Versionstamp.new(marker, Versionstamp.user_version(&1)))
+
+    if count != 1 do
+      {:error, count}
+    else
+      encoded = module.encode(transformed_value, opts)
+      {start, 10} = :binary.match(encoded, marker)
+
+      case :binary.match(encoded, marker, [{:scope, {start + 1, 10}}]) do
+        :nomatch ->
+          {:ok, encoded <> <<start::unsigned-little-integer-size(32)>>}
+
+        _ ->
+          encode_versionstamped(coder, value)
+      end
+    end
+  end
 end

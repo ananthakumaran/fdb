@@ -474,6 +474,42 @@ defmodule FDBTest do
     assert stamp == key_stamp
   end
 
+  test "versionstamped value" do
+    coder =
+      FDB.Transaction.Coder.new(
+        Coder.ByteString.new(),
+        Coder.Tuple.new({Coder.ByteString.new(), Coder.Versionstamp.new()})
+      )
+
+    db =
+      new_database()
+      |> Database.set_defaults(%{coder: coder})
+
+    key = random_key()
+
+    future =
+      Database.transact(db, fn t ->
+        :ok =
+          Transaction.set_versionstamped_value(
+            t,
+            key,
+            {"stamped", FDB.Versionstamp.incomplete()}
+          )
+
+        Transaction.get_versionstamp_q(t)
+      end)
+
+    stamp = Future.await(future)
+    assert Versionstamp.user_version(stamp) == 0
+
+    value =
+      Database.transact(db, fn t ->
+        Transaction.get(t, key)
+      end)
+
+    assert {"stamped", stamp} == value
+  end
+
   test "watch" do
     value = random_value()
     key = random_key()

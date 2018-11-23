@@ -479,6 +479,8 @@ defmodule FDB.Transaction do
   This operation is not compatible with the READ_YOUR_WRITES_DISABLE
   transaction option and will generate an error if used with it.
 
+  > The database version should be atleast 5.2.
+
   ### Example
 
       coder =
@@ -530,6 +532,75 @@ defmodule FDB.Transaction do
 
       {:error, n} when n > 1 ->
         raise ArgumentError, "More than 1 incomplete versionstamps found in the key"
+    end
+  end
+
+  @doc """
+  Same as set, but replaces the placeholder versionstamp in the value
+
+  The semantics are same as `set/4` except the value should have one
+  incomplete `t:FDB.Versionstamp.t/0`. The versionstamp will get
+  replaced on commit of the transaction.
+
+  A transaction is not permitted to read any transformed key or value
+  previously set within that transaction, and an attempt to do so will
+  result in an error.
+
+  This operation is not compatible with the READ_YOUR_WRITES_DISABLE
+  transaction option and will generate an error if used with it.
+
+  > The database version should be atleast 5.2.
+
+  ### Example
+      coder =
+        FDB.Transaction.Coder.new(
+          Coder.ByteString.new(),
+          Coder.Tuple.new({Coder.ByteString.new(), Coder.Versionstamp.new()})
+        )
+
+      future =
+        Database.transact(db, fn t ->
+          :ok =
+            Transaction.set_versionstamped_value(
+              t,
+              key,
+              {"stamped", FDB.Versionstamp.incomplete()}
+            )
+
+          Transaction.get_versionstamp_q(t)
+        end)
+
+      stamp = Future.await(future)
+
+      value =
+        Database.transact(db, fn t ->
+          Transaction.get(t, key)
+        end)
+
+      assert {"stamped", stamp} == value
+  """
+  @spec set_versionstamped_value(t, any, any, map) :: :ok
+  def set_versionstamped_value(%Transaction{} = transaction, key, value, options \\ %{}) do
+    coder = Map.get(options, :coder, transaction.coder)
+
+    case Coder.encode_value_versionstamped(coder, value) do
+      {:ok, param} ->
+        operation_type = FDB.Option.mutation_type_set_versionstamped_value()
+        Option.verify_mutation_type(operation_type, param)
+
+        Native.transaction_atomic_op(
+          transaction.resource,
+          Coder.encode_key(coder, key),
+          param,
+          operation_type
+        )
+        |> Utils.verify_ok()
+
+      {:error, 0} ->
+        raise ArgumentError, "No incomplete versionstamp found in the value"
+
+      {:error, n} when n > 1 ->
+        raise ArgumentError, "More than 1 incomplete versionstamps found in the value"
     end
   end
 
