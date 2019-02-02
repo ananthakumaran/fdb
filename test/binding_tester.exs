@@ -431,7 +431,7 @@ defmodule FDB.Machine do
 
     result =
       rescue_error(fn ->
-        Transaction.get_range(
+        Transaction.get_range_stream(
           trx(s),
           KeySelectorRange.range(
             %KeySelector{key: begin_key, or_equal: begin_or_equal, offset: begin_offset},
@@ -459,7 +459,7 @@ defmodule FDB.Machine do
 
     result =
       rescue_error(fn ->
-        Transaction.get_range(
+        Transaction.get_range_stream(
           trx(s),
           KeySelectorRange.range(
             KeySelector.first_greater_or_equal(begin_key),
@@ -486,7 +486,7 @@ defmodule FDB.Machine do
 
     result =
       rescue_error(fn ->
-        Transaction.get_range(
+        Transaction.get_range_stream(
           trx(s),
           KeySelectorRange.range(
             KeySelector.first_greater_or_equal(prefix),
@@ -513,7 +513,7 @@ defmodule FDB.Machine do
     result =
       Database.transact(s.db, fn t ->
         result =
-          Transaction.get_range(
+          Transaction.get_range_stream(
             Transaction.set_defaults(t, %{coder: Transaction.Coder.new()}),
             KeySelectorRange.range(
               KeySelector.first_greater_or_equal(prefix),
@@ -1218,7 +1218,7 @@ defmodule FDB.Runner do
     db = FDB.Database.set_defaults(db, %{coder: coder})
 
     state =
-      Transaction.get_range(
+      Transaction.get_range_stream(
         db,
         KeySelectorRange.starts_with(nil)
       )

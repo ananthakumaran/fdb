@@ -178,7 +178,9 @@ defmodule FDB.Directory.Layer do
             directory.content_subspace.opts.prefix <>
               HighContentionAllocator.allocate(directory, tr)
 
-          unless Transaction.get_range(tr, KeySelectorRange.starts_with(prefix), %{limit: 1})
+          unless Transaction.get_range_stream(tr, KeySelectorRange.starts_with(prefix), %{
+                   limit: 1
+                 })
                  |> Enum.empty?() do
             raise ArgumentError,
                   "The database has keys stored at the prefix chosen by the automatic prefix allocator: #{
@@ -307,7 +309,7 @@ defmodule FDB.Directory.Layer do
   end
 
   def subdir_names_and_nodes(directory, tr, node) do
-    Transaction.get_range(tr, KeySelectorRange.starts_with({}), %{
+    Transaction.get_range_stream(tr, KeySelectorRange.starts_with({}), %{
       coder: node.subdir_coder
     })
     |> Enum.map(fn {{name}, subdirectory_prefix} ->
@@ -341,7 +343,7 @@ defmodule FDB.Directory.Layer do
     root_prefix = directory.root_node.prefix
 
     prefix && byte_size(prefix) > 0 && !Utils.starts_with?(root_prefix, prefix) &&
-      Transaction.get_range(
+      Transaction.get_range_stream(
         tr,
         KeySelectorRange.range(
           KeySelector.first_greater_or_equal({}, %{prefix: :first}),
@@ -355,7 +357,7 @@ defmodule FDB.Directory.Layer do
       )
       |> Enum.filter(fn {{prev_prefix, _}, _} -> Utils.starts_with?(prefix, prev_prefix) end)
       |> Enum.empty?() &&
-      Transaction.get_range(
+      Transaction.get_range_stream(
         tr,
         KeySelectorRange.starts_with({prefix}),
         %{coder: directory.prefix_coder}

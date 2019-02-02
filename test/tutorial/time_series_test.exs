@@ -164,7 +164,7 @@ defmodule FDB.Tutorial.TimeSeriesTest do
 
   def assert_range_size(db, range, size) do
     result =
-      Database.get_range(db, range)
+      Database.get_range_stream(db, range)
       |> Enum.to_list()
 
     assert length(result) == size

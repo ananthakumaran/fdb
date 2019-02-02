@@ -205,7 +205,7 @@ end)
 
 range = KeySelectorRange.starts_with({{{2018, 03, 01}}})
 result =
-  Database.get_range(db, range)
+  Database.get_range_stream(db, range)
   |> Enum.to_list()
 
 ```

@@ -146,8 +146,8 @@ defmodule FDB.Transaction do
   * `:limit` - (number) If non-zero, indicates the maximum number of
     key-value pairs to return. Defaults to `0`.
   """
-  @spec get_range(t | Database.t(), KeySelectorRange.t(), map) :: Enumerable.t()
-  def get_range(
+  @spec get_range_stream(t | Database.t(), KeySelectorRange.t(), map) :: Enumerable.t()
+  def get_range_stream(
         %{__struct__: struct} = transaction,
         %KeySelectorRange{} = key_selector_range,
         options \\ %{}
@@ -503,7 +503,7 @@ defmodule FDB.Transaction do
       stamp = Future.await(future)
 
       [{{"stamped", key_stamp}, _}] =
-        Database.get_range(db, KeySelectorRange.starts_with({"stamped"}))
+        Database.get_range_stream(db, KeySelectorRange.starts_with({"stamped"}))
         |> Enum.to_list()
 
       assert stamp == key_stamp

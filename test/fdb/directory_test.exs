@@ -65,14 +65,14 @@ defmodule FDB.DirectoryTest do
 
       Database.transact(database, fn t ->
         {{0, start}, report_size} =
-          Transaction.get_range(t, KeySelectorRange.starts_with({0}), %{
+          Transaction.get_range_stream(t, KeySelectorRange.starts_with({0}), %{
             coder: count_coder
           })
           |> Enum.to_list()
           |> List.last()
 
         allocated =
-          Transaction.get_range(
+          Transaction.get_range_stream(
             t,
             KeySelectorRange.range(
               KeySelector.first_greater_or_equal({1, start}),
@@ -238,7 +238,7 @@ defmodule FDB.DirectoryTest do
       )
 
     Database.transact(database, fn tr ->
-      Transaction.get_range(tr, KeySelectorRange.starts_with({}), %{coder: prefix_coder})
+      Transaction.get_range_stream(tr, KeySelectorRange.starts_with({}), %{coder: prefix_coder})
       |> Enum.to_list()
       |> IO.inspect()
     end)

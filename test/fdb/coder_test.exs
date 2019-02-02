@@ -38,7 +38,7 @@ defmodule FDB.CoderTest do
     end)
 
     [{stored_key, stored_value}] =
-      Transaction.get_range(
+      Transaction.get_range_stream(
         db_raw,
         KeySelectorRange.range(
           KeySelector.first_greater_or_equal(<<0x00>>),
@@ -51,7 +51,7 @@ defmodule FDB.CoderTest do
     assert String.starts_with?(stored_key, "fdb")
 
     all =
-      Transaction.get_range(
+      Transaction.get_range_stream(
         db,
         KeySelectorRange.range(
           KeySelector.first_greater_or_equal(nil, %{prefix: :first}),

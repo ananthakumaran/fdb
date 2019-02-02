@@ -75,7 +75,7 @@ defmodule FDBTest do
       end)
 
     actual =
-      Transaction.get_range(
+      Transaction.get_range_stream(
         d,
         KeySelectorRange.range(
           KeySelector.first_greater_than("fdb"),
@@ -87,7 +87,7 @@ defmodule FDBTest do
     assert actual == expected
 
     actual =
-      Transaction.get_range(
+      Transaction.get_range_stream(
         d,
         KeySelectorRange.range(
           KeySelector.first_greater_than("fdb"),
@@ -100,7 +100,7 @@ defmodule FDBTest do
     assert actual == Enum.reverse(expected)
 
     actual =
-      Transaction.get_range(
+      Transaction.get_range_stream(
         d,
         KeySelectorRange.range(
           KeySelector.first_greater_than("fdb"),
@@ -113,7 +113,7 @@ defmodule FDBTest do
     assert actual == Enum.take(expected, 10)
 
     actual =
-      Transaction.get_range(
+      Transaction.get_range_stream(
         d,
         KeySelectorRange.range(
           KeySelector.first_greater_than("fdb"),
@@ -126,7 +126,7 @@ defmodule FDBTest do
     assert actual == Enum.take(Enum.reverse(expected), 10)
 
     actual =
-      Transaction.get_range(
+      Transaction.get_range_stream(
         d,
         KeySelectorRange.range(
           KeySelector.first_greater_than("fdb"),
@@ -139,7 +139,7 @@ defmodule FDBTest do
     assert actual == expected
 
     actual =
-      Transaction.get_range(
+      Transaction.get_range_stream(
         d,
         KeySelectorRange.range(
           KeySelector.first_greater_or_equal("fdb:011"),
@@ -152,7 +152,7 @@ defmodule FDBTest do
     assert actual == Enum.drop(expected, 10)
 
     actual =
-      Transaction.get_range(
+      Transaction.get_range_stream(
         d,
         KeySelectorRange.range(
           KeySelector.first_greater_than("fdb:010"),
@@ -165,7 +165,7 @@ defmodule FDBTest do
     assert actual == Enum.drop(expected, 10)
 
     actual =
-      Transaction.get_range(
+      Transaction.get_range_stream(
         d,
         KeySelectorRange.range(
           KeySelector.first_greater_or_equal("fdb:000"),
@@ -177,7 +177,7 @@ defmodule FDBTest do
     assert actual == Enum.take(expected, 10)
 
     actual =
-      Transaction.get_range(
+      Transaction.get_range_stream(
         d,
         KeySelectorRange.range(
           KeySelector.first_greater_or_equal("fdb:000"),
@@ -422,7 +422,7 @@ defmodule FDBTest do
     assert Versionstamp.user_version(stamp) == 0
 
     [{{"stamped", key_stamp}, _}] =
-      Database.get_range(db, KeySelectorRange.starts_with({"stamped"}))
+      Database.get_range_stream(db, KeySelectorRange.starts_with({"stamped"}))
       |> Enum.to_list()
 
     assert stamp == key_stamp
@@ -468,7 +468,7 @@ defmodule FDBTest do
     assert Versionstamp.user_version(stamp) == 0
 
     [{key_stamp, _}] =
-      Database.get_range(db, KeySelectorRange.starts_with(nil))
+      Database.get_range_stream(db, KeySelectorRange.starts_with(nil))
       |> Enum.to_list()
 
     assert stamp == key_stamp

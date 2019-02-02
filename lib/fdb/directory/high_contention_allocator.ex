@@ -19,7 +19,7 @@ defmodule FDB.Directory.HighContentionAllocator do
 
   defp search(t) do
     result =
-      Transaction.get_range(t, KeySelectorRange.starts_with({@counter}), %{
+      Transaction.get_range_stream(t, KeySelectorRange.starts_with({@counter}), %{
         limit: 1,
         reverse: true,
         snapshot: true
@@ -92,7 +92,7 @@ defmodule FDB.Directory.HighContentionAllocator do
     result =
       lock(t, fn ->
         latest_start =
-          Transaction.get_range(t, KeySelectorRange.starts_with({@counter}), %{
+          Transaction.get_range_stream(t, KeySelectorRange.starts_with({@counter}), %{
             limit: 1,
             reverse: true,
             snapshot: true

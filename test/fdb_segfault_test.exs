@@ -132,7 +132,7 @@ defmodule FDBSegfaultTest do
 
   fuzz(
     FDB.Database,
-    :get_range,
+    :get_range_stream,
     2,
     fixed_list([
       one_of([term(), constant(database())]),
@@ -151,7 +151,7 @@ defmodule FDBSegfaultTest do
 
   fuzz(
     FDB.Database,
-    :get_range,
+    :get_range_stream,
     3,
     fixed_list([
       one_of([term(), constant(database())]),
@@ -281,7 +281,7 @@ defmodule FDBSegfaultTest do
 
   fuzz(
     FDB.Transaction,
-    :get_range,
+    :get_range_stream,
     2,
     fixed_list([
       one_of([term(), constant(transaction())]),
@@ -300,7 +300,7 @@ defmodule FDBSegfaultTest do
 
   fuzz(
     FDB.Transaction,
-    :get_range,
+    :get_range_stream,
     3,
     fixed_list([
       one_of([term(), constant(transaction())]),

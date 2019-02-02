@@ -84,13 +84,13 @@ defmodule FDB.Database do
   amount of data and are ok with the fact that the data might change
   when doing the iteration.
   """
-  @spec get_range(t, KeySelectorRange.t(), map) :: Enumerable.t()
-  def get_range(
+  @spec get_range_stream(t, KeySelectorRange.t(), map) :: Enumerable.t()
+  def get_range_stream(
         %__MODULE__{} = database,
         %KeySelectorRange{} = key_range,
         options \\ %{}
       ) do
-    Transaction.get_range(
+    Transaction.get_range_stream(
       database,
       key_range,
       options

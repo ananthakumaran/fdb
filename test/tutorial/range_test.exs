@@ -114,7 +114,7 @@ defmodule FDB.Tutorial.RangeTest do
 
   def assert_range(db, range, expected) do
     result =
-      Database.get_range(db, range)
+      Database.get_range_stream(db, range)
       |> Enum.map(fn {key, _} ->
         key
       end)
