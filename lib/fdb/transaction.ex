@@ -9,6 +9,7 @@ defmodule FDB.Transaction do
   alias FDB.Database
   alias FDB.Transaction.Coder
   alias FDB.Option
+  alias FDB.RangeResult
 
   defstruct resource: nil, coder: nil, snapshot: 0
   @type t :: %__MODULE__{resource: identifier, coder: Transaction.Coder.t(), snapshot: integer}
@@ -120,18 +121,81 @@ defmodule FDB.Transaction do
     end)
   end
 
+  defp do_get_range_with_continuation(
+         %Transaction{} = transaction,
+         state
+       ) do
+    {has_more, list} =
+      do_get_range(
+        transaction,
+        state.begin_key_selector,
+        state.end_key_selector,
+        state
+      )
+
+    limit =
+      if state.has_limit do
+        state.limit - length(list)
+      else
+        0
+      end
+
+    has_more =
+      if (state.has_limit && limit <= 0) || Enum.empty?(list) do
+        0
+      else
+        has_more
+      end
+
+    key_values = decode_range_items(state.coder, list)
+
+    if has_more == 0 do
+      %RangeResult{has_more: false, key_values: key_values}
+    else
+      {key, _value} = List.last(list)
+
+      {begin_key_selector, end_key_selector} =
+        if state.reverse == 0 do
+          {KeySelector.first_greater_than(key), state.end_key_selector}
+        else
+          {state.begin_key_selector, KeySelector.first_greater_or_equal(key)}
+        end
+
+      state = %{
+        state
+        | has_more: has_more,
+          limit: limit,
+          iteration: state.iteration + 1,
+          begin_key_selector: begin_key_selector,
+          end_key_selector: end_key_selector
+      }
+
+      %RangeResult{
+        has_more: true,
+        key_values: key_values,
+        next: fn %Transaction{} = transaction ->
+          do_get_range_with_continuation(transaction, state)
+        end
+      }
+    end
+  end
+
   @doc """
   Reads all key-value pairs in the database snapshot represented by
   transaction which have a key lexicographically greater than or equal
   to the key resolved by the begin key selector and lexicographically
   less than the key resolved by the end key selector.
 
-  Multiple calls may be made to server to fetch the data. The amount
-  of data returned on each call is determined by the options like
-  `target_bytes` and `mode`.
+  Makes a single call to fetch data. The returned struct
+  `t:FDB.RangeResult.t/0` contains `key_values`, `has_more` and `next`
+  function. If `has_more` is true, then `next` function can be called
+  to fetch the next batch of `t:FDB.RangeResult.t/0`.
 
-  A `Stream` is returned which fetches the data lazily. This is
-  suitable for iterating over large list of key value pair.
+  The `next` function expects `transaction` as the first argument and
+  returns `t:FDB.RangeResult.t/0`
+
+  The amount of data returned on each call is determined by the
+  options like `target_bytes` and `mode`.
 
   ## Options
 
@@ -146,24 +210,20 @@ defmodule FDB.Transaction do
   * `:limit` - (number) If non-zero, indicates the maximum number of
     key-value pairs to return. Defaults to `0`.
   """
-  @spec get_range_stream(t | Database.t(), KeySelectorRange.t(), map) :: Enumerable.t()
-  def get_range_stream(
-        %{__struct__: struct} = transaction,
+  @spec get_range(t, KeySelectorRange.t(), map) :: RangeResult.t()
+  def get_range(
+        %Transaction{} = transaction,
         %KeySelectorRange{} = key_selector_range,
         options \\ %{}
       )
-      when is_map(options) and struct in [Transaction, Database] do
-    database_or_transaction = transaction
-
-    coder = Map.get(options, :coder, database_or_transaction.coder)
+      when is_map(options) do
+    coder = Map.get(options, :coder, transaction.coder)
 
     options =
       Utils.normalize_bool_values(options, [:reverse, :snapshot])
       |> Utils.verify_value(:limit, :positive_integer)
       |> Utils.verify_value(:target_bytes, :positive_integer)
       |> Utils.verify_value(:mode, &Option.verify_streaming_mode/1)
-
-    has_limit = Map.has_key?(options, :limit) && options.limit > 0
 
     begin_key_selector = %{
       key_selector_range.begin
@@ -185,10 +245,14 @@ defmodule FDB.Transaction do
           )
     }
 
+    has_limit = Map.has_key?(options, :limit) && options.limit > 0
+
     state =
       Map.merge(
         options,
         %{
+          has_limit: has_limit,
+          coder: coder,
           limit: Map.get(options, :limit, 0),
           reverse: Map.get(options, :reverse, 0),
           has_more: 1,
@@ -199,65 +263,57 @@ defmodule FDB.Transaction do
         }
       )
 
+    do_get_range_with_continuation(transaction, state)
+  end
+
+  @doc """
+  See `get_range/3` for options
+
+  A `Stream` is returned which fetches all the key value pairs lazily
+  using `get_range/3` function. This is suitable for iterating over
+  large list of key value pair.
+  """
+  @spec get_range_stream(t | Database.t(), KeySelectorRange.t(), map) :: Enumerable.t()
+  def get_range_stream(
+        %{__struct__: struct} = transaction,
+        %KeySelectorRange{} = key_selector_range,
+        options \\ %{}
+      )
+      when is_map(options) and struct in [Transaction, Database] do
+    database_or_transaction = transaction
+
+    with_transaction = fn cb ->
+      fn ->
+        case database_or_transaction do
+          %Database{} ->
+            Database.transact(database_or_transaction, fn t ->
+              cb.(t)
+            end)
+
+          %Transaction{} ->
+            cb.(transaction)
+        end
+      end
+    end
+
     Stream.unfold(
-      state,
+      with_transaction.(fn t ->
+        get_range(t, key_selector_range, options)
+      end),
       fn
-        %{has_more: 0} ->
+        :halt ->
           nil
 
-        state ->
-          {has_more, list} =
-            case database_or_transaction do
-              %Database{} ->
-                Database.transact(database_or_transaction, fn t ->
-                  do_get_range(t, state.begin_key_selector, state.end_key_selector, state)
-                end)
+        next ->
+          range_result = next.()
 
-              %Transaction{} ->
-                do_get_range(
-                  database_or_transaction,
-                  state.begin_key_selector,
-                  state.end_key_selector,
-                  state
-                )
-            end
+          case range_result do
+            %RangeResult{has_more: false, key_values: key_values} ->
+              {key_values, :halt}
 
-          limit =
-            if has_limit do
-              state.limit - length(list)
-            else
-              0
-            end
-
-          has_more =
-            if (has_limit && limit <= 0) || Enum.empty?(list) do
-              0
-            else
-              has_more
-            end
-
-          {begin_key_selector, end_key_selector} =
-            if !Enum.empty?(list) do
-              {key, _value} = List.last(list)
-
-              if state.reverse == 0 do
-                {KeySelector.first_greater_than(key), end_key_selector}
-              else
-                {begin_key_selector, KeySelector.first_greater_or_equal(key)}
-              end
-            else
-              {nil, nil}
-            end
-
-          {decode_range_items(coder, list),
-           %{
-             state
-             | has_more: has_more,
-               limit: limit,
-               iteration: state.iteration + 1,
-               begin_key_selector: begin_key_selector,
-               end_key_selector: end_key_selector
-           }}
+            %RangeResult{has_more: true, key_values: key_values, next: next} ->
+              {key_values, with_transaction.(next)}
+          end
       end
     )
     |> Stream.flat_map(& &1)

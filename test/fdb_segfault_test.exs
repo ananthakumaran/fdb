@@ -281,6 +281,52 @@ defmodule FDBSegfaultTest do
 
   fuzz(
     FDB.Transaction,
+    :get_range,
+    2,
+    fixed_list([
+      one_of([term(), constant(transaction())]),
+      one_of([
+        term(),
+        constant(
+          KeySelectorRange.range(
+            KeySelector.first_greater_than("a"),
+            KeySelector.first_greater_than("d")
+          )
+        )
+      ])
+    ])
+  )
+
+  fuzz(
+    FDB.Transaction,
+    :get_range,
+    3,
+    fixed_list([
+      one_of([term(), constant(transaction())]),
+      one_of([
+        term(),
+        constant(
+          KeySelectorRange.range(
+            KeySelector.first_greater_than("a"),
+            KeySelector.first_greater_than("d")
+          )
+        )
+      ]),
+      one_of([
+        term(),
+        optional_map(%{
+          limit: one_of([term(), boolean()]),
+          mode: one_of([term(), integer()]),
+          reverse: one_of([term(), boolean()]),
+          snapshot: one_of([term(), boolean()]),
+          target_bytes: one_of([term(), integer()])
+        })
+      ])
+    ])
+  )
+
+  fuzz(
+    FDB.Transaction,
     :get_range_stream,
     2,
     fixed_list([
