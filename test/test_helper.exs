@@ -53,7 +53,8 @@ defmodule TestUtils do
     |> Enum.map(fn {_value, index} -> index end)
   end
 
-  def assert_coder_order_symmetry(coder, values) do
+  def assert_coder_order_symmetry(coder, values, opts \\ []) do
+    sorted = Keyword.get(opts, :sorted, true)
     coder = Transaction.Coder.new(coder)
 
     encoded =
@@ -67,7 +68,10 @@ defmodule TestUtils do
       end)
 
     assert values == decoded
-    assert sort_order(values) == sort_order(encoded)
+
+    if sorted do
+      assert sort_order(values) == sort_order(encoded)
+    end
   end
 
   defmacro fuzz(module, method, arity, generator, options \\ Macro.escape(%{})) do
