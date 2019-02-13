@@ -6,7 +6,14 @@ defmodule FDB.Future do
   alias FDB.Utils
 
   defstruct resource: nil, on_resolve: [], waiting_for: [], constant: false, value: nil
-  @type t :: %__MODULE__{resource: identifier, on_resolve: [(any -> any)]}
+
+  @type t :: %__MODULE__{
+          resource: identifier | nil,
+          on_resolve: [(any -> any)],
+          waiting_for: [identifier],
+          constant: boolean,
+          value: any
+        }
 
   @doc false
   @spec create(identifier) :: t
