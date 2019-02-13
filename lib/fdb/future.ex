@@ -5,13 +5,18 @@ defmodule FDB.Future do
   alias FDB.Native
   alias FDB.Utils
 
-  defstruct resource: nil, on_resolve: []
+  defstruct resource: nil, on_resolve: [], waiting_for: [], constant: false, value: nil
   @type t :: %__MODULE__{resource: identifier, on_resolve: [(any -> any)]}
 
   @doc false
   @spec create(identifier) :: t
   def create(resource) do
-    %__MODULE__{resource: resource}
+    %__MODULE__{resource: resource, waiting_for: [resource]}
+  end
+
+  @spec constant(any) :: t
+  def constant(value) do
+    %__MODULE__{value: value, waiting_for: [], constant: true}
   end
 
   @doc """
@@ -23,7 +28,13 @@ defmodule FDB.Future do
   raised.
   """
   @spec await(t, timeout) :: any()
-  def await(%__MODULE__{resource: resource, on_resolve: on_resolve}, timeout \\ 5000) do
+  def await(future, timeout \\ 5000)
+
+  def await(%__MODULE__{value: value, constant: true, on_resolve: on_resolve}, timeout) do
+    apply_on_resolve(value, on_resolve, timeout)
+  end
+
+  def await(%__MODULE__{resource: resource, on_resolve: on_resolve}, timeout) do
     ref = make_ref()
 
     :ok =
@@ -32,7 +43,7 @@ defmodule FDB.Future do
 
     receive do
       {0, ^ref, value} ->
-        apply_on_resolve(value, on_resolve)
+        apply_on_resolve(value, on_resolve, timeout)
 
       {error_code, ^ref, nil} ->
         raise FDB.Error, code: error_code, message: Native.get_error(error_code)
@@ -45,12 +56,12 @@ defmodule FDB.Future do
   @doc """
   Checks whether the async operation is completed.
 
-  If the returned value is `true`, any further calls to `await/1` will
-  return immediatly.
+  If the future is constructed via `Future.then/3`, then only the root
+  future is checked for completion.
   """
   @spec ready?(t) :: boolean
-  def ready?(%__MODULE__{resource: resource}) do
-    Native.future_is_ready(resource)
+  def ready?(%__MODULE__{waiting_for: waiting_for}) do
+    Enum.all?(waiting_for, &Native.future_is_ready/1)
   end
 
   @doc """
@@ -60,15 +71,41 @@ defmodule FDB.Future do
   result of the given future.
   """
   @spec map(t, (any -> any)) :: t
-  def map(%__MODULE__{} = future, callback) do
-    %{future | on_resolve: [callback | future.on_resolve]}
+  def map(future, callback) do
+    then(future, fn x ->
+      constant(callback.(x))
+    end)
   end
 
-  defp apply_on_resolve(value, []), do: value
-  defp apply_on_resolve(value, [cb]), do: cb.(value)
+  @spec then(t, (any -> t)) :: t
+  def then(%__MODULE__{} = future, callback) do
+    cb = fn x, timeout ->
+      case callback.(x) do
+        %__MODULE__{} = future ->
+          await(future, timeout)
 
-  defp apply_on_resolve(value, on_resolve) do
+        other ->
+          other
+      end
+    end
+
+    %{future | on_resolve: [cb | future.on_resolve]}
+  end
+
+  @spec all([t]) :: t
+  def all([]), do: constant([])
+
+  def all([head | tail]) do
+    then(head, fn x ->
+      map(all(tail), &[x | &1])
+    end)
+  end
+
+  defp apply_on_resolve(value, [], _), do: value
+  defp apply_on_resolve(value, [cb], timeout), do: cb.(value, timeout)
+
+  defp apply_on_resolve(value, on_resolve, timeout) do
     Enum.reverse(on_resolve)
-    |> Enum.reduce(value, fn cb, acc -> cb.(acc) end)
+    |> Enum.reduce(value, fn cb, acc -> cb.(acc, timeout) end)
   end
 end
