@@ -52,7 +52,6 @@ defmodule FDBLeakTest do
     receive do
       t ->
         :ok = Transaction.set_option(t, FDB.Option.transaction_option_access_system_keys())
-        assert Transaction.get(t, "\xff\xff/status/json")
         assert Transaction.get(t, "\xff\xff/cluster_file_path")
     end
   end
