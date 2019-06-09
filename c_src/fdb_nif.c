@@ -241,24 +241,20 @@ fdb_future_to_future(ErlNifEnv *env, FDBFuture *fdb_future, FutureType type,
 static ErlNifResourceType *DATABASE_RESOURCE_TYPE;
 typedef struct {
   FDBDatabase *handle;
-  Reference *reference;
 } Database;
 
 static void
 database_destroy(ErlNifEnv *env, void *object) {
   Database *database = (Database *)object;
   fdb_database_destroy(database->handle);
-  reference_destroy_all(database->reference);
 }
 
 static ERL_NIF_TERM
-fdb_database_to_database(ErlNifEnv *env, FDBDatabase *fdb_database,
-                         Reference *reference) {
+fdb_database_to_database(ErlNifEnv *env, FDBDatabase *fdb_database) {
   ERL_NIF_TERM term;
   Database *database =
       enif_alloc_resource(DATABASE_RESOURCE_TYPE, sizeof(Database));
   database->handle = fdb_database;
-  database->reference = reference;
   term = enif_make_resource(env, database);
   enif_release_resource(database);
   return term;
@@ -494,7 +490,7 @@ create_database(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
     return enif_make_tuple2(env, enif_make_int(env, error),
                             make_atom(env, "nil"));
   }
-  result = fdb_database_to_database(env, database, NULL);
+  result = fdb_database_to_database(env, database);
   enif_free(path);
   return enif_make_tuple2(env, enif_make_int(env, error), result);
 }
