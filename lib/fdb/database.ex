@@ -21,7 +21,7 @@ defmodule FDB.Database do
   """
   @spec create() :: t
   @spec create(String.t()) :: t
-  @spec create(String.t(), map) :: t
+  @spec create(String.t() | nil, map) :: t
   def create(cluster_file_path \\ nil, defaults \\ %{}) when is_map(defaults) do
     resource =
       Native.create_database(cluster_file_path)
