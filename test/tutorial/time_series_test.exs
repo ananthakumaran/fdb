@@ -1,6 +1,6 @@
 defmodule FDB.Tutorial.TimeSeriesTest do
   use ExUnit.Case, async: false
-  alias FDB.{Transaction, Database, Cluster, KeySelector, KeySelectorRange}
+  alias FDB.{Transaction, Database, KeySelector, KeySelectorRange}
   alias FDB.Coder.{Integer, Tuple, NestedTuple, ByteString, Subspace}
   alias FDB.Directory
   use Timex
@@ -12,9 +12,7 @@ defmodule FDB.Tutorial.TimeSeriesTest do
   end
 
   test "timeseries" do
-    db =
-      Cluster.create()
-      |> Database.create()
+    db = Database.create()
 
     ts_dir =
       Database.transact(db, fn tr ->

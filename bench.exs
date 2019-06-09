@@ -92,9 +92,7 @@ end
 
 :ok = FDB.start()
 
-db =
-  FDB.Cluster.create()
-  |> Database.create()
+db = Database.create()
 
 Database.transact(db, fn t ->
   :ok =

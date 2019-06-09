@@ -43,61 +43,21 @@ defmodule FDBSegfaultTest do
     ])
   )
 
-  fuzz(FDB.Cluster, :create, 1, fixed_list([term()]))
-  fuzz(FDB.Cluster, :create_q, 1, fixed_list([term()]))
-
-  fuzz(
-    FDB.Cluster,
-    :set_option,
-    2,
-    fixed_list([one_of([term(), constant(cluster())]), one_of([term(), integer()])])
-  )
-
-  fuzz(
-    FDB.Cluster,
-    :set_option,
-    3,
-    fixed_list([
-      one_of([term(), constant(cluster())]),
-      one_of([term(), integer()]),
-      one_of([term(), integer(), binary()])
-    ])
-  )
-
   fuzz(
     FDB.Database,
     :create,
     1,
     fixed_list([
-      one_of([term(), constant(cluster())])
-    ])
-  )
-
-  fuzz(
-    FDB.Database,
-    :create,
-    2,
-    fixed_list([
-      one_of([term(), constant(cluster())]),
       term()
     ])
   )
 
   fuzz(
     FDB.Database,
-    :create_q,
-    1,
-    fixed_list([
-      one_of([term(), constant(cluster())])
-    ])
-  )
-
-  fuzz(
-    FDB.Database,
-    :create_q,
+    :create,
     2,
     fixed_list([
-      one_of([term(), constant(cluster())]),
+      term(),
       term()
     ])
   )
@@ -646,18 +606,12 @@ defmodule FDBSegfaultTest do
     ])
   )
 
-  def cluster() do
-    FDB.Cluster.create()
-  end
-
   def database() do
-    FDB.Cluster.create()
-    |> FDB.Database.create()
+    FDB.Database.create()
   end
 
   def transaction() do
-    FDB.Cluster.create()
-    |> FDB.Database.create()
+    FDB.Database.create()
     |> FDB.Transaction.create()
   end
 end

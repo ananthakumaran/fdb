@@ -2,7 +2,7 @@
  * https://apple.github.io/foundationdb/api-c.html
  */
 
-#define FDB_API_VERSION 600
+#define FDB_API_VERSION 610
 
 #include "erl_nif.h"
 #include "foundationdb/fdb_c.h"
@@ -159,7 +159,7 @@ get_error_predicate(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   }
 }
 
-typedef enum { RESOURCE, PTR } ReferenceType;
+typedef enum { RESOURCE } ReferenceType;
 
 typedef struct Reference {
   ReferenceType type;
@@ -180,26 +180,12 @@ reference_resource_create(void *resource, Reference *previous) {
   return reference;
 }
 
-static Reference *
-reference_ptr_create(void *ptr, Reference *previous) {
-  Reference *reference = enif_alloc(sizeof(Reference));
-  reference->type = PTR;
-  reference->ptr = ptr;
-  reference->next = NULL;
-  if (previous) {
-    previous->next = reference;
-  }
-  return reference;
-}
-
 static void
 reference_destroy_all(Reference *reference) {
   if (reference) {
     Reference *next = reference->next;
     if (reference->type == RESOURCE) {
       enif_release_resource(reference->ptr);
-    } else if (reference->type == PTR) {
-      enif_free(reference->ptr);
     }
     enif_free(reference);
     reference_destroy_all(next);
@@ -213,8 +199,6 @@ typedef struct {
 } Transaction;
 
 typedef enum {
-  CLUSTER,
-  DATABASE,
   VALUE,
   COMMIT,
   KEYVALUE_ARRAY,
@@ -251,28 +235,6 @@ fdb_future_to_future(ErlNifEnv *env, FDBFuture *fdb_future, FutureType type,
   future->context = context;
   term = enif_make_resource(env, future);
   enif_release_resource(future);
-  return term;
-}
-
-static ErlNifResourceType *CLUSTER_RESOURCE_TYPE;
-typedef struct {
-  FDBCluster *handle;
-} Cluster;
-
-static void
-cluster_destroy(ErlNifEnv *env, void *object) {
-  Cluster *cluster = (Cluster *)object;
-  fdb_cluster_destroy(cluster->handle);
-}
-
-static ERL_NIF_TERM
-fdb_cluster_to_cluster(ErlNifEnv *env, FDBCluster *fdb_cluster) {
-  ERL_NIF_TERM term;
-  Cluster *cluster =
-      enif_alloc_resource(CLUSTER_RESOURCE_TYPE, sizeof(Cluster));
-  cluster->handle = fdb_cluster;
-  term = enif_make_resource(env, cluster);
-  enif_release_resource(cluster);
   return term;
 }
 
@@ -333,29 +295,6 @@ future_get(ErlNifEnv *env, Future *future, ERL_NIF_TERM *term) {
   }
 
   switch (future->type) {
-  case CLUSTER: {
-    FDBCluster *cluster;
-    error = fdb_future_get_cluster(future->handle, &cluster);
-    if (error) {
-      return error;
-    }
-    *term = fdb_cluster_to_cluster(env, cluster);
-    return error;
-  }
-  case DATABASE: {
-    FDBDatabase *database;
-    Cluster *cluster;
-    Reference *reference;
-
-    error = fdb_future_get_database(future->handle, &database);
-    if (error) {
-      return error;
-    }
-    cluster = future->context;
-    reference = reference_resource_create(cluster, NULL);
-    *term = fdb_database_to_database(env, database, reference);
-    return error;
-  }
   case VALUE: {
     fdb_bool_t present;
     uint8_t const *value;
@@ -536,57 +475,28 @@ future_is_ready(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
 }
 
 static ERL_NIF_TERM
-create_cluster(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+create_database(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   char *path = NULL;
   ErlNifBinary path_binary;
-  FDBFuture *fdb_future;
-  Reference *reference = NULL;
+  fdb_error_t error;
+  FDBDatabase *database;
+  ERL_NIF_TERM result;
 
   if (enif_is_binary(env, argv[0])) {
     enif_inspect_binary(env, argv[0], &path_binary);
     path = enif_alloc(sizeof(char) * (path_binary.size + 1));
-    reference = reference_ptr_create(path, NULL);
     memcpy((void *)path, path_binary.data, path_binary.size);
     path[path_binary.size] = '\0';
   }
 
-  fdb_future = fdb_create_cluster(path);
-  return fdb_future_to_future(env, fdb_future, CLUSTER, reference, NULL);
-}
-
-static ERL_NIF_TERM
-cluster_set_option(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
-  Cluster *cluster;
-  Option option;
-  ERL_NIF_TERM option_status;
-  fdb_error_t error;
-
-  VERIFY_ARGV(
-      enif_get_resource(env, argv[0], CLUSTER_RESOURCE_TYPE, (void **)&cluster),
-      "cluster");
-
-  option_status = option_inspect(env, 1, argc, argv, &option);
-  if (option_status != OPTION_SUCCESS) {
-    return option_status;
+  error = fdb_create_database(path, &database);
+  if (error) {
+    return enif_make_tuple2(env, enif_make_int(env, error),
+                            make_atom(env, "nil"));
   }
-
-  error = fdb_cluster_set_option(cluster->handle, option.code, option.value,
-                                 option.size);
-  return enif_make_int(env, error);
-}
-
-static ERL_NIF_TERM
-cluster_create_database(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
-  const uint8_t db_name[] = {'D', 'B'};
-  Cluster *cluster;
-  FDBFuture *fdb_future;
-  Reference *reference;
-  VERIFY_ARGV(
-      enif_get_resource(env, argv[0], CLUSTER_RESOURCE_TYPE, (void **)&cluster),
-      "cluster");
-  fdb_future = fdb_cluster_create_database(cluster->handle, db_name, 2);
-  reference = reference_resource_create(cluster, NULL);
-  return fdb_future_to_future(env, fdb_future, DATABASE, reference, cluster);
+  result = fdb_database_to_database(env, database, NULL);
+  enif_free(path);
+  return enif_make_tuple2(env, enif_make_int(env, error), result);
 }
 
 static ERL_NIF_TERM
@@ -1015,10 +925,6 @@ load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info) {
                                                  future_destroy, flags, NULL);
   if (FUTURE_RESOURCE_TYPE == NULL)
     return -1;
-  CLUSTER_RESOURCE_TYPE = enif_open_resource_type(env, "fdb", "Cluster",
-                                                  cluster_destroy, flags, NULL);
-  if (CLUSTER_RESOURCE_TYPE == NULL)
-    return -1;
   DATABASE_RESOURCE_TYPE = enif_open_resource_type(
       env, "fdb", "Database", database_destroy, flags, NULL);
   if (DATABASE_RESOURCE_TYPE == NULL)
@@ -1036,11 +942,9 @@ static ErlNifFunc nif_funcs[] = {
     {"setup_network", 0, setup_network, 0},
     {"run_network", 0, run_network, 0},
     {"stop_network", 0, stop_network, 0},
-    {"create_cluster", 1, create_cluster, 0},
-    {"cluster_set_option", 2, cluster_set_option, 0},
-    {"cluster_set_option", 3, cluster_set_option, 0},
     {"network_set_option", 1, network_set_option, 0},
     {"network_set_option", 2, network_set_option, 0},
+    {"create_database", 1, create_database, 0},
     {"database_set_option", 2, database_set_option, 0},
     {"database_set_option", 3, database_set_option, 0},
     {"transaction_set_option", 2, transaction_set_option, 0},
@@ -1049,7 +953,6 @@ static ErlNifFunc nif_funcs[] = {
     {"get_error_predicate", 2, get_error_predicate, 0},
     {"future_resolve", 2, future_resolve, 0},
     {"future_is_ready", 1, future_is_ready, 0},
-    {"cluster_create_database", 1, cluster_create_database, 0},
     {"database_create_transaction", 1, database_create_transaction, 0},
     {"transaction_get", 3, transaction_get, 0},
     {"transaction_get_read_version", 1, transaction_get_read_version, 0},

@@ -7,7 +7,6 @@ end)
 
 defmodule TestUtils do
   alias FDB.Database
-  alias FDB.Cluster
   alias FDB.Transaction
   alias FDB.KeyRange
   alias FDB.Transaction.Coder
@@ -37,14 +36,12 @@ defmodule TestUtils do
   end
 
   def new_transaction do
-    Cluster.create()
-    |> Database.create()
+    Database.create()
     |> Transaction.create()
   end
 
   def new_database do
-    Cluster.create()
-    |> Database.create()
+    Database.create()
   end
 
   def sort_order(value) do

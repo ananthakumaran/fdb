@@ -1,6 +1,6 @@
 env:
   global:
-    - FDB_VERSION="6.0.15"
+    - FDB_VERSION="6.1.8"
 addons:
   apt:
     packages:

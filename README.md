@@ -117,16 +117,14 @@ and the network thread has to be started. `FDB.start/1` is a helper function
 which does all of these.
 
 ```elixir
-:ok = FDB.start(600)
+:ok = FDB.start(610)
 ```
 
 This must be called only once. Calling it second time will result in
-exception. Once started, a `t:FDB.Cluster.t/0` and
-`t:FDB.Database.t/0` instance have to be created.
+exception. Once started, `t:FDB.Database.t/0` instance have to be created.
 
 ```elixir
-db = FDB.Cluster.create(cluster_file_path)
-    |> FDB.Database.create()
+db = FDB.Database.create(cluster_file_path)
 ```
 
 It's recommended to use a single db instance everywhere unless
@@ -169,7 +167,7 @@ that it preserves the natural ordering of the values, so the range
 function would work as expected.
 
 ```elixir
-alias FDB.{Transaction, Database, Cluster, KeySelectorRange}
+alias FDB.{Transaction, Database, KeySelectorRange}
 alias FDB.Coder.{Integer, Tuple, NestedTuple, ByteString, Subspace}
 
 coder =
@@ -194,9 +192,7 @@ coder =
     ),
     Integer.new()
   )
-db =
-  Cluster.create()
-  |> Database.create(%{coder: coder})
+db = Database.create(%{coder: coder})
 
 Database.transact(db, fn t ->
   m = Transaction.get(t, {{{2018, 03, 01}, {1, 0, 0}}, "www.github.com", "/fdb", "mozilla"})

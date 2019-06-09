@@ -2,7 +2,6 @@ defmodule FDB.CoderTest do
   use ExUnit.Case, async: false
   import TestUtils
   alias FDB.Transaction
-  alias FDB.Cluster
   alias FDB.Database
   alias FDB.Coder.Subspace
   alias FDB.Coder.ByteString
@@ -18,13 +17,9 @@ defmodule FDB.CoderTest do
   test "subspace" do
     coder = Transaction.Coder.new(Subspace.new("fdb", ByteString.new()))
 
-    db =
-      Cluster.create()
-      |> Database.create(%{coder: coder})
+    db = Database.create(%{coder: coder})
 
-    db_raw =
-      Cluster.create()
-      |> Database.create()
+    db_raw = Database.create()
 
     key = random_key()
     value = random_value()

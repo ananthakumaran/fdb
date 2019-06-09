@@ -4,9 +4,7 @@ defmodule FDB.Database do
   functions to do transactions on database.
   """
   alias FDB.Native
-  alias FDB.Future
   alias FDB.Utils
-  alias FDB.Cluster
   alias FDB.Option
   alias FDB.Transaction
   alias FDB.KeySelectorRange
@@ -16,27 +14,22 @@ defmodule FDB.Database do
   @type t :: %__MODULE__{}
 
   @doc """
-  Creates a new database.
+  Creates a new database. If the `cluster_file_path` is not set then
+  [default cluster
+  file](https://apple.github.io/foundationdb/administration.html#default-cluster-file)
+  will be used.
   """
-  @spec create(Cluster.t()) :: t
-  @spec create(Cluster.t(), map) :: t
-  def create(%Cluster{} = cluster, defaults \\ %{}) when is_map(defaults) do
-    create_q(cluster, defaults)
-    |> Future.await()
-  end
+  @spec create() :: t
+  @spec create(String.t()) :: t
+  @spec create(String.t(), map) :: t
+  def create(cluster_file_path \\ nil, defaults \\ %{}) when is_map(defaults) do
+    resource =
+      Native.create_database(cluster_file_path)
+      |> Utils.verify_result()
 
-  @doc """
-  Async version of `create/2`
-  """
-  @spec create_q(Cluster.t(), map) :: Future.t()
-  def create_q(%Cluster{} = cluster, defaults \\ %{}) do
-    Native.cluster_create_database(cluster.resource)
-    |> Future.create()
-    |> Future.map(fn resource ->
-      struct!(__MODULE__, %{coder: Transaction.Coder.new()})
-      |> struct!(defaults)
-      |> struct!(%{resource: resource})
-    end)
+    struct!(__MODULE__, %{coder: Transaction.Coder.new()})
+    |> struct!(defaults)
+    |> struct!(%{resource: resource})
   end
 
   @doc """
@@ -46,7 +39,7 @@ defmodule FDB.Database do
   resource is shared. This is the recommended way if one needs to use
   multiple coders.
 
-      db = FDB.Database.create(cluster)
+      db = FDB.Database.create(cluster_file_path)
       user_db = FDB.Database.set_defaults(db, %{coder: user_coder})
       comments_db = FDB.Database.set_defaults(db, %{coder: comment_coder})
   """

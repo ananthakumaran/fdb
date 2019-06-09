@@ -5,7 +5,6 @@ defmodule FDBTest do
   alias FDB.KeySelector
   alias FDB.KeyRange
   alias FDB.KeySelectorRange
-  alias FDB.Cluster
   alias FDB.Transaction
   alias FDB.Future
   alias FDB.Database
@@ -37,7 +36,7 @@ defmodule FDBTest do
   end
 
   test "cluster path" do
-    assert_raise(FDB.Error, ~r/file/, fn -> Cluster.create("/hello/world") end)
+    assert_raise(FDB.Error, ~r/file/, fn -> Database.create("/hello/world") end)
   end
 
   test "timeout" do

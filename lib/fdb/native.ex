@@ -20,13 +20,7 @@ defmodule FDB.Native do
   def setup_network, do: :erlang.nif_error(:nif_library_not_loaded)
   def run_network, do: :erlang.nif_error(:nif_library_not_loaded)
   def stop_network, do: :erlang.nif_error(:nif_library_not_loaded)
-  def create_cluster(_file_path), do: :erlang.nif_error(:nif_library_not_loaded)
-  def cluster_set_option(_cluster, _option), do: :erlang.nif_error(:nif_library_not_loaded)
-
-  def cluster_set_option(_cluster, _option, _value),
-    do: :erlang.nif_error(:nif_library_not_loaded)
-
-  def cluster_create_database(_cluster), do: :erlang.nif_error(:nif_library_not_loaded)
+  def create_database(_file_path), do: :erlang.nif_error(:nif_library_not_loaded)
   def database_set_option(_database, _option), do: :erlang.nif_error(:nif_library_not_loaded)
 
   def database_set_option(_database, _option, _value),

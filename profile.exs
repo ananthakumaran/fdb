@@ -9,9 +9,7 @@ keys = Enum.map(0..1000, fn _ -> "fdb:" <> :crypto.strong_rand_bytes(12) end) |>
 
 :ok = FDB.start()
 
-db =
-  FDB.Cluster.create()
-  |> Database.create()
+db = Database.create()
 
 profile do
   Enum.each(0..1000, fn i ->

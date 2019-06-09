@@ -1242,9 +1242,7 @@ defmodule FDB.BindingTester do
     :ok = FDB.start(version)
     {:ok, _pid} = FDB.TransactionMap.start_link()
 
-    db =
-      FDB.Cluster.create(cluster)
-      |> FDB.Database.create()
+    db = FDB.Database.create(cluster)
 
     FDB.Runner.run(db, prefix)
   end
