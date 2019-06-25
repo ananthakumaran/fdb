@@ -53,11 +53,15 @@ matrix:
       otp_release: 21.0
       elixir: 1.8
       os: linux
+      env: VERIFY_FORMAT=true
     - os: osx
 
 script:
   - make
-  - "! mix help format > /dev/null || mix format --check-formatted"
+  - |
+    if [ "VERIFY_FORMAT" = "true" ]; then
+      mix format --check-formatted
+    fi
   - mix compile --force --warnings-as-errors
   - mix test --trace --include integration
   - if [ "$DIALYZER" = "true" ]; then travis_wait mix dialyzer --halt-exit-status; fi
