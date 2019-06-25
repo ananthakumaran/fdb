@@ -1,7 +1,7 @@
 defmodule FDB.MixProject do
   use Mix.Project
 
-  @version "6.0.15-1"
+  @version "6.1.8-0"
 
   def project do
     [
