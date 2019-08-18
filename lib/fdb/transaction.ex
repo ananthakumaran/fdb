@@ -853,4 +853,35 @@ defmodule FDB.Transaction do
     Native.transaction_add_conflict_range(transaction.resource, begin_key, end_key, type)
     |> Utils.verify_ok()
   end
+
+  @metadata_version_key "\xff/metadataVersion"
+  @metadata_version_required_value "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+
+  @doc """
+  Get metadata version.
+
+  Note: This might return nil if the metadata version was never set
+  earlier.
+  """
+  @spec get_metadata_version(t) :: FDB.Versionstamp.t() | nil
+  def get_metadata_version(%Transaction{} = transaction) do
+    case get(transaction, @metadata_version_key, %{coder: Transaction.Coder.new()}) do
+      nil -> nil
+      version -> FDB.Versionstamp.new(version, 0)
+    end
+  end
+
+  @doc """
+  Update metadata version.
+  """
+  @spec update_metadata_version(t) :: :ok
+  def update_metadata_version(%Transaction{} = transaction) do
+    atomic_op(
+      transaction,
+      @metadata_version_key,
+      FDB.Option.mutation_type_set_versionstamped_value(),
+      @metadata_version_required_value,
+      %{coder: Transaction.Coder.new()}
+    )
+  end
 end

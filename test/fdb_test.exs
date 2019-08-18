@@ -565,4 +565,25 @@ defmodule FDBTest do
       assert Transaction.get(transaction, key) == value
     end)
   end
+
+  test "metadata version" do
+    db = new_database()
+
+    old =
+      Database.transact(db, fn t ->
+        Transaction.get_metadata_version(t)
+      end)
+
+    Database.transact(db, fn t ->
+      Transaction.update_metadata_version(t)
+    end)
+
+    new =
+      Database.transact(db, fn t ->
+        Transaction.get_metadata_version(t)
+      end)
+
+    assert new != nil
+    assert old != new
+  end
 end
