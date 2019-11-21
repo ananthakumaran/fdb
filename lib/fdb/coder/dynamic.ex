@@ -82,8 +82,10 @@ defmodule FDB.Coder.Dynamic do
   defp do_decode(<<0x21>> <> _rest = full, coders, acc),
     do: apply_coder(:float64, full, coders, acc)
 
-  defp do_decode(<<0x30>> <> _rest = full, coders, acc),
-    do: apply_coder(:uuid, full, coders, acc)
+  defp do_decode(<<0x30>> <> _rest = full, coders, acc) do
+    {value, rest} = coders[:uuid].module.decode(full, coders[:uuid].opts)
+    {Tuple.append(acc, {:uuid, value <> rest}), ""}
+  end
 
   defp do_decode(<<0x33>> <> _rest = full, coders, acc),
     do: apply_coder(:versionstamp, full, coders, acc)
