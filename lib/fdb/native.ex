@@ -39,6 +39,8 @@ defmodule FDB.Native do
 
   def transaction_get_read_version(_transaction), do: :erlang.nif_error(:nif_library_not_loaded)
 
+  def transaction_get_approximate_size(_transaction), do: :erlang.nif_error(:nif_library_not_loaded)
+
   def transaction_get_committed_version(_transaction),
     do: :erlang.nif_error(:nif_library_not_loaded)
 

@@ -344,6 +344,28 @@ defmodule FDB.Transaction do
   end
 
   @doc """
+  Returns the approximate transaction size so far in the returned future,
+  which is the summation of the estimated size of mutations,
+  read conflict ranges, and write conflict ranges.
+
+  This can be called multiple times before the transaction is committed.
+  """
+  @spec get_approximate_size(t) :: integer()
+  def get_approximate_size(%Transaction{} = transaction) do
+    get_approximate_size_q(transaction)
+    |> Future.await()
+  end
+
+  @doc """
+  Async version of `get_approximate_size/1`
+  """
+  @spec get_approximate_size_q(t) :: Future.t()
+  def get_approximate_size_q(%Transaction{} = transaction) do
+    Native.transaction_get_approximate_size(transaction.resource)
+    |> Future.create()
+  end
+
+  @doc """
   Retrieves the database version number at which a given transaction
   was committed.
 

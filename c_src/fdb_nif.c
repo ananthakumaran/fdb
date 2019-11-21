@@ -2,7 +2,7 @@
  * https://apple.github.io/foundationdb/api-c.html
  */
 
-#define FDB_API_VERSION 610
+#define FDB_API_VERSION 620
 
 #include "erl_nif.h"
 #include "foundationdb/fdb_c.h"
@@ -202,7 +202,7 @@ typedef enum {
   VALUE,
   COMMIT,
   KEYVALUE_ARRAY,
-  VERSION,
+  INT64,
   KEY,
   STRING_ARRAY,
   WATCH,
@@ -339,13 +339,13 @@ future_get(ErlNifEnv *env, Future *future, ERL_NIF_TERM *term) {
     *term = enif_make_tuple2(env, enif_make_int(env, out_more), result_list);
     return error;
   }
-  case VERSION: {
-    int64_t version;
-    error = fdb_future_get_version(future->handle, &version);
+  case INT64: {
+    int64_t value;
+    error = fdb_future_get_int64(future->handle, &value);
     if (error) {
       return error;
     }
-    *term = enif_make_int64(env, version);
+    *term = enif_make_int64(env, value);
     return error;
   }
   case KEY: {
@@ -591,7 +591,21 @@ transaction_get_read_version(ErlNifEnv *env, int argc,
               "transaction");
   fdb_future = fdb_transaction_get_read_version(transaction->handle);
   reference = reference_resource_create(transaction, NULL);
-  return fdb_future_to_future(env, fdb_future, VERSION, reference, NULL);
+  return fdb_future_to_future(env, fdb_future, INT64, reference, NULL);
+}
+
+static ERL_NIF_TERM
+transaction_get_approximate_size(ErlNifEnv *env, int argc,
+                             const ERL_NIF_TERM argv[]) {
+  Transaction *transaction;
+  FDBFuture *fdb_future;
+  Reference *reference = NULL;
+  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE,
+                                (void **)&transaction),
+              "transaction");
+  fdb_future = fdb_transaction_get_approximate_size(transaction->handle);
+  reference = reference_resource_create(transaction, NULL);
+  return fdb_future_to_future(env, fdb_future, INT64, reference, NULL);
 }
 
 static ERL_NIF_TERM
@@ -952,6 +966,7 @@ static ErlNifFunc nif_funcs[] = {
     {"database_create_transaction", 1, database_create_transaction, 0},
     {"transaction_get", 3, transaction_get, 0},
     {"transaction_get_read_version", 1, transaction_get_read_version, 0},
+    {"transaction_get_approximate_size", 1, transaction_get_approximate_size, 0},
     {"transaction_get_key", 5, transaction_get_key, 0},
     {"transaction_get_addresses_for_key", 2, transaction_get_addresses_for_key,
      0},

@@ -260,6 +260,20 @@ defmodule FDBTest do
     assert_raise FDB.Error, fn -> Transaction.get(t, random_key()) == nil end
   end
 
+  test "approximate_size" do
+    db = new_database()
+
+    Database.transact(db, fn t ->
+      Transaction.set(t, random_key(), random_value())
+      s1 = Transaction.get_approximate_size(t)
+
+      Transaction.set(t, random_key(), random_value())
+      s2 = Transaction.get_approximate_size(t)
+
+      assert s1 < s2
+    end)
+  end
+
   test "get_key" do
     t = new_transaction()
 
