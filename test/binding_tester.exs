@@ -371,25 +371,6 @@ defmodule FDB.Machine do
     end
   end
 
-  def do_execute(id, {"GET_APPROXIMATE_SIZE"}, s) do
-    size =
-      rescue_error(fn ->
-        Transaction.get_approximate_size(trx(s))
-      end)
-
-    cond do
-      is_integer(size) ->
-        %{
-          s
-          | last_version: size,
-            stack: push(s.stack, {:byte_string, "GOT_APPROXIMATE_SIZE"}, id)
-        }
-
-      true ->
-        %{s | stack: push(s.stack, size, id)}
-    end
-  end
-
   def do_execute(id, {"GET_COMMITTED_VERSION"}, s) do
     version =
       rescue_error(fn ->
@@ -415,6 +396,16 @@ defmodule FDB.Machine do
       |> Future.map(&{:byte_string, FDB.Versionstamp.transaction_version(&1)})
 
     %{s | stack: push(s.stack, future, id)}
+  end
+
+  def do_execute(id, {"GET_APPROXIMATE_SIZE"}, s) do
+    result =
+      rescue_error(fn ->
+        _ = Transaction.get_approximate_size(trx(s))
+        {:byte_string, "GOT_APPROXIMATE_SIZE"}
+      end)
+
+    %{s | stack: push(s.stack, result, id)}
   end
 
   def do_execute(id, {"GET_KEY"}, s) do
