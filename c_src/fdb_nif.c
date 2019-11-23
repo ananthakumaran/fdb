@@ -596,7 +596,7 @@ transaction_get_read_version(ErlNifEnv *env, int argc,
 
 static ERL_NIF_TERM
 transaction_get_approximate_size(ErlNifEnv *env, int argc,
-                             const ERL_NIF_TERM argv[]) {
+                                 const ERL_NIF_TERM argv[]) {
   Transaction *transaction;
   FDBFuture *fdb_future;
   Reference *reference = NULL;
@@ -966,7 +966,8 @@ static ErlNifFunc nif_funcs[] = {
     {"database_create_transaction", 1, database_create_transaction, 0},
     {"transaction_get", 3, transaction_get, 0},
     {"transaction_get_read_version", 1, transaction_get_read_version, 0},
-    {"transaction_get_approximate_size", 1, transaction_get_approximate_size, 0},
+    {"transaction_get_approximate_size", 1, transaction_get_approximate_size,
+     0},
     {"transaction_get_key", 5, transaction_get_key, 0},
     {"transaction_get_addresses_for_key", 2, transaction_get_addresses_for_key,
      0},
