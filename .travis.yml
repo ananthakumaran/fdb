@@ -21,8 +21,9 @@ before_install:
       wget "https://www.foundationdb.org/downloads/$FDB_VERSION/ubuntu/installers/foundationdb-server_$FDB_VERSION-1_amd64.deb"
       sudo dpkg -i "foundationdb-server_$FDB_VERSION-1_amd64.deb"
     else
+      brew update
       brew install elixir
-      wget "https://www.foundationdb.org/downloads/$FDB_VERSION/macOS/installers/FoundationDB-$FDB_VERSION.pkg"
+      curl -L "https://www.foundationdb.org/downloads/$FDB_VERSION/macOS/installers/FoundationDB-$FDB_VERSION.pkg" > "FoundationDB-$FDB_VERSION.pkg"
       sudo installer -pkg "FoundationDB-$FDB_VERSION.pkg" -target /
       mix local.rebar --force
       mix local.hex --force
