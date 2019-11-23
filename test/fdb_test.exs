@@ -48,6 +48,17 @@ defmodule FDBTest do
     assert_raise FDB.Error, ~r/timed out/, fn -> Transaction.commit(t) end
   end
 
+  test "size_limit" do
+    t = new_transaction()
+    assert Transaction.set_option(t, transaction_option_size_limit(), 1000) == :ok
+    key = random_key()
+
+    assert_raise FDB.Error, ~r/exceeds byte limit/, fn ->
+      Transaction.set(t, key, random_value(2000))
+      Transaction.commit(t)
+    end
+  end
+
   test "reuse transaction" do
     t = new_transaction()
 
