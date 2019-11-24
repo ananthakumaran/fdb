@@ -398,6 +398,16 @@ defmodule FDB.Machine do
     %{s | stack: push(s.stack, future, id)}
   end
 
+  def do_execute(id, {"GET_APPROXIMATE_SIZE"}, s) do
+    result =
+      rescue_error(fn ->
+        _ = Transaction.get_approximate_size(trx(s))
+        {:byte_string, "GOT_APPROXIMATE_SIZE"}
+      end)
+
+    %{s | stack: push(s.stack, result, id)}
+  end
+
   def do_execute(id, {"GET_KEY"}, s) do
     {{:byte_string, key}, {:integer, or_equal}, {:integer, offset}, {:byte_string, prefix}, stack} =
       pop(s.stack, 4)

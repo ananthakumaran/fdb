@@ -48,6 +48,17 @@ defmodule FDBTest do
     assert_raise FDB.Error, ~r/timed out/, fn -> Transaction.commit(t) end
   end
 
+  test "size_limit" do
+    t = new_transaction()
+    assert Transaction.set_option(t, transaction_option_size_limit(), 1000) == :ok
+    key = random_key()
+
+    assert_raise FDB.Error, ~r/exceeds byte limit/, fn ->
+      Transaction.set(t, key, random_value(2000))
+      Transaction.commit(t)
+    end
+  end
+
   test "reuse transaction" do
     t = new_transaction()
 
@@ -258,6 +269,20 @@ defmodule FDBTest do
     t = new_transaction()
     assert Transaction.set_read_version(t, version + 1000_000_000) == :ok
     assert_raise FDB.Error, fn -> Transaction.get(t, random_key()) == nil end
+  end
+
+  test "approximate_size" do
+    db = new_database()
+
+    Database.transact(db, fn t ->
+      Transaction.set(t, random_key(), random_value())
+      s1 = Transaction.get_approximate_size(t)
+
+      Transaction.set(t, random_key(), random_value())
+      s2 = Transaction.get_approximate_size(t)
+
+      assert s1 < s2
+    end)
   end
 
   test "get_key" do

@@ -430,6 +430,25 @@ defmodule FDBSegfaultTest do
 
   fuzz(
     FDB.Transaction,
+    :get_approximate_size,
+    1,
+    fixed_list([
+      one_of([term(), constant(transaction())])
+    ])
+  )
+
+  fuzz(
+    FDB.Transaction,
+    :get_approximate_size_q,
+    1,
+    fixed_list([
+      one_of([term(), constant(transaction())])
+    ]),
+    %{future: true}
+  )
+
+  fuzz(
+    FDB.Transaction,
     :get_committed_version,
     1,
     fixed_list([
