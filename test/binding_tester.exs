@@ -282,23 +282,23 @@ defmodule FDB.Machine do
   end
 
   def do_execute(id, {"ENCODE_DOUBLE"}, s) do
-    {{_, <<n::64-float-big>>}, stack} = pop(s.stack)
-    %{s | stack: push(stack, {:float64, n}, id)}
+    {{_, f}, stack} = pop(s.stack)
+    %{s | stack: push(stack, {:float64, FDB.Coder.Float.decode_float_64(f)}, id)}
   end
 
   def do_execute(id, {"DECODE_DOUBLE"}, s) do
     {{_, n}, stack} = pop(s.stack)
-    %{s | stack: push(stack, {:byte_string, <<n::64-float-big>>}, id)}
+    %{s | stack: push(stack, {:byte_string, FDB.Coder.Float.encode_float_64(n)}, id)}
   end
 
   def do_execute(id, {"ENCODE_FLOAT"}, s) do
-    {{_, <<n::32-float-big>>}, stack} = pop(s.stack)
-    %{s | stack: push(stack, {:float32, n}, id)}
+    {{_, f}, stack} = pop(s.stack)
+    %{s | stack: push(stack, {:float32, FDB.Coder.Float.decode_float_32(f)}, id)}
   end
 
   def do_execute(id, {"DECODE_FLOAT"}, s) do
     {{_, n}, stack} = pop(s.stack)
-    %{s | stack: push(stack, {:byte_string, <<n::32-float-big>>}, id)}
+    %{s | stack: push(stack, {:byte_string, FDB.Coder.Float.encode_float_32(n)}, id)}
   end
 
   def do_execute(_id, {op}, s) when op in ["NEW_TRANSACTION", "RESET"] do
