@@ -1,0 +1,56 @@
+env:
+  FDB_VERSION: "6.3.18"
+on:
+  - push
+  - pull_request
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: OTP ${{matrix.otp}} / Elixir ${{matrix.elixir}}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - elixir: 1.9.4
+            otp: 22.3
+          - elixir: 1.10.4
+            otp: 22.3
+          - elixir: 1.11.4
+            otp: 23.3
+          - elixir: 1.12.3
+            otp: 24.1
+          - elixir: 1.13.0
+            otp: 24.1
+            check_warnings: true
+            check_format: true
+    steps:
+      - uses: actions/checkout@v2
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: ${{matrix.otp}}
+          elixir-version: ${{matrix.elixir}}
+      - name: Install
+        run: |
+          sudo apt-get install -y build-essential python-dev python3-pip
+          wget "https://www.foundationdb.org/downloads/${{ env.FDB_VERSION }}/ubuntu/installers/foundationdb-clients_$FDB_VERSION-1_amd64.deb"
+          sudo dpkg -i "foundationdb-clients_${{ env.FDB_VERSION }}-1_amd64.deb"
+          wget "https://www.foundationdb.org/downloads/${{ env.FDB_VERSION }}/ubuntu/installers/foundationdb-server_$FDB_VERSION-1_amd64.deb"
+          sudo dpkg -i "foundationdb-server_${{ env.FDB_VERSION }}-1_amd64.deb"
+      - run: mix deps.get
+      - run: mix format --check-formatted
+        if: ${{ matrix.check_format }}
+      - run: mix compile --force --warnings-as-errors
+        if: ${{ matrix.check_warnings }}
+      - run: mix test --trace --include integration
+      - if: ${{ matrix.bindings_test }}
+        run: |
+          curl -L "https://github.com/apple/foundationdb/archive/${{ env.FDB_VERSION }}.tar.gz" > foundation.tar.gz
+          tar -xf foundation.tar.gz
+          rm foundation.tar.gz
+          mv foundationdb-$FDB_VERSION foundationdb
+          cd foundationdb
+          sed "s:USER_SITE_PATH:$(python3 -m site --user-site):g" ../test/foundationdb.patch | patch -p1
+          cd ..
+          pip3 install --user "http://www.foundationdb.org/downloads/${{ env.FDB_VERSION }}/bindings/python/foundationdb-$FDB_VERSION.tar.gz"
+          pip3 show foundationdb
+          ./test/loop.sh
