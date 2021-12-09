@@ -4,6 +4,7 @@ defmodule FDB.Future do
   """
   alias FDB.Native
   alias FDB.Utils
+  import Kernel, except: [then: 2]
 
   defstruct resource: nil, on_resolve: [], waiting_for: [], constant: false, value: nil
 

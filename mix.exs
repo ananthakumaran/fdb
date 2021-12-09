@@ -33,7 +33,7 @@ defmodule FDB.MixProject do
     [
       {:elixir_make, "~> 0.4", runtime: false},
       {:sweet_xml, "~> 0.6", runtime: false},
-      {:stream_data, "~> 0.4", only: :test},
+      {:stream_data, "~> 0.4", only: [:test, :dev]},
       {:timex, "~> 3.3.0", only: :test},
       {:ex_doc, "~> 0.18", only: :dev},
       {:dialyxir, "~> 1.0.0-rc.2", only: [:dev], runtime: false},

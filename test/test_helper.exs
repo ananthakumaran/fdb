@@ -45,7 +45,8 @@ defmodule TestUtils do
   end
 
   def sort_order(value) do
-    Enum.with_index(value)
+    Enum.uniq(value)
+    |> Enum.with_index()
     |> Enum.sort_by(fn {value, _index} -> value end)
     |> Enum.map(fn {_value, index} -> index end)
   end

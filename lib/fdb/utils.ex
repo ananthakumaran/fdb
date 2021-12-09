@@ -48,9 +48,7 @@ defmodule FDB.Utils do
       cond do
         validator == :positive_integer && (!is_integer(value) || value < 0) ->
           raise ArgumentError,
-                "Invalid option value for key #{key}: Expected positive integer, got: #{
-                  inspect(value)
-                }"
+                "Invalid option value for key #{key}: Expected positive integer, got: #{inspect(value)}"
 
         is_function(validator) ->
           validator.(value)

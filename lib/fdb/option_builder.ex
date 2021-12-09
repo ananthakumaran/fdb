@@ -88,9 +88,7 @@ defmodule FDB.OptionBuilder do
         (value_type == "Bytes" && !is_binary(value)) ||
           (value_type == "Int" && !is_integer(value)) ->
         raise ArgumentError,
-              "Invalid option value. This option expects a value of type #{value_type}, got: #{
-                inspect(value)
-              }"
+              "Invalid option value. This option expects a value of type #{value_type}, got: #{inspect(value)}"
 
       true ->
         true
