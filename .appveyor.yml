@@ -5,7 +5,7 @@ install:
   - call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars64.bat"
   - cinst elixir
   - ps: |
-      $Version="6.2.7"
+      $Version="6.3.18"
       $BaseUrl="https://www.foundationdb.org/downloads/${Version}"
       Invoke-WebRequest "${BaseUrl}/windows/installers/foundationdb-${Version}-x64.msi" -OutFile "foundationdb-${Version}-x64.msi"
       Write-Host "Installing foundationdb-${Version}-x64.msi"

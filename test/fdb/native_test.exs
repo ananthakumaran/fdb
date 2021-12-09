@@ -2,7 +2,7 @@ defmodule FDB.NativeTest do
   use ExUnit.Case, async: false
   import FDB.Native
 
-  @current 620
+  @current 630
 
   test "get_max_api_version" do
     assert get_max_api_version() >= @current
