@@ -79,6 +79,9 @@ defmodule FDB.Native do
   def transaction_add_conflict_range(_transaction, _begin_key, _end_key, _conflict_range_type),
     do: :erlang.nif_error(:nif_library_not_loaded)
 
+  def transaction_get_estimated_range_size_bytes(_transaction, _begin_key, _end_key),
+    do: :erlang.nif_error(:nif_library_not_loaded)
+
   def transaction_atomic_op(_transaction, _key, _param, _operation_type),
     do: :erlang.nif_error(:nif_library_not_loaded)
 
