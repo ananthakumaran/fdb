@@ -19,6 +19,7 @@ jobs:
             otp: 23.3
           - elixir: 1.12.3
             otp: 24.1
+            bindings_test: true
           - elixir: 1.13.0
             otp: 24.1
             check_warnings: true
