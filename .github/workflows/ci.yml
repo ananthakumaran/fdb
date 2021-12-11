@@ -24,6 +24,7 @@ jobs:
             otp: 24.1
             check_warnings: true
             check_format: true
+            dialyzer: true
     steps:
       - uses: actions/checkout@v2
       - uses: erlef/setup-beam@v1
@@ -55,6 +56,24 @@ jobs:
           pip3 install --user "http://www.foundationdb.org/downloads/${{ env.FDB_VERSION }}/bindings/python/foundationdb-${{ env.FDB_VERSION }}.tar.gz"
           pip3 show foundationdb
           ./test/loop.sh
+      - name: Restore PLT cache
+        uses: actions/cache@v2
+        if: ${{ matrix.dialyzer }}
+        id: plt_cache
+        with:
+          key: |
+            ${{ runner.os }}-${{ steps.beam.outputs.elixir-version }}-${{ steps.beam.outputs.otp-version }}-plt
+          restore-keys: |
+            ${{ runner.os }}-${{ steps.beam.outputs.elixir-version }}-${{ steps.beam.outputs.otp-version }}-plt
+          path: |
+            priv/plts
+      # Create PLTs if no cache was found
+      - name: Create PLTs
+        if: ${{ matrix.dialyzer && steps.plt_cache.outputs.cache-hit != 'true' }}
+        run: mix dialyzer --plt
+      - name: Run dialyzer
+        if: ${{ matrix.dialyzer }}
+        run: mix dialyzer
   mac:
     runs-on: macos-latest
     name: OS MacOS
