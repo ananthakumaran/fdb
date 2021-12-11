@@ -33,7 +33,23 @@ defmodule FDB.Coder.FloatTest do
       opts: %FDB.Coder{module: FDB.Coder.Float, opts: 32}
     }
 
-    values = [1.0, 3.0, 1.0, -3.0, 3.0, -0.0, 3.0, 0.0, 1.0, -1.0]
+    values = [1.0, 3.0, 1.0, -3.0, 3.0, 3.0, 1.0, -1.0]
+    assert_coder_order_symmetry(coder, values)
+
+    coder = %FDB.Coder{
+      module: FDB.Coder.Nullable,
+      opts: %FDB.Coder{module: FDB.Coder.Float, opts: 64}
+    }
+
+    values = [1.0, 5.0, 5.0, -1.0, 0.0, 5.0, -1.0, 5.0, -0.0, 1.0]
+    assert_coder_order_symmetry(coder, values)
+
+    coder = %FDB.Coder{
+      module: FDB.Coder.NestedTuple,
+      opts: [%FDB.Coder{module: FDB.Coder.Float, opts: 32}]
+    }
+
+    values = [{1.0}, {0.0}, {-1.0}, {1.0}, {-3.0}, {-3.0}, {-1.0}, {-1.0}, {-0.0}, {-1.0}]
     assert_coder_order_symmetry(coder, values)
   end
 end
