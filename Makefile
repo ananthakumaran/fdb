@@ -30,4 +30,4 @@ clean:
 	rm  -rf $(LIB_NAME)*
 
 update-options:
-	curl https://raw.githubusercontent.com/apple/foundationdb/6.3.18/fdbclient/vexillographer/fdb.options > priv/fdb.options
+	curl https://raw.githubusercontent.com/apple/foundationdb/6.3.23/fdbclient/vexillographer/fdb.options > priv/fdb.options
