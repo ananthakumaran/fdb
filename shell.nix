@@ -32,7 +32,7 @@ let
       sha256 = "0jxd9xcfaxaa5gp0y6mbwr827kzyal06pk4jdd25sni5adl3cxh6";
     };
 
-    nativeBuildInputs = [ pkgs.autoPatchelfHook pkgs.dpkg pkgs.tree ];
+    nativeBuildInputs = [ pkgs.autoPatchelfHook pkgs.dpkg ];
 
     dontUnpack = true;
     installPhase = ''
@@ -42,8 +42,6 @@ let
       mv $out/usr/lib $out/lib
     '';
   };
-in (pkgs.buildFHSUserEnv {
-  name = "fdb";
-  targetPkgs = pkgs: ([ foundationdb-client foundationdb-server ]);
-  runScript = "zsh";
-}).env
+in pkgs.mkShell {
+  nativeBuildInputs = [ foundationdb-client foundationdb-server ];
+}
