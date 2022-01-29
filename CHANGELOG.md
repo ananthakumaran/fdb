@@ -1,6 +1,8 @@
 
 ## [Unreleased]
 
+## [6.3.23-0] - 29/01/2022
+
 - Add support for protocol version 630
 
 ## [6.2.7-0] - 24/11/2019
