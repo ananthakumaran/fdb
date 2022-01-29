@@ -591,6 +591,16 @@ defmodule FDBTest do
     end)
   end
 
+  test "get_estimated_range_size_bytes" do
+    db = new_database()
+
+    Database.transact(db, fn transaction ->
+      range = KeyRange.starts_with("fdb:")
+      size = Transaction.get_estimated_range_size_bytes(transaction, range)
+      assert size == 0
+    end)
+  end
+
   test "metadata version" do
     db = new_database()
 

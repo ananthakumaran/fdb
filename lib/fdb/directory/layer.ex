@@ -183,9 +183,7 @@ defmodule FDB.Directory.Layer do
                  })
                  |> Enum.empty?() do
             raise ArgumentError,
-                  "The database has keys stored at the prefix chosen by the automatic prefix allocator: #{
-                    inspect(prefix)
-                  }."
+                  "The database has keys stored at the prefix chosen by the automatic prefix allocator: #{inspect(prefix)}."
           end
 
           unless prefix_free?(directory, tr, prefix) do
@@ -389,15 +387,11 @@ defmodule FDB.Directory.Layer do
 
       {major, _, _} when major != 1 ->
         raise ArgumentError,
-              "Cannot load directory with version #{inspect(version)} using directory layer #{
-                inspect(@directory_version)
-              }"
+              "Cannot load directory with version #{inspect(version)} using directory layer #{inspect(@directory_version)}"
 
       {_, minor, _} when minor != 0 and write_access ->
         raise ArgumentError,
-              "Directory with version #{inspect(version)} is read-only when opened using directory layer #{
-                inspect(@directory_version)
-              }"
+              "Directory with version #{inspect(version)} is read-only when opened using directory layer #{inspect(@directory_version)}"
 
       _ ->
         :ok

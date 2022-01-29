@@ -559,6 +559,43 @@ defmodule FDBSegfaultTest do
 
   fuzz(
     FDB.Transaction,
+    :get_estimated_range_size_bytes,
+    2,
+    fixed_list([
+      one_of([term(), constant(transaction())]),
+      one_of([
+        term(),
+        constant(
+          KeyRange.range(
+            "a",
+            "d"
+          )
+        )
+      ])
+    ])
+  )
+
+  fuzz(
+    FDB.Transaction,
+    :get_estimated_range_size_bytes_q,
+    2,
+    fixed_list([
+      one_of([term(), constant(transaction())]),
+      one_of([
+        term(),
+        constant(
+          KeyRange.range(
+            "a",
+            "d"
+          )
+        )
+      ])
+    ]),
+    %{future: true}
+  )
+
+  fuzz(
+    FDB.Transaction,
     :commit,
     1,
     fixed_list([

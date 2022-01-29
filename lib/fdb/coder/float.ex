@@ -30,20 +30,20 @@ defmodule FDB.Coder.Float do
   defp do_encode(<<sign::big-integer-size(8), rest::binary>> = full) do
     if (sign &&& 0x80) != 0x00 do
       :binary.bin_to_list(full)
-      |> Enum.map(fn e -> 0xFF ^^^ e end)
+      |> Enum.map(fn e -> Bitwise.bxor(0xFF, e) end)
       |> IO.iodata_to_binary()
     else
-      <<0x80 ^^^ sign>> <> rest
+      <<Bitwise.bxor(0x80, sign)>> <> rest
     end
   end
 
   defp do_decode(<<sign::big-integer-size(8), rest::binary>> = full) do
     if (sign &&& 0x80) == 0x00 do
       :binary.bin_to_list(full)
-      |> Enum.map(fn e -> 0xFF ^^^ e end)
+      |> Enum.map(fn e -> Bitwise.bxor(0xFF, e) end)
       |> IO.iodata_to_binary()
     else
-      <<0x80 ^^^ sign>> <> rest
+      <<Bitwise.bxor(0x80, sign)>> <> rest
     end
   end
 

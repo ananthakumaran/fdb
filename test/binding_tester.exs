@@ -408,6 +408,23 @@ defmodule FDB.Machine do
     %{s | stack: push(s.stack, result, id)}
   end
 
+  def do_execute(id, {"GET_ESTIMATED_RANGE_SIZE"}, s) do
+    {{:byte_string, begin_key}, {:byte_string, end_key}, stack} = pop(s.stack, 2)
+
+    result =
+      rescue_error(fn ->
+        _ =
+          Transaction.get_estimated_range_size_bytes(
+            trx(s),
+            KeyRange.range(begin_key, end_key)
+          )
+
+        {:byte_string, "GOT_ESTIMATED_RANGE_SIZE"}
+      end)
+
+    %{s | stack: push(stack, result, id)}
+  end
+
   def do_execute(id, {"GET_KEY"}, s) do
     {{:byte_string, key}, {:integer, or_equal}, {:integer, offset}, {:byte_string, prefix}, stack} =
       pop(s.stack, 4)

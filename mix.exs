@@ -1,7 +1,7 @@
 defmodule FDB.MixProject do
   use Mix.Project
 
-  @version "6.2.7-0"
+  @version "6.3.23-0"
 
   def project do
     [
@@ -25,7 +25,7 @@ defmodule FDB.MixProject do
 
   def application do
     [
-      extra_applications: [:logger]
+      extra_applications: [:logger, :crypto]
     ]
   end
 
@@ -33,7 +33,7 @@ defmodule FDB.MixProject do
     [
       {:elixir_make, "~> 0.4", runtime: false},
       {:sweet_xml, "~> 0.6", runtime: false},
-      {:stream_data, "~> 0.4", only: :test},
+      {:stream_data, "~> 0.4", only: [:test, :dev]},
       {:timex, "~> 3.3.0", only: :test},
       {:ex_doc, "~> 0.18", only: :dev},
       {:dialyxir, "~> 1.0.0-rc.2", only: [:dev], runtime: false},

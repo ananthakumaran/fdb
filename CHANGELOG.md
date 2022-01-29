@@ -1,6 +1,8 @@
 
 ## [Unreleased]
 
+- Add support for protocol version 630
+
 ## [6.2.7-0] - 24/11/2019
 
 - Add support for protocol version 620

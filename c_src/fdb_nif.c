@@ -2,7 +2,7 @@
  * https://apple.github.io/foundationdb/api-c.html
  */
 
-#define FDB_API_VERSION 620
+#define FDB_API_VERSION 630
 
 #include "erl_nif.h"
 #include "foundationdb/fdb_c.h"
@@ -809,6 +809,35 @@ transaction_add_conflict_range(ErlNifEnv *env, int argc,
 }
 
 static ERL_NIF_TERM
+transaction_get_estimated_range_size_bytes(ErlNifEnv *env, int argc,
+                                           const ERL_NIF_TERM argv[]) {
+  Transaction *transaction;
+  FDBFuture *fdb_future;
+  Reference *reference = NULL;
+
+  ERL_NIF_TERM begin_key_term = argv[1];
+  ERL_NIF_TERM end_key_term = argv[2];
+
+  ErlNifBinary begin_key;
+  ErlNifBinary end_key;
+
+  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE,
+                                (void **)&transaction),
+              "transaction");
+  VERIFY_ARGV(enif_is_binary(env, begin_key_term), "begin_key");
+  VERIFY_ARGV(enif_is_binary(env, end_key_term), "end_key");
+
+  enif_inspect_binary(env, begin_key_term, &begin_key);
+  enif_inspect_binary(env, end_key_term, &end_key);
+
+  fdb_future = fdb_transaction_get_estimated_range_size_bytes(
+      transaction->handle, begin_key.data, begin_key.size, end_key.data,
+      end_key.size);
+  reference = reference_resource_create(transaction, NULL);
+  return fdb_future_to_future(env, fdb_future, INT64, reference, NULL);
+}
+
+static ERL_NIF_TERM
 transaction_atomic_op(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   Transaction *transaction;
   ERL_NIF_TERM key_term = argv[1];
@@ -975,6 +1004,8 @@ static ErlNifFunc nif_funcs[] = {
     {"transaction_set", 3, transaction_set, 0},
     {"transaction_set_read_version", 2, transaction_set_read_version, 0},
     {"transaction_add_conflict_range", 4, transaction_add_conflict_range, 0},
+    {"transaction_get_estimated_range_size_bytes", 3,
+     transaction_get_estimated_range_size_bytes, 0},
     {"transaction_get_committed_version", 1, transaction_get_committed_version,
      0},
     {"transaction_get_versionstamp", 1, transaction_get_versionstamp, 0},

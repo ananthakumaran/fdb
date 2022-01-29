@@ -865,6 +865,36 @@ defmodule FDB.Transaction do
     |> Utils.verify_ok()
   end
 
+  @doc """
+  Returns the estimated size of the key range given.
+  """
+  @spec get_estimated_range_size_bytes(t, KeyRange.t(), map) :: integer()
+  def get_estimated_range_size_bytes(
+        %Transaction{} = transaction,
+        %KeyRange{} = key_range,
+        options \\ %{}
+      ) do
+    get_estimated_range_size_bytes_q(transaction, key_range, options)
+    |> Future.await()
+  end
+
+  @doc """
+  Async version of `get_estimated_range_size_bytes/1`
+  """
+  @spec get_estimated_range_size_bytes_q(t, KeyRange.t(), map) :: Future.t()
+  def get_estimated_range_size_bytes_q(
+        %Transaction{} = transaction,
+        %KeyRange{} = key_range,
+        options \\ %{}
+      ) do
+    coder = Map.get(options, :coder, transaction.coder)
+    begin_key = Coder.encode_range(coder, key_range.begin.key, key_range.begin.prefix)
+    end_key = Coder.encode_range(coder, key_range.end.key, key_range.end.prefix)
+
+    Native.transaction_get_estimated_range_size_bytes(transaction.resource, begin_key, end_key)
+    |> Future.create()
+  end
+
   def add_conflict_key(%Transaction{} = transaction, key, type, options \\ %{}) do
     Option.verify_conflict_range_type(type)
     coder = Map.get(options, :coder, transaction.coder)

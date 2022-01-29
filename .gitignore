@@ -39,3 +39,5 @@ result.ndjson
 test.sh
 .elixir_ls
 fdb_nif.obj
+data
+fdb.cluster

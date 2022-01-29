@@ -7,7 +7,7 @@ index 753f2202..9d1d1fab 100644
  import os
  
 -sys.path[:0] = [os.path.join(os.path.dirname(__file__), '..', '..', 'bindings', 'python')]
-+sys.path[:0] = ['/home/travis/.local/lib/python2.7/site-packages/']
++sys.path[:0] = ['USER_SITE_PATH']
  
  import util
  
@@ -30,7 +30,7 @@ index 6aefe7eb..72cd4d59 100644
  import traceback
  
 -sys.path[:0] = [os.path.join(os.path.dirname(__file__), '..')]
-+sys.path[:0] = ['/home/travis/.local/lib/python2.7/site-packages/']
++sys.path[:0] = ['USER_SITE_PATH']
  import fdb
  fdb.api_version(int(sys.argv[2]))
  

@@ -66,9 +66,27 @@ defmodule TestUtils do
 
     assert values == decoded
 
-    if sorted do
+    if sorted && !nested_any?(values, fn value -> value == 0.0 end) do
       assert sort_order(values) == sort_order(encoded)
     end
+  end
+
+  defp nested_any?(values, cb) when is_tuple(values) do
+    Tuple.to_list(values)
+    |> nested_any?(cb)
+  end
+
+  defp nested_any?(values, cb) when is_map(values) do
+    Map.to_list(values)
+    |> nested_any?(cb)
+  end
+
+  defp nested_any?(values, cb) when is_list(values) do
+    Enum.any?(values, fn value -> nested_any?(value, cb) end)
+  end
+
+  defp nested_any?(value, cb) do
+    cb.(value)
   end
 
   defmacro fuzz(module, method, arity, generator, options \\ Macro.escape(%{})) do
