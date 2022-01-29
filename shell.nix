@@ -24,7 +24,7 @@ let
   };
 
   foundationdb-server = pkgs.stdenv.mkDerivation rec {
-    name = "foundationdb-client";
+    name = "foundationdb-server";
 
     src = pkgs.fetchurl {
       url =
