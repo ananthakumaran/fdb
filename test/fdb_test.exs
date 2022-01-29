@@ -571,7 +571,8 @@ defmodule FDBTest do
         end)
       end,
       max_concurrency: 10,
-      ordered: false
+      ordered: false,
+      timeout: 10000
     )
     |> Stream.run()
   end
