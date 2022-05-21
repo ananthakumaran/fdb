@@ -71,6 +71,14 @@ defmodule FDB.Native do
       ),
       do: :erlang.nif_error(:nif_library_not_loaded)
 
+  def transaction_get_range_split_points(
+        _transaction,
+        _begin_key,
+        _end_key,
+        _chunk_size
+      ),
+      do: :erlang.nif_error(:nif_library_not_loaded)
+
   def transaction_set(_transaction, _key, _value), do: :erlang.nif_error(:nif_library_not_loaded)
 
   def transaction_set_read_version(_transaction, _version),

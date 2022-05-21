@@ -879,7 +879,7 @@ defmodule FDB.Transaction do
   end
 
   @doc """
-  Async version of `get_estimated_range_size_bytes/1`
+  Async version of `get_estimated_range_size_bytes/3`
   """
   @spec get_estimated_range_size_bytes_q(t, KeyRange.t(), map) :: Future.t()
   def get_estimated_range_size_bytes_q(
@@ -892,6 +892,44 @@ defmodule FDB.Transaction do
     end_key = Coder.encode_range(coder, key_range.end.key, key_range.end.prefix)
 
     Native.transaction_get_estimated_range_size_bytes(transaction.resource, begin_key, end_key)
+    |> Future.create()
+  end
+
+  @doc """
+  Returns a list of keys that can split the given key range into
+  similar sized chunks based on chunk_size.
+  """
+  @spec get_range_split_points(t, KeyRange.t(), integer(), map) :: integer()
+  def get_range_split_points(
+        %Transaction{} = transaction,
+        %KeyRange{} = key_range,
+        chunk_size,
+        options \\ %{}
+      ) do
+    get_range_split_points_q(transaction, key_range, chunk_size, options)
+    |> Future.await()
+  end
+
+  @doc """
+  Async version of `get_range_split_points/4`
+  """
+  @spec get_range_split_points_q(t, KeyRange.t(), integer(), map) :: Future.t()
+  def get_range_split_points_q(
+        %Transaction{} = transaction,
+        %KeyRange{} = key_range,
+        chunk_size,
+        options \\ %{}
+      ) do
+    coder = Map.get(options, :coder, transaction.coder)
+    begin_key = Coder.encode_range(coder, key_range.begin.key, key_range.begin.prefix)
+    end_key = Coder.encode_range(coder, key_range.end.key, key_range.end.prefix)
+
+    Native.transaction_get_range_split_points(
+      transaction.resource,
+      begin_key,
+      end_key,
+      chunk_size
+    )
     |> Future.create()
   end
 

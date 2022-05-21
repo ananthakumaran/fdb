@@ -43,5 +43,9 @@ let
     '';
   };
 in pkgs.mkShell {
-  nativeBuildInputs = [ foundationdb-client foundationdb-server ];
+  nativeBuildInputs = [ foundationdb-client foundationdb-server pkgs.python3 ];
+
+  shellHook = ''
+    export LD_LIBRARY_PATH=${foundationdb-client}/lib
+  '';
 }

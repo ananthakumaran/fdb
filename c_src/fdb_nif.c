@@ -2,7 +2,7 @@
  * https://apple.github.io/foundationdb/api-c.html
  */
 
-#define FDB_API_VERSION 630
+#define FDB_API_VERSION 710
 
 #include "erl_nif.h"
 #include "foundationdb/fdb_c.h"
@@ -206,7 +206,8 @@ typedef enum {
   KEY,
   STRING_ARRAY,
   WATCH,
-  ERROR
+  ERROR,
+  KEY_ARRAY
 } FutureType;
 
 static ErlNifResourceType *FUTURE_RESOURCE_TYPE;
@@ -389,6 +390,30 @@ future_get(ErlNifEnv *env, Future *future, ERL_NIF_TERM *term) {
   }
   case ERROR: {
     *term = make_atom(env, "ok");
+    return error;
+  }
+  case KEY_ARRAY: {
+    FDBKey const *out_keys;
+    int out_count;
+    ERL_NIF_TERM list;
+    ERL_NIF_TERM result_list;
+    int i;
+
+    error = fdb_future_get_key_array(future->handle, &out_keys, &out_count);
+    if (error) {
+      return error;
+    }
+
+    list = enif_make_list(env, 0);
+    for (i = 0; i < out_count; i++) {
+      FDBKey key = out_keys[i];
+      ERL_NIF_TERM key_term =
+          enif_make_resource_binary(env, future, key.key, key.key_length);
+      list = enif_make_list_cell(env, key_term, list);
+    }
+
+    enif_make_reverse_list(env, list, &result_list);
+    *term = result_list;
     return error;
   }
   default:
@@ -743,6 +768,38 @@ transaction_get_range(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
 }
 
 static ERL_NIF_TERM
+transaction_get_range_split_points(ErlNifEnv *env, int argc,
+                                   const ERL_NIF_TERM argv[]) {
+  Transaction *transaction;
+  FDBFuture *fdb_future;
+  Reference *reference = NULL;
+
+  ERL_NIF_TERM begin_key_term = argv[1];
+  ERL_NIF_TERM end_key_term = argv[2];
+  ErlNifSInt64 chunk_size;
+
+  ErlNifBinary begin_key;
+  ErlNifBinary end_key;
+
+  VERIFY_ARGV(enif_get_resource(env, argv[0], TRANSACTION_RESOURCE_TYPE,
+                                (void **)&transaction),
+              "transaction");
+  VERIFY_ARGV(enif_is_binary(env, begin_key_term), "begin_key");
+  VERIFY_ARGV(enif_is_binary(env, end_key_term), "end_key");
+  VERIFY_ARGV(enif_get_int64(env, argv[3], &chunk_size), "chunk_size");
+
+  enif_inspect_binary(env, begin_key_term, &begin_key);
+  enif_inspect_binary(env, end_key_term, &end_key);
+
+  fdb_future = fdb_transaction_get_range_split_points(
+      transaction->handle, begin_key.data, begin_key.size, end_key.data,
+      end_key.size, chunk_size);
+
+  reference = reference_resource_create(transaction, NULL);
+  return fdb_future_to_future(env, fdb_future, KEY_ARRAY, reference, NULL);
+}
+
+static ERL_NIF_TERM
 transaction_set(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   Transaction *transaction;
   ERL_NIF_TERM key_term = argv[1];
@@ -1001,6 +1058,7 @@ static ErlNifFunc nif_funcs[] = {
     {"transaction_get_addresses_for_key", 2, transaction_get_addresses_for_key,
      0},
     {"transaction_get_range", 13, transaction_get_range, 0},
+    {"transaction_get_range_split_points", 4, transaction_get_range_split_points, 0},
     {"transaction_set", 3, transaction_set, 0},
     {"transaction_set_read_version", 2, transaction_set_read_version, 0},
     {"transaction_add_conflict_range", 4, transaction_add_conflict_range, 0},

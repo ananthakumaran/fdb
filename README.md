@@ -115,7 +115,7 @@ and the network thread has to be started. `FDB.start/1` is a helper function
 which does all of these.
 
 ```elixir
-:ok = FDB.start(630)
+:ok = FDB.start(710)
 ```
 
 This must be called only once. Calling it second time will result in
