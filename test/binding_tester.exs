@@ -425,6 +425,25 @@ defmodule FDB.Machine do
     %{s | stack: push(stack, result, id)}
   end
 
+  def do_execute(id, {"GET_RANGE_SPLIT_POINTS"}, s) do
+    {{:byte_string, begin_key}, {:byte_string, end_key}, {:integer, chunk_size}, stack} =
+      pop(s.stack, 3)
+
+    result =
+      rescue_error(fn ->
+        _ =
+          Transaction.get_range_split_points(
+            trx(s),
+            KeyRange.range(begin_key, end_key),
+            chunk_size
+          )
+
+        {:byte_string, "GOT_RANGE_SPLIT_POINTS"}
+      end)
+
+    %{s | stack: push(stack, result, id)}
+  end
+
   def do_execute(id, {"GET_KEY"}, s) do
     {{:byte_string, key}, {:integer, or_equal}, {:integer, offset}, {:byte_string, prefix}, stack} =
       pop(s.stack, 4)

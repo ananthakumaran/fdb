@@ -6,6 +6,8 @@ CFLAGS += -Ic_src
 CFLAGS += -std=gnu99
 CFLAGS += -fPIC
 
+FDB_VERSION = 7.1.5
+
 LDFLAGS += -L/usr/local/lib/ -L/usr/lib/
 
 ifeq ($(shell uname),Linux)
@@ -30,4 +32,7 @@ clean:
 	rm  -rf $(LIB_NAME)*
 
 update-options:
-	curl https://raw.githubusercontent.com/apple/foundationdb/6.3.23/fdbclient/vexillographer/fdb.options > priv/fdb.options
+	curl https://raw.githubusercontent.com/apple/foundationdb/$(FDB_VERSION)/fdbclient/vexillographer/fdb.options > priv/fdb.options
+
+start-server:
+	fdbserver -p 127.0.0.1:4500 -d data/data/ -L data/logs/

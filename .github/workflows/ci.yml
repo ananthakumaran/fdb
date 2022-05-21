@@ -1,5 +1,5 @@
 env:
-  FDB_VERSION: "6.3.23"
+  FDB_VERSION: "7.1.5"
 on:
   - push
   - pull_request

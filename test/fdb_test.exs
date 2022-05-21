@@ -602,6 +602,17 @@ defmodule FDBTest do
     end)
   end
 
+  test "get_range_split_points" do
+    db = new_database()
+
+    Database.transact(db, fn transaction ->
+      range = KeyRange.starts_with("fdb:")
+
+      assert [<<"fdb:", 0>>, <<"fdb:", 255>>] =
+               Transaction.get_range_split_points(transaction, range, 1000)
+    end)
+  end
+
   test "metadata version" do
     db = new_database()
 

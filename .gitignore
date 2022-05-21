@@ -41,3 +41,4 @@ test.sh
 fdb_nif.obj
 data
 fdb.cluster
+.venv
