@@ -1,14 +1,14 @@
 { pkgs ? import <nixpkgs> { } }:
 
 let
-  version = "6.3.23";
+  version = "7.1.5";
   foundationdb-client = pkgs.stdenv.mkDerivation rec {
     name = "foundationdb-client";
 
     src = pkgs.fetchurl {
       url =
         "https://github.com/apple/foundationdb/releases/download/${version}/foundationdb-clients_${version}-1_amd64.deb";
-      sha256 = "0dvy61ci2w54zviqsqi5s9r0ymfg9jrz21pr8fabldhvz1k4sn3i";
+      sha256 = "0isr5mslssii2fy8z2hhbzybqracd2n2ryvhvwm7y7zq8dz36k34";
     };
 
     nativeBuildInputs = [ pkgs.autoPatchelfHook pkgs.dpkg ];
@@ -29,7 +29,7 @@ let
     src = pkgs.fetchurl {
       url =
         "https://github.com/apple/foundationdb/releases/download/${version}/foundationdb-server_${version}-1_amd64.deb";
-      sha256 = "0jxd9xcfaxaa5gp0y6mbwr827kzyal06pk4jdd25sni5adl3cxh6";
+      sha256 = "07j79xp4c8d2ym3dmh7pdk4wlprmkzbh9lp9cc6dgncxcm1zgv97";
     };
 
     nativeBuildInputs = [ pkgs.autoPatchelfHook pkgs.dpkg ];
