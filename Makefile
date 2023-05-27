@@ -36,3 +36,19 @@ update-options:
 
 start-server:
 	fdbserver -p 127.0.0.1:4500 -d data/data/ -L data/logs/
+
+fetch-foundation-source:
+	rm -rf foundationdb
+	curl -L "https://github.com/apple/foundationdb/archive/$(FDB_VERSION).tar.gz" > foundation.tar.gz
+	tar -xf foundation.tar.gz
+	rm foundation.tar.gz
+	mv foundationdb-$(FDB_VERSION) foundationdb
+	cd foundationdb && sed "s:USER_SITE_PATH:$(python3 -m site --user-site):g" ../test/foundationdb.patch | patch -p1
+
+install-foundationdb-pip:
+	pip3 install --user -Iv foundationdb==$(FDB_VERSION)
+	pip3 show foundationdb
+
+run-bindings-test:
+	./test/loop.sh
+
